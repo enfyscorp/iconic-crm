@@ -63,7 +63,7 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
-  const [activeTab, setActiveTab] = useState("dashboard"); // Options: dashboard, leads, projects, users, reports
+  const [activeTab, setActiveTab] = useState("dashboard"); 
   const [globalSearch, setGlobalSearch] = useState("");
 
   const [filterSource, setFilterSource] = useState("All");
@@ -76,7 +76,7 @@ export default function App() {
   const [projects, setProjects] = useState(INITIAL_PROJECTS);
 
   const [selectedLead, setSelectedLead] = useState(null);
-  const [editingUser, setEditingUser] = useState(null); // For handling user modifications
+  const [editingUser, setEditingUser] = useState(null); 
 
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -273,7 +273,7 @@ export default function App() {
         </div>
 
         <div className="p-4 border-t border-slate-800 bg-slate-950/40">
-          <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-850">
+          <div className="flex items-center justify-between bg-slate-900 p-3 heart rounded-xl border border-slate-850">
             <div className="flex items-center gap-2 overflow-hidden">
               <div className="h-7 w-7 rounded-lg bg-indigo-600 font-black text-xs flex items-center justify-center text-white flex-shrink-0">{currentUser.avatar}</div>
               <div className="truncate w-24">
@@ -288,7 +288,7 @@ export default function App() {
         </div>
       </aside>
 
-      {/* WORKSPACE CONTENT COMPONENT SHELL */}
+      {/* WORKSPACE CONTENT MODULES SYSTEM */}
       <div className="flex-1 flex flex-col overflow-hidden">
         
         <header className="h-16 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-8 z-10">
@@ -482,7 +482,7 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 4: USER SEATS (Gated Control with Modify/Delete Options) */}
+          {/* VIEWPORT 4: USER SEATS CONTROL */}
           {activeTab === "users" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex justify-between items-center">
@@ -618,9 +618,9 @@ export default function App() {
         </main>
       </div>
 
-      {/* ─── MODAL DIALOGS AND COMPLIANCE ACTIONS PANELS ────────────────── */}
+      {/* ─── MODALS AND DRAWER OVERLAYS ─── */}
       
-      {/* DIALOG 1: LEAD INSPECTION TIMELINE TRACKING */}
+      {/* DRAWER 1: ACTION COMPLIANCE OVERLAY PANEL */}
       {selectedLead && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-end" onClick={() => setSelectedLead(null)}>
           <div className="bg-slate-950 w-[520px] border-l border-slate-800 h-full flex flex-col p-6 overflow-y-auto space-y-6" onClick={(e) => e.stopPropagation()}>
@@ -724,7 +724,7 @@ export default function App() {
         </div>
       )}
 
-      {/* DIALOG 3: PROVISION NEW USER SEAT INTERACTION FORM */}
+      {/* DIALOG 3: CREATION NEW SEAT USER MODAL */}
       {isUserModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
@@ -759,7 +759,7 @@ export default function App() {
         </div>
       )}
 
-      {/* DIALOG 4: ACTIVE SEAT MODIFY DRAWER (NEW ADDITION) */}
+      {/* DIALOG 4: ACTIVE SEAT MODIFY DRAWER */}
       {editingUser && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
@@ -794,7 +794,7 @@ export default function App() {
         </div>
       )}
 
-      {/* DIALOG 5: PROVISION MASTER INVENTORY SCHEMES */}
+      {/* DIALOG 5: PROVISION MASTER PROJECTS INVENTORY */}
       {isProjectModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">

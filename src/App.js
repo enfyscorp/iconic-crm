@@ -3,7 +3,7 @@ import {
   Users, ShieldAlert, BarChart3, Building2, Briefcase, 
   Layers, PhoneCall, Calendar, Search, Plus, TrendingUp, 
   DollarSign, MapPin, Shield, FileText, Clock, LogOut, Lock, 
-  Mail, CheckCircle2, UserPlus, Landmark
+  Mail, CheckCircle2, UserPlus
 } from "lucide-react";
 
 // ─── SYSTEM CONFIGURATIONS & ENUMS ──────────────────────────────────────────
@@ -21,7 +21,6 @@ const PRIMARY_STATUSES = [
   "Registration Pending", "Registered", "Closed", "Cancelled", "Dropped", "Future Follow-Up"
 ];
 
-const BHK_OPTIONS = ["1 BHK", "2 BHK", "3 BHK", "4 BHK", "Villa"];
 const PROJECT_TYPES = ["Apartment", "Villa", "Plot"];
 
 const INITIAL_USERS = [
@@ -38,7 +37,7 @@ const INITIAL_PROJECTS = [
 ];
 
 const INITIAL_LEADS = [
-  { id: 1001, name: "Suresh Kumar", phone: "98400 11234", altPhone: "98400 11235", email: "suresh@gmail.com", location: "Madurai", project: "Vishal Virinchi Apartments", budget: 85, source: "99acres", assignedTo: "Rohan Das", status: "Interested", notes: "Prefers higher floors.", dateCreated: "2026-05-10", lastFollowUp: "2026-05-25", nextFollowUp: "2026-05-30", history: [{ date: "2026-05-15", by: "Divya Menon", action: "Initial entry ingestion completed." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
+  { id: 1001, name: "Suresh Kumar", phone: "98400 11234", altPhone: "98400 11235", email: "suresh@gmail.com", location: "Madurai", project: "Vishal Virinchi Apartments", budget: 85, source: "99acres", assignedTo: "Rohan Das", status: "Interested", notes: "Prefers higher floors.", dateCreated: "2026-05-10", lastFollowUp: "2026-05-25", nextFollowUp: "2026-05-30", history: [{ date: "2026-05-15", by: "Divya Menon", action: "Initial entry Ingestion completed." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
   { id: 1002, name: "Lakshmi Rao", phone: "99400 22345", altPhone: "", email: "lakshmi@yahoo.com", location: "Chennai", project: "ICONIC Lakeview Oasis", budget: 72, source: "Meta Ads", assignedTo: "Rohan Das", status: "Site Visit Planned", notes: "Arranging transportation for family site walkthrough.", dateCreated: "2026-05-12", lastFollowUp: "2026-05-28", nextFollowUp: "2026-05-31", history: [{ date: "2026-05-28", by: "Rohan Das", action: "Site visit tour routing planned." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
   { id: 1003, name: "Vijay Anand", phone: "97400 33456", altPhone: "", email: "vijay@outlook.com", location: "Coimbatore", project: "ICONIC Greens Enclave", budget: 140, source: "Google Ads", assignedTo: "Unassigned", status: "New", notes: "Looking for independent premium duplex villa row structure.", dateCreated: "2026-05-29", lastFollowUp: "None", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-29", by: "Auto Capture", action: "Landing page conversion captured." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
   { id: 1004, name: "Meena Selvam", phone: "96400 44567", altPhone: "96400 44568", email: "meena@gmail.com", location: "Madurai", project: "Vishal Virinchi Apartments", budget: 65, source: "Walk-In", assignedTo: "Rohan Das", status: "Booking Confirmed", notes: "Token collected cleanly.", dateCreated: "2026-04-20", lastFollowUp: "2026-05-20", nextFollowUp: "None", history: [{ date: "2026-05-20", by: "Rohan Das", action: "Booking validated." }], bookingUnit: "A-402", bookingAmount: 500000, bookingMode: "Cheque", bookingDate: "2026-05-20", regPending: true, regCompleted: false },
@@ -58,34 +57,28 @@ const SC = {
 };
 
 export default function App() {
-  // Authentication Configuration
   const [currentUser, setCurrentUser] = useState(null); 
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
-  // Navigation Keys Configuration (Explicit Synchronization)
-  const [activeTab, setActiveTab] = useState("dashboard"); // Options: dashboard, leads, projects, users, reports
+  const [activeTab, setActiveTab] = useState("dashboard"); 
   const [globalSearch, setGlobalSearch] = useState("");
 
-  // Filter Master Engine Values
   const [filterSource, setFilterSource] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
   const [filterProject, setFilterProject] = useState("All");
   const [filterExecutive, setFilterExecutive] = useState("All");
 
-  // Core Arrays Memory Storage
   const [leads, setLeads] = useState(INITIAL_LEADS);
   const [users, setUsers] = useState(INITIAL_USERS);
   const [projects, setProjects] = useState(INITIAL_PROJECTS);
 
-  // Layout Dialog Overlays Toggle
   const [selectedLead, setSelectedLead] = useState(null);
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
-  // Controlled Data Inputs State Engines
   const [newLeadForm, setNewLeadForm] = useState({ name: "", phone: "", altPhone: "", email: "", location: "", project: "Vishal Virinchi Apartments", budget: 65, source: "Website", assignedTo: "Unassigned", notes: "" });
   const [newUserForm, setNewUserForm] = useState({ name: "", email: "", pass: "iconic123", role: "Executive", branch: "Madurai Desk", phone: "" });
   const [newProjectForm, setNewProjectForm] = useState({ name: "", location: "", type: "Apartment", price: 50, units: 10 });
@@ -119,20 +112,17 @@ export default function App() {
     setActiveTab("dashboard");
   };
 
-  // ─── STABLE REAL-TIME QUERY EXECUTER ───────────────────────────────────────
   const processedLeads = useMemo(() => {
     if (!currentUser) return [];
     
     let result = leads;
 
-    // A: RBAC Access Restricting Gates
     if (currentUser.role === "Executive") {
       result = leads.filter(l => l.assignedTo === currentUser.name);
     } else if (currentUser.role === "Telecaller") {
       result = leads.filter(l => l.assignedTo === currentUser.name || l.status === "New");
     }
 
-    // B: Cross-Column Real-time Global Search Core Parsing
     if (globalSearch.trim()) {
       const term = globalSearch.toLowerCase();
       result = result.filter(l => 
@@ -143,7 +133,6 @@ export default function App() {
       );
     }
 
-    // C: Dropdown Analytical Filters
     if (filterSource !== "All") result = result.filter(l => l.source === filterSource);
     if (filterStatus !== "All") result = result.filter(l => l.status === filterStatus);
     if (filterProject !== "All") result = result.filter(l => l.project === filterProject);
@@ -152,7 +141,6 @@ export default function App() {
     return result;
   }, [leads, currentUser, globalSearch, filterSource, filterStatus, filterProject, filterExecutive]);
 
-  // ─── INPUT MUTATIONS SUBMISSIONS ───────────────────────────────────────────
   const handleCreateLead = (e) => {
     e.preventDefault();
     const created = {
@@ -234,7 +222,6 @@ export default function App() {
     setSelectedLead(null); setBkUnit(""); setBkAmount(""); setBkDate("");
   };
 
-  // ─── LOGIN OVERLAY DETECTOR GATE ───────────────────────────────────────────
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
@@ -250,19 +237,25 @@ export default function App() {
                 <label className="text-slate-400 font-bold uppercase tracking-wide">Corporate Authentication Email</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                  <input type="email" required value={loginEmail} onChange={(e) => loginEmail = e.target.value} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none" placeholder="admin@iconic.in" />
+                  <input type="email" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="admin@iconic.in" />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-slate-400 font-bold uppercase tracking-wide">Security Passcode Access Key</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                  <input type="password" required value={loginPassword} onChange={(e) => loginPassword = e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none" placeholder="••••••••" />
+                  <input type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="••••••••" />
                 </div>
               </div>
               {loginError && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded border border-rose-500/20">{loginError}</p>}
               <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-colors shadow-lg">Authorize Access Pipeline</button>
             </form>
+            <div className="bg-slate-900 p-4 rounded-xl border border-slate-850 space-y-2 text-[11px] text-slate-400">
+              <p className="font-bold text-slate-300 uppercase tracking-wide border-b border-slate-800 pb-1">Testing Credentials Registry Grid:</p>
+              <p>• Admin: <span className="text-indigo-400 font-mono">admin@iconic.in</span> / admin123</p>
+              <p>• Manager: <span className="text-indigo-400 font-mono">manager@iconic.in</span> / manager123</p>
+              <p>• Executive Agent: <span className="text-indigo-400 font-mono">executive@iconic.in</span> / agent123</p>
+            </div>
           </div>
         </div>
       </div>
@@ -272,7 +265,6 @@ export default function App() {
   return (
     <div className="flex h-screen bg-slate-900 text-slate-100 font-sans antialiased overflow-hidden">
       
-      {/* SIDEBAR NAVIGATION STRUCTURE */}
       <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between">
         <div>
           <div className="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
@@ -316,24 +308,20 @@ export default function App() {
         </div>
       </aside>
 
-      {/* WORKSPACE COMPONENT RENDERING ROUTER SHELL */}
       <div className="flex-1 flex flex-col overflow-hidden">
         
-        {/* RUNTIME SYSTEM HEADER */}
         <header className="h-16 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-8 z-10">
           <div className="relative w-96">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-            <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live multi-column search by target name, phone, project or status..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500" />
+            <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live search by customer name, phone, project or status..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500" />
           </div>
           <div className="text-xs text-slate-400 bg-slate-950 px-3 py-1.5 border border-slate-850 rounded-xl font-mono">
             Clearance Scope: <span className="text-indigo-400 font-bold">{currentUser.role.toUpperCase()}</span>
           </div>
         </header>
 
-        {/* WORKSPACE SCREEN VIEWPORTS SWITCH BOARD */}
         <main className="flex-1 overflow-y-auto p-8">
           
-          {/* VIEWPORT 1: VISUAL PERFORMANCE GRAPH METRICS DASHBOARD */}
           {activeTab === "dashboard" && (
             <div className="space-y-8 animate-fadeIn">
               <div>
@@ -341,7 +329,6 @@ export default function App() {
                 <p className="text-xs text-slate-400 mt-0.5">Real-time analytical graphs mapping conversion concentrations across the pipeline.</p>
               </div>
 
-              {/* CARD TILE BLOCKS */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Leads Inbound Scope <Briefcase className="h-4 w-4 text-indigo-400" /></p>
@@ -361,7 +348,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* GRAPH PLOTS PANELS */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 bg-slate-950 border border-slate-800 rounded-2xl p-6">
                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><BarChart3 className="h-4 w-4 text-indigo-400" /> Pipeline Milestone Distribution Weight (Visual Graph)</h3>
@@ -396,7 +382,7 @@ export default function App() {
                               <span className="text-slate-300 font-mono font-bold">{count} entries</span>
                             </div>
                             <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-850">
-                              <div className="bg-sky-400 h-full" style={{ width: `${scale}%` }}></div>
+                              <div className="bg-sky-400 h-full rounded-full" style={{ width: `${scale}%` }}></div>
                             </div>
                           </div>
                         );
@@ -408,7 +394,6 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 2: ENHANCED LEAD CHANNELS STORAGE LEDGER */}
           {activeTab === "leads" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex justify-between items-center">
@@ -427,7 +412,7 @@ export default function App() {
                     <thead>
                       <tr className="bg-slate-900 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
                         <th className="p-4">Customer Contact Info</th>
-                        <th className="p-4">Project Intent Specification</th>
+                        <th className="p-4">Project Intent</th>
                         <th className="p-4">Channel Source</th>
                         <th className="p-4">Owner Assignment</th>
                         <th className="p-4">Pipeline Phase Milestone</th>
@@ -479,7 +464,6 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 3: CAPITAL REAL ESTATE SCHEMES INVENTORY */}
           {activeTab === "projects" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex justify-between items-center">
@@ -489,7 +473,7 @@ export default function App() {
                 </div>
                 {currentUser.role === "Admin" && (
                   <button onClick={() => setIsProjectModalOpen(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors">
-                    <Plus className="h-4 w-4" /> PROVISION ASSET SCHEME
+                    <Plus className="h-4 w-4" /> PROVISION ASSET AS SCHEME
                   </button>
                 )}
               </div>
@@ -514,7 +498,6 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 4: SECURITY SYSTEM USER SEATS GOVERNANCE */}
           {activeTab === "users" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex justify-between items-center">
@@ -564,7 +547,6 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 5: DYNAMIC MATRIX REPORTS SEARCH BLOCKS */}
           {activeTab === "reports" && (
             <div className="space-y-6 animate-fadeIn">
               <div>
@@ -572,7 +554,6 @@ export default function App() {
                 <p className="text-xs text-slate-400 mt-0.5">Isolate source attribution streams, conversion types, and milestones instantly.</p>
               </div>
 
-              {/* FILTERING HEADER SELECTORS CONTAINER */}
               <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl grid grid-cols-1 sm:grid-cols-4 gap-3.5 text-xs">
                 <div className="space-y-1">
                   <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Source Channel Hub</label>
@@ -604,7 +585,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ISOLATED FEED ROWS DATA CONTAINER */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
                 <div className="flex justify-between items-center border-b border-slate-850 pb-3 mb-4">
                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Isolated Output Rows ({processedLeads.length} Matches)</h3>
@@ -643,7 +623,6 @@ export default function App() {
         </main>
       </div>
 
-      {/* ─── ACTION SEQUENCE LIFECYCLE MANAGEMENT DRAWER ─────────────────────── */}
       {selectedLead && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-end" onClick={() => setSelectedLead(null)}>
           <div className="bg-slate-950 w-[520px] border-l border-slate-800 h-full flex flex-col p-6 overflow-y-auto space-y-6" onClick={(e) => e.stopPropagation()}>
@@ -656,7 +635,6 @@ export default function App() {
               <button onClick={() => setSelectedLead(null)} className="text-slate-500 hover:text-white font-bold text-sm">✕</button>
             </div>
 
-            {/* FLOW ACTION DRAWER 1: FIELD WALKTHROUGH VALIDATION CHECKS */}
             <div className="bg-slate-900 p-4 border border-slate-850 rounded-2xl space-y-4 text-xs">
               <p className="text-[11px] font-black uppercase text-slate-300 tracking-wider flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-amber-500" /> Sequence Action: Site Tour Verification Log</p>
               <div className="grid grid-cols-2 gap-2">
@@ -665,21 +643,20 @@ export default function App() {
               </div>
               <div className="space-y-1">
                 <label className="text-slate-500 font-bold text-[10px]">Client Response Evaluation Logs *</label>
-                <textarea rows={2} value={svFeedback} onChange={(e)=>setSvFeedback(e.target.value)} placeholder="Mandatory notes for pipeline validation gates..." className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-300 mt-0.5 focus:outline-none" />
+                <textarea rows={2} value={svFeedback} onChange={(e)=>setSvFeedback(e.target.value)} placeholder="Notes for pipeline validation gates..." className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-300 mt-0.5 focus:outline-none" />
               </div>
               <button type="button" onClick={commitSiteWalkthroughLog} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 rounded-xl text-xs transition-colors">Commit Walkthrough Verification File</button>
             </div>
 
-            {/* FLOW ACTION DRAWER 2: TRANS-CAPITAL CONFIRMATION BOOKING FORMS */}
             <div className="bg-slate-900 p-4 border border-slate-850 rounded-2xl space-y-4 text-xs">
-              <p className="text-[11px] font-black uppercase text-slate-300 tracking-wider flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Sequence Action: Financial Token Booking Form Ingestion</p>
+              <p className="text-[11px] font-black uppercase text-slate-300 tracking-wider flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Sequence Action: Financial Token Booking Ingestion</p>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1"><label className="text-slate-500 font-bold text-[10px]">Unit Designation Code *</label><input type="text" value={bkUnit} onChange={(e)=>setBkUnit(e.target.value)} placeholder="e.g. Villa B-12" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 mt-0.5 text-slate-300 focus:outline-none" /></div>
                 <div className="space-y-1"><label className="text-slate-500 font-bold text-[10px]">Token Amount Processed (₹) *</label><input type="number" value={bkAmount} onChange={(e)=>setBkAmount(e.target.value)} placeholder="INR Value" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 mt-0.5 text-emerald-400 font-bold focus:outline-none" /></div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-slate-500 font-bold text-[10px]">Transaction Execution Variant</label>
+                  <label className="text-slate-500 font-bold text-[10px]">Transaction Mode</label>
                   <select value={bkMode} onChange={(e)=>setBkMode(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 mt-0.5 text-slate-300 focus:outline-none">
                     <option value="Cheque">Bank Cheque</option><option value="NEFT/RTGS">NEFT / RTGS Wire</option>
                   </select>
@@ -689,7 +666,6 @@ export default function App() {
               <button type="button" onClick={commitFinancialBookingLog} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2 rounded-xl text-xs uppercase tracking-wider transition-colors">Ingest Advance Token and Secure Unit Allocation</button>
             </div>
 
-            {/* TIMELINE AUDITING TRAILS */}
             <div className="space-y-3 pt-2 text-xs">
               <p className="text-[10px] font-bold text-slate-500 tracking-wider uppercase border-b border-slate-900 pb-1">Historical Operation Activity Trails</p>
               <div className="border-l border-slate-800 pl-4 space-y-3.5 ml-1">
@@ -707,12 +683,11 @@ export default function App() {
         </div>
       )}
 
-      {/* FORM WINDOW DIALOGS BLOCKS: NEW LEAD RECORD INGESTION */}
       {isLeadModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-slate-900 pb-3">
-              <h2 className="text-base font-black text-white tracking-wide">Capture Incoming Customer Profile Ingestion</h2>
+              <h2 className="text-base font-black text-white tracking-wide">Capture Customer Profile Ingestion</h2>
               <button onClick={() => setIsLeadModalOpen(false)} className="text-slate-500 hover:text-white">✕</button>
             </div>
             <form onSubmit={handleCreateLead} className="space-y-4 text-xs">
@@ -764,7 +739,6 @@ export default function App() {
         </div>
       )}
 
-      {/* FORM WINDOW DIALOGS BLOCKS: PROVISION IDENTITY ACCESS PASS NODE */}
       {isUserModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
@@ -799,7 +773,6 @@ export default function App() {
         </div>
       )}
 
-      {/* FORM WINDOW DIALOGS BLOCKS: PROVISION NEW SCHEME ASSET MASTER */}
       {isProjectModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
@@ -809,7 +782,7 @@ export default function App() {
             </div>
             <form onSubmit={handleCreateProject} className="space-y-3 text-xs">
               <div><label className="text-slate-400 font-semibold">Project Core Name *</label><input type="text" required value={newProjectForm.name} onChange={(e)=>setNewProjectForm({...newProjectForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
-              <div><label className="text-slate-400 font-semibold">Location Zone Address</label><input type="text" required value={newProjectForm.location} onChange={(e)=>setNewProjectForm({...newProjectForm, location: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
+              <div><label className="text-slate-400 font-semibold">Location Address</label><input type="text" required value={newProjectForm.location} onChange={(e)=>setNewProjectForm({...newProjectForm, location: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-slate-400 font-semibold">Build Type</label>
@@ -819,7 +792,7 @@ export default function App() {
                 </div>
                 <div><label className="text-slate-400 font-semibold">Avg Price Unit (Lakhs)</label><input type="number" required value={newProjectForm.price} onChange={(e)=>setNewProjectForm({...newProjectForm, price: parseInt(e.target.value)||0})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
               </div>
-              <div><label className="text-slate-400 font-semibold">Total Unit Capacity Allocation</label><input type="number" required value={newProjectForm.units} onChange={(e)=>setNewProjectForm({...newProjectForm, units: parseInt(e.target.value)||0})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
+              <div><label className="text-slate-400 font-semibold">Total Unit Capacity</label><input type="number" required value={newProjectForm.units} onChange={(e)=>setNewProjectForm({...newProjectForm, units: parseInt(e.target.value)||0})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
               <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl uppercase tracking-wider text-[11px] mt-2 transition-colors">Commit Project Base Scheme</button>
             </form>
           </div>

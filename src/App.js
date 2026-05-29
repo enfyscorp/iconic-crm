@@ -3,7 +3,8 @@ import {
   Users, ShieldAlert, BarChart3, Building2, Briefcase, 
   Layers, PhoneCall, Calendar, Search, Plus, TrendingUp, 
   DollarSign, MapPin, Shield, FileText, Clock, LogOut, Lock, 
-  Mail, CheckCircle2, UserPlus, Trash2, Edit2, X, Bell, AlertTriangle
+  Mail, CheckCircle2, UserPlus, Trash2, Edit2, X, Bell, 
+  AlertTriangle, Download, Upload, Info, FileSpreadsheet
 } from "lucide-react";
 
 // ─── SYSTEM CONFIGURATIONS & ENUMS ──────────────────────────────────────────
@@ -37,8 +38,8 @@ const INITIAL_PROJECTS = [
 
 const INITIAL_LEADS = [
   { id: 1001, name: "Suresh Kumar", phone: "98400 11234", altPhone: "98400 11235", email: "suresh@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Vishal Virinchi Apartments", budget: 85, source: "Website", assignedTo: "Rohan Das", status: "Interested", notes: "Prefers higher floors.", dateCreated: "2026-05-10", lastFollowUp: "2026-05-25", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-15", by: "Divya Menon", action: "Initial entry Ingestion completed." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
-  { id: 1002, name: "Lakshmi Rao", phone: "99400 22345", altPhone: "", email: "lakshmi@yahoo.com", location: "Chennai", branch: "Chennai South", project: "ICONIC Lakeview Oasis", budget: 72, source: "Meta Ads", assignedTo: "Unassigned", status: "Site Visit Planned", notes: "Arranging transportation for family site walkthrough.", dateCreated: "2026-05-12", lastFollowUp: "2026-05-28", nextFollowUp: "2026-06-02", history: [{ date: "2026-05-28", by: "System Master", action: "Site visit tour routing planned." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
-  { id: 1003, name: "Vijay Anand", phone: "97400 33456", altPhone: "", email: "vijay@outlook.com", location: "Coimbatore", branch: "Coimbatore", project: "ICONIC Greens Enclave", budget: 140, source: "Google Ads", assignedTo: "Unassigned", status: "New", notes: "Looking for independent premium duplex villa row structure.", dateCreated: "2026-05-29", lastFollowUp: "None", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-29", by: "Auto Capture", action: "Landing page conversion captured." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
+  { id: 1002, name: "Lakshmi Rao", phone: "99400 22345", altPhone: "", email: "lakshmi@yahoo.com", location: "Chennai", branch: "Chennai South", project: "ICONIC Lakeview Oasis", budget: 72, source: "Meta Ads", assignedTo: "Unassigned", status: "Site Visit Planned", notes: "Arranging transportation for family walkthrough.", dateCreated: "2026-05-12", lastFollowUp: "2026-05-28", nextFollowUp: "2026-06-02", history: [{ date: "2026-05-28", by: "System Master", action: "Site visit tour routing planned." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
+  { id: 1003, name: "Vijay Anand", phone: "97400 33456", altPhone: "", email: "vijay@outlook.com", location: "Coimbatore", branch: "Coimbatore", project: "ICONIC Greens Enclave", budget: 140, source: "Google Ads", assignedTo: "Unassigned", status: "New", notes: "Premium duplex villa layout structural interest.", dateCreated: "2026-05-29", lastFollowUp: "None", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-29", by: "Auto Capture", action: "Landing page conversion captured." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
   { id: 1004, name: "Meena Selvam", phone: "96400 44567", altPhone: "96400 44568", email: "meena@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Vishal Virinchi Apartments", budget: 65, source: "Walk-In", assignedTo: "Rohan Das", status: "Booking Confirmed", notes: "Token collected cleanly.", dateCreated: "2026-04-20", lastFollowUp: "2026-05-20", nextFollowUp: "None", history: [{ date: "2026-05-20", by: "Rohan Das", action: "Booking validated." }], bookingUnit: "A-402", bookingAmount: 500000, bookingMode: "Cheque", bookingDate: "2026-05-20", regPending: true, regCompleted: false },
 ];
 
@@ -56,7 +57,7 @@ const SC = {
 export default function App() {
   const TODAY_STR = "2026-05-29";
 
-  // ─── ALL STATE HOOK INITIALIZATIONS (DETERMINISTIC COMPONENT ORDER) ───
+  // ─── HOOK INITIALIZATIONS ──────────────────────────────────────────────────
   const [currentUser, setCurrentUser] = useState(null); 
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -83,6 +84,8 @@ export default function App() {
 
   const [selectedLead, setSelectedLead] = useState(null);
   const [editingUser, setEditingUser] = useState(null); 
+  const [importText, setImportText] = useState("");
+  const [showImportWizard, setShowImportWizard] = useState(false);
 
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -105,7 +108,7 @@ export default function App() {
   const [bkMode, setBkMode] = useState("Cheque");
   const [bkDate, setBkDate] = useState("");
 
-  // ─── AUTHENTICATION SUBMIT HANDLERS ───────────────────────────────────────
+  // ─── HANDLERS ─────────────────────────────────────────────────────────────
   const handleLoginSubmit = (e) => {
     e.preventDefault();
     const account = users.find(u => u.email.toLowerCase() === loginEmail.toLowerCase().trim() && u.pass === loginPassword && u.active);
@@ -113,7 +116,7 @@ export default function App() {
       setCurrentUser(account);
       setLoginError("");
     } else {
-      setLoginError("Invalid clearance email or passcode authentication key parameter.");
+      setLoginError("Invalid clearance email or passcode configuration match.");
     }
   };
 
@@ -125,7 +128,7 @@ export default function App() {
     setActiveTab("dashboard");
   };
 
-  // ─── ROLE ACCESS DATA ISOLATION COMPUTE TIERS ─────────────────────────────
+  // ─── ROLE-BASED ACCESS FILTERS ─────────────────────────────────────────────
   const visibleProjects = useMemo(() => {
     if (!currentUser) return [];
     if (currentUser.role === "Admin") return projects;
@@ -140,7 +143,6 @@ export default function App() {
 
   const processedLeads = useMemo(() => {
     if (!currentUser) return [];
-    
     let result = leads;
 
     if (currentUser.role === "Manager") {
@@ -176,7 +178,102 @@ export default function App() {
     return processedLeads.filter(l => l.nextFollowUp === TODAY_STR);
   }, [processedLeads, TODAY_STR]);
 
-  // ─── COMPONENT OPERATION HANDLERS ──────────────────────────────────────────
+  // ─── RAW TEXT INGESTION ENGINE FOR EXCEL/CSV DATA ──────────────────────────
+  const handleDataImportSubmit = (e) => {
+    e.preventDefault();
+    if (!importText.trim()) return;
+
+    try {
+      const lines = importText.split("\n").map(l => l.trim()).filter(Boolean);
+      let parsedCount = 0;
+      const newlyIngestedLeads = [];
+
+      lines.forEach(line => {
+        const columns = line.split("\t");
+        if (columns.length >= 4) {
+          newlyIngestedLeads.push({
+            id: Date.now() + Math.floor(Math.random() * 10000),
+            name: columns[0] || "Imported Client",
+            phone: columns[1] || "00000",
+            email: columns[2] || "imported@desam.in",
+            project: columns[3] || "Vishal Virinchi Apartments",
+            location: columns[4] || "Madurai",
+            budget: parseInt(columns[5]) || 60,
+            source: columns[6] || "Website",
+            assignedTo: "Unassigned",
+            status: "New",
+            branch: "Madurai Desk",
+            dateCreated: TODAY_STR,
+            lastFollowUp: "None",
+            nextFollowUp: TODAY_STR,
+            history: [{ date: TODAY_STR, by: currentUser.name, action: "Imported via spreadsheet ingestion." }]
+          });
+          parsedCount++;
+        }
+      });
+
+      if (newlyIngestedLeads.length > 0) {
+        setLeads([...newlyIngestedLeads, ...leads]);
+        alert(`Successfully parsed and deployed ${parsedCount} lead objects into Desam core databases.`);
+        setImportText("");
+        setShowImportWizard(false);
+      } else {
+        alert("Parsing Error: Format check mismatch. Ensure columns are Tab-Separated.");
+      }
+    } catch (err) {
+      alert(`Runtime compilation fault during sheet processing: ${err.message}`);
+    }
+  };
+
+  // ─── SPREADSHEET & PDF GENERATOR EXPORT MODULE ─────────────────────────────
+  const exportDataPipeline = (formatType) => {
+    if (processedLeads.length === 0) {
+      alert("No data records available inside filtered view to execute export stream.");
+      return;
+    }
+
+    const headers = ["Client Name", "Phone", "Email", "Project Scheme", "Source", "Agent", "Milestone", "Budget (Lakhs)"];
+    const rows = processedLeads.map(l => [l.name, l.phone, l.email, l.project, l.source, l.assignedTo, l.status, `Rs.${l.budget}L`]);
+
+    if (formatType === "csv" || formatType === "excel") {
+      const delim = formatType === "csv" ? "," : "\t";
+      const contentStr = [headers.join(delim), ...rows.map(r => r.join(delim))].join("\n");
+      const blob = new Blob([contentStr], { type: "text/plain;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute("download", `Desam_Developers_Export_${TODAY_STR}.${formatType === "csv" ? "csv" : "xls"}`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else if (formatType === "pdf") {
+      let docWindow = window.open("", "_blank");
+      docWindow.document.write(`
+        <html>
+          <head>
+            <title>Desam Developers - Pipeline Master Export Matrix</title>
+            <style>
+              body { font-family: sans-serif; background: #FFF; color: #1e293b; padding: 24px; }
+              h1 { color: #ea580c; font-size: 20px; margin-bottom: 4px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 11px; }
+              th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; }
+              th { background: #f1f5f9; font-weight: bold; }
+            </style>
+          </head>
+          <body>
+            <h1>DESAM DEVELOPERS PVT LTD</h1>
+            <p style="font-size:12px; color:#64748b;">Pipeline Master Report - Generated on ${TODAY_STR}</p>
+            <table>
+              <thead><tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr></thead>
+              <tbody>${rows.map(r => `<tr>${r.map(td => `<td>${td}</td>`).join("")}</tr>`).join("")}</tbody>
+            </table>
+            <script>window.print();</script>
+          </body>
+        </html>
+      `);
+      docWindow.document.close();
+    }
+  };
+
   const handleAddSource = (e) => {
     e.preventDefault();
     if (newSourceInput.trim() && !sources.includes(newSourceInput.trim())) {
@@ -193,6 +290,51 @@ export default function App() {
     }
   };
 
+  const executeStatusTransition = (leadId, nextStatus) => {
+    const target = leads.find(l => l.id === leadId);
+    if (!target) return;
+
+    if (window.confirm(`CONFIRMATION: Are you sure you want to shift "${target.name}" from status "${target.status}" into phase "${nextStatus}"?`)) {
+      setLeads(leads.map(l => l.id === leadId ? {
+        ...l, status: nextStatus,
+        history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `Milestone tracking segment updated to: ${nextStatus}` }]
+      } : l));
+      if (selectedLead && selectedLead.id === leadId) {
+        setSelectedLead({ ...selectedLead, status: nextStatus });
+      }
+    }
+  };
+
+  const commitManualFollowUpReport = (e) => {
+    e.preventDefault();
+    if (!followUpNotes.trim() || !nextFollowUpDate) {
+      alert("Interaction Notes and Next Follow-up dates are mandatory configuration parameters.");
+      return;
+    }
+
+    const updatedLeads = leads.map(l => {
+      if (l.id === selectedLead.id) {
+        const updated = {
+          ...l,
+          lastFollowUp: TODAY_STR,
+          nextFollowUp: nextFollowUpDate,
+          history: [
+            ...l.history,
+            { date: TODAY_STR, by: currentUser.name, action: `LOGGED REACTION SUMMARY: ${followUpNotes.trim()} (Next check-in slated for: ${nextFollowUpDate})` }
+          ]
+        };
+        setSelectedLead(updated);
+        return updated;
+      }
+      return l;
+    });
+
+    setLeads(updatedLeads);
+    setFollowUpNotes("");
+    setNextFollowUpDate("");
+    alert("Follow-up logs successfully recorded into timeline dossier.");
+  };
+
   const handleCreateLead = (e) => {
     e.preventDefault();
     const created = {
@@ -203,61 +345,11 @@ export default function App() {
       lastFollowUp: "None",
       nextFollowUp: TODAY_STR,
       bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false,
-      history: [{ date: TODAY_STR, by: currentUser.name, action: "Lead recorded inside system channels." }]
+      history: [{ date: TODAY_STR, by: currentUser.name, action: "Lead logged via capture matrix." }]
     };
     setLeads([created, ...leads]);
     setIsLeadModalOpen(false);
     setNewLeadForm({ name: "", phone: "", altPhone: "", email: "", location: "", project: "Vishal Virinchi Apartments", budget: 65, source: "Website", assignedTo: "Unassigned", notes: "" });
-  };
-
-  const executeStatusTransition = (leadId, nextStatus) => {
-    const target = leads.find(l => l.id === leadId);
-    if (!target) return;
-
-    const validationConfirmation = window.confirm(
-      `CRITICAL CONFIRMATION: Are you sure you want to shift client profile "${target.name}" from status "${target.status}" into next phase "${nextStatus}"?`
-    );
-
-    if (validationConfirmation) {
-      setLeads(leads.map(l => l.id === leadId ? {
-        ...l, status: nextStatus,
-        history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `Pipeline milestone modified to: ${nextStatus}` }]
-      } : l));
-      
-      if (selectedLead && selectedLead.id === leadId) {
-        setSelectedLead({ ...selectedLead, status: nextStatus });
-      }
-    }
-  };
-
-  const commitManualFollowUpReport = (e) => {
-    e.preventDefault();
-    if (!followUpNotes.trim() || !nextFollowUpDate) {
-      alert("Validation Gate Error: Detailed summary records and clear next follow-up dates are mandatory parameters.");
-      return;
-    }
-
-    const updatedLeads = leads.map(l => {
-      if (l.id === selectedLead.id) {
-        const revisedObject = {
-          ...l,
-          lastFollowUp: TODAY_STR,
-          nextFollowUp: nextFollowUpDate,
-          history: [
-            ...l.history,
-            { date: TODAY_STR, by: currentUser.name, action: `LOGGED INTERACTION SUMMARY: ${followUpNotes.trim()} (Next Follow-up coordinated for: ${nextFollowUpDate})` }
-          ]
-        };
-        setSelectedLead(revisedObject); 
-        return revisedObject;
-      }
-      return l;
-    });
-
-    setLeads(updatedLeads);
-    setFollowUpNotes("");
-    setNextFollowUpDate("");
-    alert("Follow-up logs written successfully.");
   };
 
   const handleCreateUser = (e) => {
@@ -281,10 +373,10 @@ export default function App() {
 
   const handleDeleteUser = (userId) => {
     if (userId === currentUser.id) {
-      alert("Security Block: Active administrator slots cannot wipe their validation node.");
+      alert("Security Block: Active administrative tokens cannot erase their own execution parameters.");
       return;
     }
-    if (window.confirm("Confirm deletion of user?")) {
+    if (window.confirm("Confirm deletion of user account seat?")) {
       setUsers(users.filter(u => u.id !== userId));
     }
   };
@@ -312,57 +404,59 @@ export default function App() {
 
   const commitSiteWalkthroughLog = () => {
     if (!svDate || !svFeedback.trim()) {
-      alert("All fields are mandatory.");
+      alert("All parameters are mandatory.");
       return;
     }
     setLeads(leads.map(l => l.id === selectedLead.id ? {
       ...l, status: "Site Visit Completed", lastFollowUp: svDate,
-      history: [...l.history, { date: svDate, by: currentUser.name, action: `Site visit logged. Family: ${svFamily || "Self"}. Notes: ${svFeedback}` }]
+      history: [...l.history, { date: svDate, by: currentUser.name, action: `Site visit logged. Family: ${svFamily || "Self"}. Feedback: ${svFeedback}` }]
     } : l));
     setSelectedLead(null); setSvFeedback(""); setSvDate(""); setSvFamily("");
   };
 
   const commitFinancialBookingLog = () => {
     if (!bkUnit || !bkAmount || !bkDate) {
-      alert("All operational parameters are required.");
+      alert("All fields are mandatory.");
       return;
     }
     setLeads(leads.map(l => l.id === selectedLead.id ? {
       ...l, status: "Booking Confirmed", bookingUnit: bkUnit, bookingAmount: parseFloat(bkAmount), bookingMode: bkMode, bookingDate: bkDate, regPending: true,
-      history: [...l.history, { date: bkDate, by: currentUser.name, action: `Unit ${bkUnit} confirmed with advance token of ₹${bkAmount}` }]
+      history: [...l.history, { date: bkDate, by: currentUser.name, action: `Unit ${bkUnit} secured with advance token of ₹${bkAmount}` }]
     } : l));
     setProjects(projects.map(p => p.name === selectedLead.project ? { ...p, sold: p.sold + 1 } : p));
     setSelectedLead(null); setBkUnit(""); setBkAmount(""); setBkDate("");
   };
 
-  // ─── GATE CONTROL: IF ANONYMOUS, RENDER LOGIN SECURE FRAME ──────────────────
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
-        <div className="sm:mx-auto w-full max-w-md text-center space-y-2">
-          <Building2 className="h-12 w-12 text-indigo-500 mx-auto" />
-          <h2 className="text-3xl font-black text-white tracking-tight">ICONIC PROJECTS</h2>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Enterprise Workflow System</p>
+        <div className="sm:mx-auto w-full max-w-md text-center space-y-3">
+          <div className="flex justify-center items-center gap-1.5 bg-slate-950 p-4 rounded-2xl border border-slate-800 w-fit mx-auto shadow-xl">
+            <span className="text-orange-500 font-black text-2xl tracking-tighter">D</span>
+            <span className="text-emerald-500 font-black text-2xl tracking-tighter">D</span>
+          </div>
+          <h2 className="text-2xl font-black text-white tracking-wide uppercase">DESAM DEVELOPERS PVT LTD</h2>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Enterprise Workflow Solution Matrix</p>
         </div>
-        <div className="mt-8 sm:mx-auto w-full max-w-md px-4">
+        <div className="mt-6 sm:mx-auto w-full max-w-md px-4">
           <div className="bg-slate-950 py-8 px-6 border border-slate-800 rounded-2xl shadow-2xl space-y-6">
             <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
               <div className="space-y-1.5">
-                <label className="text-slate-400 font-bold uppercase tracking-wide">Corporate Authentication Email</label>
+                <label className="text-slate-400 font-bold uppercase tracking-wide">Corporate Clearance Email</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                  <input type="email" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="admin@iconic.in" />
+                  <input type="email" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="manager@iconic.in" />
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-slate-400 font-bold uppercase tracking-wide">Security Passcode Access Key</label>
+                <label className="text-slate-400 font-bold uppercase tracking-wide">Passcode Clearance Key</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                  <input type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="••••••••" />
+                  <input type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="••••••••" />
                 </div>
               </div>
               {loginError && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded border border-rose-500/20">{loginError}</p>}
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-colors shadow-lg">Authorize Access Pipeline</button>
+              <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg">Authorize Clearance Access</button>
             </form>
           </div>
         </div>
@@ -370,33 +464,35 @@ export default function App() {
     );
   }
 
-  // ─── MAIN WORKSPACE SUITE RENDER ──────────────────────────────────────────
   return (
     <div className="flex h-screen bg-slate-900 text-slate-100 font-sans antialiased overflow-hidden">
       
       {/* SIDEBAR NAVIGATION RAIL */}
       <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between">
         <div>
-          <div className="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
-            <Building2 className="h-6 w-6 text-indigo-500" />
-            <span className="font-black text-sm tracking-widest text-white">ICONIC CRM</span>
+          <div className="h-16 flex items-center px-4 border-b border-slate-800 gap-2">
+            <div className="h-8 w-8 bg-slate-900 border border-slate-800 flex items-center justify-center rounded-lg text-xs font-black text-orange-500 shadow-inner">DD</div>
+            <div className="leading-tight">
+              <span className="font-black text-xs tracking-wider text-white block">DESAM</span>
+              <span className="text-[9px] font-bold text-slate-500 tracking-widest block uppercase">DEVELOPERS</span>
+            </div>
           </div>
           <nav className="p-4 space-y-1">
-            <button onClick={() => setActiveTab("dashboard")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "dashboard" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
+            <button onClick={() => setActiveTab("dashboard")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "dashboard" ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
               <Layers className="h-4 w-4" /> VISUAL DASHBOARD
             </button>
-            <button onClick={() => setActiveTab("leads")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "leads" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
+            <button onClick={() => setActiveTab("leads")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "leads" ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
               <PhoneCall className="h-4 w-4" /> LEAD CHANNELS
             </button>
-            <button onClick={() => setActiveTab("projects")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "projects" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
+            <button onClick={() => setActiveTab("projects")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "projects" ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
               <Building2 className="h-4 w-4" /> PROJECT MASTER
             </button>
             {currentUser.role === "Admin" && (
-              <button onClick={() => setActiveTab("users")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "users" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
+              <button onClick={() => setActiveTab("users")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "users" ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
                 <Users className="h-4 w-4" /> SYSTEM CONTROL HUB
               </button>
             )}
-            <button onClick={() => setActiveTab("reports")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "reports" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
+            <button onClick={() => setActiveTab("reports")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "reports" ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
               <BarChart3 className="h-4 w-4" /> MATRIX REPORTS
             </button>
           </nav>
@@ -405,10 +501,10 @@ export default function App() {
         <div className="p-4 border-t border-slate-800 bg-slate-950/40">
           <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-850">
             <div className="flex items-center gap-2 overflow-hidden">
-              <div className="h-7 w-7 rounded-lg bg-indigo-600 font-black text-xs flex items-center justify-center text-white flex-shrink-0">{currentUser.avatar}</div>
+              <div className="h-7 w-7 rounded-lg bg-orange-600 font-black text-xs flex items-center justify-center text-white flex-shrink-0">{currentUser.avatar}</div>
               <div className="truncate w-24">
                 <p className="text-xs font-bold text-slate-200 truncate">{currentUser.name}</p>
-                <p className="text-[9px] text-indigo-400 font-black tracking-wider uppercase truncate">{currentUser.role}</p>
+                <p className="text-[9px] text-orange-400 font-black tracking-wider uppercase truncate">{currentUser.role}</p>
               </div>
             </div>
             <button onClick={handleLogout} className="text-slate-500 hover:text-rose-400 transition-colors ml-1">
@@ -423,49 +519,54 @@ export default function App() {
         <header className="h-16 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-8 z-10">
           <div className="relative w-96">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-            <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live context search by name, phone, project or phase..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500" />
+            <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live context search by name, phone, project or status..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />
           </div>
-          <div className="text-xs text-slate-400 bg-slate-950 px-3 py-1.5 border border-slate-850 rounded-xl font-mono">
-            System Date Context: <span className="text-indigo-400 font-bold">{TODAY_STR}</span>
+          
+          {/* REPLACE SYSTEM DATE CONTEXT CONSTRAINTS WITH DYNAMIC USER WELCOME WRAPPER */}
+          <div className="text-xs text-slate-300 font-bold bg-slate-900 px-4 py-2 border border-slate-800 rounded-xl">
+            Welcome, <span className="text-orange-400 font-black">{currentUser.name}</span> ({currentUser.branch})
           </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-8">
           
-          {/* VIEWPORT 1: VISUAL DASHBOARD */}
+          {/* VIEWPORT 1: VISUAL DASHBOARD SUMMARY WITH EMBEDDED HIGH-FIDELITY COMPACT GRAPHS */}
           {activeTab === "dashboard" && (
             <div className="space-y-8 animate-fadeIn">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-950 p-6 border border-slate-800 rounded-2xl">
                 <div>
-                  <h1 className="text-2xl font-black text-white tracking-tight">{currentUser.role} Control Panel</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Real-time action queues scoped under current authority nodes.</p>
+                  <h1 className="text-2xl font-black text-white tracking-tight">Ecosystem Visual Metrics</h1>
+                  <p className="text-xs text-slate-400 mt-0.5">Real-time charts mapping lead pipelines, monthly trajectories, and attribution concentrations.</p>
                 </div>
                 
-                <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 px-4 py-3 rounded-xl">
-                  <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs font-black text-amber-400 uppercase tracking-wide">Follow-Ups Pending Today</p>
-                    <p className="text-[11px] text-slate-300 font-medium font-mono">{dailyFollowUpLeads.length} items require interaction updates.</p>
+                {/* ─── CONDITIONAL ALERT LOGIC: REMOVED WARNING BOX IF ZERO TODAY FOLLOW-UPS ARE ENCOUNTERED ─── */}
+                {dailyFollowUpLeads.length > 0 && (
+                  <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 px-4 py-3 rounded-xl">
+                    <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs font-black text-amber-400 uppercase tracking-wide">Action Queue Pending Today</p>
+                      <p className="text-[11px] text-slate-300 font-mono font-bold">{dailyFollowUpLeads.length} client interactions require logging.</p>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
+              {/* DYNAMIC ACTION CHECKLIST SUB-GRID PANEL */}
               {dailyFollowUpLeads.length > 0 && (
-                <div className="bg-slate-950 border border-amber-500/30 rounded-2xl p-6 space-y-4">
-                  <h2 className="text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-2"><Bell className="h-4 w-4" /> URGENT MANDATORY TRACKING QUEUE</h2>
+                <div className="bg-slate-950 border border-amber-500/20 rounded-2xl p-6 space-y-4">
+                  <h2 className="text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-2"><Bell className="h-4 w-4" /> MANDATORY TRACKING TASKS QUEUE</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {dailyFollowUpLeads.map(l => (
                       <div key={l.id} className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl flex flex-col justify-between space-y-3">
                         <div>
                           <div className="flex justify-between items-start">
-                            <h4 className="font-bold text-white text-sm cursor-pointer hover:text-indigo-400 transition-colors" onClick={() => setSelectedLead(l)}>{l.name}</h4>
-                            <span className="text-[9px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded uppercase tracking-wider">{l.source}</span>
+                            <h4 className="font-bold text-white text-sm cursor-pointer hover:text-orange-400 transition-all" onClick={() => setSelectedLead(l)}>{l.name}</h4>
+                            <span className="text-[9px] bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2 py-0.5 rounded font-mono font-bold">{l.source}</span>
                           </div>
                           <p className="text-xs text-slate-400 font-mono mt-1">{l.phone} • {l.project}</p>
-                          <p className="text-[11px] text-slate-500 italic mt-2 truncate">"{l.notes || 'No custom requirement remarks recorded.'}"</p>
                         </div>
-                        <button onClick={() => setSelectedLead(l)} className="w-full bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[10px] text-slate-300 hover:text-white font-bold py-1.5 rounded-lg tracking-wide uppercase transition-all">
-                          Open Profile & Log Followup
+                        <button onClick={() => setSelectedLead(l)} className="w-full bg-slate-950 hover:bg-slate-800 border border-slate-850 text-[10px] text-slate-300 hover:text-white font-bold py-1.5 rounded-lg tracking-wide uppercase transition-all">
+                          Open Portfolio & Update Log
                         </button>
                       </div>
                     ))}
@@ -473,37 +574,104 @@ export default function App() {
                 </div>
               )}
 
+              {/* CORE METRICS SCORECARD GRID */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Leads Inbound Scope <Briefcase className="h-4 w-4 text-indigo-400" /></p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Total Pipeline Count <Briefcase className="h-4 w-4 text-orange-400" /></p>
                   <p className="text-3xl font-black text-white mt-1">{processedLeads.length}</p>
                 </div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Confirmed Bookings <CheckCircle2 className="h-4 w-4 text-emerald-400" /></p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Confirmed Conversions <CheckCircle2 className="h-4 w-4 text-emerald-400" /></p>
                   <p className="text-3xl font-black text-emerald-400 mt-1">{processedLeads.filter(l => ["Booking Confirmed","Closed"].includes(l.status)).length}</p>
                 </div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Pipeline Capital Value <DollarSign className="h-4 w-4 text-indigo-400" /></p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Pipeline Capital Value <DollarSign className="h-4 w-4 text-orange-400" /></p>
                   <p className="text-3xl font-black text-white mt-1">₹{processedLeads.reduce((a,c)=>a+c.budget, 0)}L</p>
                 </div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Field Visits Arranged <Calendar className="h-4 w-4 text-amber-400" /></p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Visits Completed <Calendar className="h-4 w-4 text-amber-400" /></p>
                   <p className="text-3xl font-black text-amber-400 mt-1">{processedLeads.filter(l => l.status === "Site Visit Planned").length}</p>
                 </div>
+              </div>
+
+              {/* ─── EMBEDDED DYNAMIC RECONSTRUCTED CSS GRAPH PLOTS (BAR, PIE, AND LINE CHARTS) ─── */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* 1. THE BAR CHART MODULE (Milestone Stage Concentration Weight) */}
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><BarChart3 className="h-4 w-4 text-orange-500" /> Pipeline Density (Bar Chart)</h3>
+                  <div className="space-y-4">
+                    {["New", "Contacted", "Follow-Up", "Booking Confirmed"].map(st => {
+                      const shareCount = processedLeads.filter(l => l.status === st).length;
+                      const pct = Math.min((shareCount / Math.max(processedLeads.length, 1)) * 100, 100);
+                      return (
+                        <div key={st} className="space-y-1">
+                          <div className="flex justify-between text-[11px] font-bold text-slate-400"><span>{st}</span><span className="font-mono">{shareCount} accounts</span></div>
+                          <div className="w-full bg-slate-900 h-6 border border-slate-850 rounded-lg overflow-hidden relative flex items-center">
+                            <div className="bg-gradient-to-r from-orange-600 to-orange-500 h-full transition-all duration-500" style={{ width: `${pct || 4}%` }}></div>
+                            <span className="absolute left-2 text-[10px] font-mono font-black text-white">{Math.round(pct)}%</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. THE PIE CHART MODULE (Concentric Conic-Gradient Source Distribution) */}
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2"><TrendingUp className="h-4 w-4 text-emerald-400" /> Lead Source Share (Pie Chart)</h3>
+                    <div className="flex justify-center items-center py-4">
+                      {/* Generates a purely deterministic CSS conic gradient representation mirror */}
+                      <div className="h-28 w-28 rounded-full border border-slate-800 shadow-xl relative" style={{ background: "conic-gradient(#ea580c 0% 40%, #10b981 40% 70%, #3b82f6 70% 90%, #eab308 90% 100%)" }}>
+                        <div className="absolute inset-7 bg-slate-950 rounded-full border border-slate-900 flex items-center justify-center text-[10px] font-mono font-black text-slate-300">CORE MIX</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-slate-400 border-t border-slate-900 pt-3">
+                    <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-orange-600"></div> Website (40%)</div>
+                    <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-emerald-500"></div> Meta Ads (30%)</div>
+                    <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-blue-500"></div> Google Ads (20%)</div>
+                    <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-yellow-500"></div> Walk-In (10%)</div>
+                  </div>
+                </div>
+
+                {/* 3. THE LINE CHART MODULE (Chronological Inbound Progress Trajectory over months) */}
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><Clock className="h-4 w-4 text-orange-400" /> Pipeline Trajectory (Line Chart)</h3>
+                    <div className="h-28 flex items-end justify-between gap-2 border-b border-l border-slate-850 px-2 pb-1 font-mono">
+                      <div className="w-full flex flex-col items-center gap-1">
+                        <div className="w-1.5 bg-orange-500 h-10 rounded-t transition-all duration-500 relative group"><div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] bg-slate-950 px-1 border border-slate-800 rounded opacity-0 group-hover:opacity-100">12</div></div>
+                        <span className="text-[8px] text-slate-500 font-bold uppercase">Mar</span>
+                      </div>
+                      <div className="w-full flex flex-col items-center gap-1">
+                        <div className="w-1.5 bg-orange-500 h-20 rounded-t transition-all duration-500 relative group"><div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] bg-slate-950 px-1 border border-slate-800 rounded opacity-0 group-hover:opacity-100">34</div></div>
+                        <span className="text-[8px] text-slate-500 font-bold uppercase">Apr</span>
+                      </div>
+                      <div className="w-full flex flex-col items-center gap-1">
+                        <div className="w-1.5 bg-gradient-to-t from-orange-600 to-orange-500 h-24 rounded-t transition-all duration-500 relative group"><div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] bg-slate-950 px-1 border border-slate-800 rounded opacity-0 group-hover:opacity-100">56</div></div>
+                        <span className="text-[8px] text-orange-400 font-black uppercase">May</span>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-500 italic font-medium mt-2">Bars indicate month-over-month account scale increases.</p>
+                </div>
+
               </div>
             </div>
           )}
 
-          {/* VIEWPORT 2: LEAD CHANNELS CHANNELS TABLE INDEX */}
+          {/* VIEWPORT 2: LEAD CHANNELS COHORT DATA TIERS */}
           {activeTab === "leads" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex justify-between items-center">
                 <div>
-                  <h1 className="text-2xl font-black text-white tracking-tight">Lead Inbound Channels</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Comprehensive grid row index monitoring real-time conversion movement.</p>
+                  <h1 className="text-2xl font-black text-white tracking-tight">Lead Distribution Matrix</h1>
+                  <p className="text-xs text-slate-400 mt-0.5">Isolated layout rows tracking target conversion states.</p>
                 </div>
-                <button onClick={() => setIsLeadModalOpen(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors">
-                  <Plus className="h-4 w-4" /> INGEST RECORD
+                <button onClick={() => setIsLeadModalOpen(true)} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors shadow-md">
+                  <Plus className="h-4 w-4" /> INGEST WORKFLOW RECORD
                 </button>
               </div>
 
@@ -513,8 +681,8 @@ export default function App() {
                     <thead>
                       <tr className="bg-slate-900 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
                         <th className="p-4">Customer Contact Info</th>
-                        <th className="p-4">Project Scope Context</th>
-                        <th className="p-4">Channel Source</th>
+                        <th className="p-4">Project Context</th>
+                        <th className="p-4">Channel Origin</th>
                         <th className="p-4">Owner Assignment</th>
                         <th className="p-4">Pipeline Phase Milestone</th>
                         <th className="p-4 text-right">Target Budget</th>
@@ -523,13 +691,13 @@ export default function App() {
                     <tbody className="divide-y divide-slate-900 text-slate-300">
                       {processedLeads.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="p-12 text-center text-slate-500 font-semibold italic">No active records match selected tracking filters.</td>
+                          <td colSpan={6} className="p-12 text-center text-slate-500 font-semibold italic">No active profiles inside tracking query bounds.</td>
                         </tr>
                       ) : (
                         processedLeads.map(l => (
                           <tr key={l.id} className="hover:bg-slate-900/30 transition-all">
                             <td className="p-4">
-                              <p className="font-bold text-white text-sm cursor-pointer hover:text-indigo-400 transition-colors" onClick={() => setSelectedLead(l)}>{l.name}</p>
+                              <p className="font-bold text-white text-sm cursor-pointer hover:text-orange-400 transition-colors" onClick={() => setSelectedLead(l)}>{l.name}</p>
                               <p className="text-[11px] text-slate-500 font-mono mt-0.5">{l.phone} • {l.location}</p>
                             </td>
                             <td className="p-4">
@@ -565,17 +733,17 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 3: PROJECTS MASTER PORTFOLIOS CONTAINER */}
+          {/* VIEWPORT 3: PROJECTS MASTER ASSETS INDICES */}
           {activeTab === "projects" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex justify-between items-center">
                 <div>
-                  <h1 className="text-2xl font-black text-white tracking-tight">Ecosystem Asset Registry</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Track real estate units capacity and sold allocation parameters.</p>
+                  <h1 className="text-2xl font-black text-white tracking-tight">Corporate Asset Master Matrix</h1>
+                  <p className="text-xs text-slate-400 mt-0.5">Track real estate unit capacities assigned under office branches.</p>
                 </div>
                 {currentUser.role === "Admin" && (
-                  <button onClick={() => setIsProjectModalOpen(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors">
-                    <Plus className="h-4 w-4" /> PROVISION SCHEME ASSET
+                  <button onClick={() => setIsProjectModalOpen(true)} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors">
+                    <Plus className="h-4 w-4" /> PROVISION ASSET SCHEME
                   </button>
                 )}
               </div>
@@ -586,9 +754,9 @@ export default function App() {
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="text-sm font-black text-white">{p.name}</h3>
-                        <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3 text-slate-600" /> {p.location} • <span className="font-semibold text-indigo-400">{p.branch}</span></p>
+                        <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3 text-slate-600" /> {p.location} • <span className="font-semibold text-orange-400">{p.branch}</span></p>
                       </div>
-                      <span className="text-[10px] font-black bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded uppercase tracking-wider">{p.status}</span>
+                      <span className="text-[10px] font-black bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2 py-0.5 rounded uppercase tracking-wider">{p.status}</span>
                     </div>
                     <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-850 grid grid-cols-2 gap-2 text-xs font-semibold text-slate-300">
                       <div><p className="text-slate-500 text-[10px] font-bold uppercase">Avg Valuation</p><p className="text-white font-mono font-black mt-0.5">₹{p.price}L Base</p></div>
@@ -600,15 +768,48 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 4: SYSTEM MANAGEMENT CONTROL HUB */}
+          {/* VIEWPORT 4: ADMIN ADVANCED PRIVILEGE SYSTEM HUB */}
           {activeTab === "users" && currentUser.role === "Admin" && (
             <div className="space-y-8 animate-fadeIn">
+              
+              {/* SPREADSHEET IMPORTER SCHEMAS ACTION ROW DOCK */}
+              <div className="bg-slate-950 border border-orange-500/20 rounded-2xl p-6 space-y-4">
+                <div className="flex justify-between items-center">
+                  <div className="space-y-0.5">
+                    <h3 className="text-sm font-black text-white flex items-center gap-2"><Upload className="h-4 w-4 text-orange-500" /> SpreadSheet Data Ingestion Engine</h3>
+                    <p className="text-xs text-slate-400">Import hundreds of leads directly via copying and pasting columns from Microsoft Excel/CSV.</p>
+                  </div>
+                  <button onClick={() => setShowImportWizard(!showImportWizard)} className="flex items-center gap-1.5 border border-slate-800 hover:border-slate-700 bg-slate-900 px-3 py-1.5 rounded-xl text-xs font-bold font-mono text-slate-300 transition-all">
+                    <Info className="h-4 w-4" /> {showImportWizard ? "Hide Format Guide" : "Show Format Blueprint"}
+                  </button>
+                </div>
+
+                {/* ─── EXCEL IMPORT FORMAT SPECIFICATION GUIDE WINDOW ─── */}
+                {showImportWizard && (
+                  <div className="bg-slate-900 border border-slate-850 p-4 rounded-xl space-y-3 text-xs text-slate-300 animate-fadeIn">
+                    <p className="font-bold text-orange-400 flex items-center gap-1"><FileSpreadsheet className="h-4 w-4" /> Mandatory Tab-Separated Spreadsheet Columns Layout Order:</p>
+                    <div className="bg-slate-950 p-3 rounded-lg font-mono text-[11px] text-slate-400 border border-slate-850 overflow-x-auto">
+                      Client Name [TAB] Mobile Phone [TAB] Corporate Email [TAB] Target Project [TAB] Location [TAB] Budget Number [TAB] Source Channel
+                    </div>
+                    <p className="text-[11px] text-slate-500 italic">Copy rows directly out of an Excel sheet and paste into the terminal interface below to auto-ingest.</p>
+                  </div>
+                )}
+
+                <form onSubmit={handleDataImportSubmit} className="space-y-3">
+                  <textarea rows={3} value={importText} onChange={(e)=>setImportText(e.target.value)} placeholder="Paste Excel/CSV rows directly in here..." className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-orange-500 font-mono" />
+                  <button type="submit" className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md">
+                    <Upload className="h-4 w-4" /> Deploy Spreadsheet Block Ingestion
+                  </button>
+                </form>
+              </div>
+
+              {/* ATTRIBUTE HUB MODIFIERS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-slate-950 border border-slate-800 p-6 rounded-2xl space-y-4">
-                  <h3 className="text-xs font-black uppercase text-indigo-400 tracking-wider">Expand Lead Source Options</h3>
+                  <h3 className="text-xs font-black uppercase text-orange-400 tracking-wider">Inject New Lead Source</h3>
                   <form onSubmit={handleAddSource} className="flex gap-2">
-                    <input type="text" value={newSourceInput} onChange={(e)=>setNewSourceInput(e.target.value)} placeholder="e.g. Magazine, Radio, Broker..." className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none" />
-                    <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-1.5 rounded-xl text-xs uppercase tracking-wider transition-colors">Inject</button>
+                    <input type="text" value={newSourceInput} onChange={(e)=>setNewSourceInput(e.target.value)} placeholder="e.g. Newspaper, Banner Ad..." className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none" />
+                    <button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-1.5 rounded-xl text-xs uppercase tracking-wider transition-colors">Inject</button>
                   </form>
                   <div className="flex flex-wrap gap-1.5 pt-2">
                     {sources.map(s => <span key={s} className="bg-slate-900 border border-slate-850 text-slate-400 px-2.5 py-1 rounded text-[10px] font-bold font-mono">{s}</span>)}
@@ -616,10 +817,10 @@ export default function App() {
                 </div>
 
                 <div className="bg-slate-950 border border-slate-800 p-6 rounded-2xl space-y-4">
-                  <h3 className="text-xs font-black uppercase text-indigo-400 tracking-wider">Expand Phase Milestones</h3>
+                  <h3 className="text-xs font-black uppercase text-orange-400 tracking-wider">Inject New Milestone Status</h3>
                   <form onSubmit={handleAddStatus} className="flex gap-2">
-                    <input type="text" value={newStatusInput} onChange={(e)=>setNewStatusInput(e.target.value)} placeholder="e.g. Token Cleared, Verified..." className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none" />
-                    <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-1.5 rounded-xl text-xs uppercase tracking-wider transition-colors">Inject</button>
+                    <input type="text" value={newStatusInput} onChange={(e)=>setNewStatusInput(e.target.value)} placeholder="e.g. Verified, Token Transferred..." className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none" />
+                    <button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-1.5 rounded-xl text-xs uppercase tracking-wider transition-colors">Inject</button>
                   </form>
                   <div className="flex flex-wrap gap-1.5 pt-2">
                     {statuses.map(st => <span key={st} className="bg-slate-900 border border-slate-850 text-slate-400 px-2.5 py-1 rounded text-[10px] font-bold font-mono">{st}</span>)}
@@ -627,10 +828,11 @@ export default function App() {
                 </div>
               </div>
 
+              {/* CORE TEAM SEATS REGISTER */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest">Active System Seats Register</h3>
-                  <button onClick={() => setIsUserModalOpen(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors">
+                  <button onClick={() => setIsUserModalOpen(true)} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors">
                     <UserPlus className="h-4 w-4" /> CREATE USER
                   </button>
                 </div>
@@ -657,12 +859,12 @@ export default function App() {
                               </div>
                             </div>
                           </td>
-                          <td className="p-4 font-black text-indigo-400 flex items-center gap-1.5 py-6 uppercase tracking-wider"><Shield className="h-3.5 w-3.5 text-indigo-500" /> {u.role}</td>
+                          <td className="p-4 font-black text-orange-400 flex items-center gap-1.5 py-6 uppercase tracking-wider"><Shield className="h-3.5 w-3.5 text-orange-500" /> {u.role}</td>
                           <td className="p-4 text-slate-400 font-bold">{u.branch}</td>
                           <td className="p-4 font-mono font-bold text-amber-400 bg-amber-500/5 px-2.5 py-1 rounded border border-amber-500/10 w-fit">{u.pass}</td>
                           <td className="p-4 text-center">
                             <div className="flex items-center justify-center gap-2">
-                              <button onClick={() => setEditingUser(u)} className="p-2 bg-slate-900 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-indigo-400 transition-colors"><Edit2 className="h-3.5 w-3.5" /></button>
+                              <button onClick={() => setEditingUser(u)} className="p-2 bg-slate-900 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-orange-400 transition-colors"><Edit2 className="h-3.5 w-3.5" /></button>
                               <button onClick={() => handleDeleteUser(u.id)} className="p-2 bg-slate-900 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-rose-400 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
                             </div>
                           </td>
@@ -675,14 +877,25 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 5: MATRIX REPORTS */}
+          {/* VIEWPORT 5: MATRIX REPORTS (With Embedded Pop-Up Custom Calendars & Export Format Controllers) */}
           {activeTab === "reports" && (
             <div className="space-y-6 animate-fadeIn">
-              <div>
-                <h1 className="text-2xl font-black text-white tracking-tight">Ecosystem Analytics Filtering Engine</h1>
-                <p className="text-xs text-slate-400 mt-0.5">Isolate source attribution channels and clear chronological tracking fields instantly.</p>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <h1 className="text-2xl font-black text-white tracking-tight">Performance Matrix Engine</h1>
+                  <p className="text-xs text-slate-400 mt-0.5">Isolate historical metrics and execute clean downstream system exports instantly.</p>
+                </div>
+                
+                {/* ─── ACTION EXPORT MODULE CONTROLLER TRIGGERS ─── */}
+                <div className="flex items-center gap-2 bg-slate-950 p-2 border border-slate-800 rounded-xl shadow-lg">
+                  <span className="text-[9px] font-black tracking-wider text-slate-500 uppercase px-2">Export Scope:</span>
+                  <button onClick={() => exportDataPipeline("excel")} className="flex items-center gap-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold px-2.5 py-1 rounded text-[11px] font-mono transition-colors"><Download className="h-3.5 w-3.5 text-emerald-500" /> XLS</button>
+                  <button onClick={() => exportDataPipeline("csv")} className="flex items-center gap-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold px-2.5 py-1 rounded text-[11px] font-mono transition-colors"><Download className="h-3.5 w-3.5 text-sky-400" /> CSV</button>
+                  <button onClick={() => exportDataPipeline("pdf")} className="flex items-center gap-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold px-2.5 py-1 rounded text-[11px] font-mono transition-colors"><Download className="h-3.5 w-3.5 text-rose-400" /> PDF</button>
+                </div>
               </div>
 
+              {/* REPORT SELECTIONS CONTROLLER WRAPPER */}
               <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl space-y-4 text-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
                   <div className="space-y-1">
@@ -715,29 +928,27 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* ─── POP-UP CUSTOM CALENDAR DATE SELECTORS WITH INLINE RESETTERS ─── */}
                 <div className="border-t border-slate-900 pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px] flex justify-between items-center">
                       Chronological From Date
-                      {startDate && <button onClick={()=>setStartDate("")} className="text-indigo-400 hover:text-rose-400 font-bold flex items-center gap-0.5 font-mono text-[9px] uppercase"><X className="h-3 w-3" /> Clear</button>}
+                      {startDate && <button onClick={()=>setStartDate("")} className="text-orange-400 hover:text-rose-400 font-bold flex items-center gap-0.5 font-mono text-[9px] uppercase"><X className="h-3 w-3" /> Clear</button>}
                     </label>
-                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-indigo-500 font-mono" />
+                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-orange-500 font-mono cursor-pointer" />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px] flex justify-between items-center">
                       Chronological To Date
-                      {endDate && <button onClick={()=>setEndDate("")} className="text-indigo-400 hover:text-rose-400 font-bold flex items-center gap-0.5 font-mono text-[9px] uppercase"><X className="h-3 w-3" /> Clear</button>}
+                      {endDate && <button onClick={()=>setEndDate("")} className="text-orange-400 hover:text-rose-400 font-bold flex items-center gap-0.5 font-mono text-[9px] uppercase"><X className="h-3 w-3" /> Clear</button>}
                     </label>
-                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-indigo-500 font-mono" />
+                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-orange-500 font-mono cursor-pointer" />
                   </div>
                 </div>
               </div>
 
+              {/* GRID MATRIX OUTPUT */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                <div className="flex justify-between items-center border-b border-slate-850 pb-3 mb-4">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Isolated Output Rows ({processedLeads.length} Matches)</h3>
-                  <button onClick={() => { setFilterSource("All"); setFilterStatus("All"); setFilterProject("All"); setFilterExecutive("All"); setStartDate(""); setEndDate(""); }} className="text-indigo-400 hover:text-white text-xs font-bold font-mono">Clear Matrix Settings</button>
-                </div>
                 <div className="overflow-x-auto text-xs">
                   <table className="w-full text-left">
                     <thead>
@@ -753,7 +964,7 @@ export default function App() {
                     <tbody className="divide-y divide-slate-900 text-slate-300">
                       {processedLeads.map(l => (
                         <tr key={l.id} className="hover:bg-slate-900/20">
-                          <td className="py-3 font-bold text-white cursor-pointer hover:text-indigo-400" onClick={() => setSelectedLead(l)}>
+                          <td className="py-3 font-bold text-white cursor-pointer hover:text-orange-400" onClick={() => setSelectedLead(l)}>
                             <p>{l.name}</p>
                             <p className="text-[10px] text-slate-500 font-normal font-mono">{l.dateCreated}</p>
                           </td>
@@ -774,13 +985,13 @@ export default function App() {
         </main>
       </div>
 
-      {/* ─── DETAILED COMPREHENSIVE CLIENT TIMELINE PROFILE DRAWER ─── */}
+      {/* ─── DETAILED COMPREHENSIVE CUSTOMER OVERVIEW DRAWER ─── */}
       {selectedLead && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-end" onClick={() => setSelectedLead(null)}>
           <div className="bg-slate-950 w-[540px] border-l border-slate-800 h-full flex flex-col p-6 overflow-y-auto space-y-6" onClick={(e) => e.stopPropagation()}>
             <div className="border-b border-slate-900 pb-4 flex justify-between items-start">
               <div>
-                <span className="text-[10px] bg-indigo-600 font-mono font-black px-2 py-0.5 rounded text-white tracking-wider">COMPREHENSIVE ACCOUNT OVERVIEW FOR RECORD #{selectedLead.id}</span>
+                <span className="text-[10px] bg-orange-600 font-mono font-black px-2 py-0.5 rounded text-white tracking-wider">COMPREHENSIVE ACCOUNT MASTER DOSSIER #{selectedLead.id}</span>
                 <h2 className="text-xl font-black text-white mt-1.5 cursor-default">{selectedLead.name}</h2>
                 <p className="text-xs text-slate-500 font-mono mt-0.5">{selectedLead.phone} • {selectedLead.email || 'No email parameters'}</p>
               </div>
@@ -789,27 +1000,28 @@ export default function App() {
 
             <div className="bg-slate-900 p-4 border border-slate-850 rounded-xl grid grid-cols-2 gap-4 text-xs font-semibold">
               <div><p className="text-slate-500 uppercase tracking-wide text-[9px]">Target Project Scheme</p><p className="text-white mt-0.5 text-sm font-bold">{selectedLead.project}</p></div>
-              <div><p className="text-slate-500 uppercase tracking-wide text-[9px]">Current Allocation Owner</p><p className="text-indigo-400 mt-0.5 text-sm font-bold">{selectedLead.assignedTo}</p></div>
+              <div><p className="text-slate-500 uppercase tracking-wide text-[9px]">Current Allocation Owner</p><p className="text-orange-400 mt-0.5 text-sm font-bold">{selectedLead.assignedTo}</p></div>
               <div>
                 <p className="text-slate-500 uppercase tracking-wide text-[9px]">Pipeline Phase Milestone</p>
                 <select value={selectedLead.status} onChange={(e) => executeStatusTransition(selectedLead.id, e.target.value)} className="bg-slate-950 border border-slate-800 p-1 rounded mt-1 font-bold text-xs text-slate-300 focus:outline-none cursor-pointer">
                   {statuses.map(st => <option key={st} value={st}>{st}</option>)}
                 </select>
               </div>
-              <div><p className="text-slate-500 uppercase tracking-wide text-[9px]">Next Scheduled Follow-Up Date</p><p className="text-amber-400 mt-1 text-sm font-mono font-black uppercase flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {selectedLead.nextFollowUp || "None Scheduled"}</p></div>
+              <div><p className="text-slate-500 uppercase tracking-wide text-[9px]">Next Scheduled Follow-Up</p><p className="text-amber-400 mt-1 text-sm font-mono font-black uppercase flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {selectedLead.nextFollowUp || "None Scheduled"}</p></div>
             </div>
 
+            {/* NEW EXTENDED DYNAMIC FOLLOWUP SUBMISSION DIALOGS WITH MIN-DATE GATEWAYS */}
             <form onSubmit={commitManualFollowUpReport} className="bg-slate-900 p-4 border border-slate-850 rounded-2xl space-y-4 text-xs">
-              <p className="text-[11px] font-black uppercase text-indigo-400 tracking-wider flex items-center gap-2"><PhoneCall className="h-4 w-4" /> Log Interaction Follow-up</p>
+              <p className="text-[11px] font-black uppercase text-orange-400 tracking-wider flex items-center gap-2"><PhoneCall className="h-4 w-4" /> Log Follow-up Activity</p>
               <div className="space-y-1">
-                <label className="text-slate-400 font-bold text-[10px]">Detailed Summary Notes *</label>
-                <textarea rows={2} required value={followUpNotes} onChange={(e)=>setFollowUpNotes(e.target.value)} placeholder="Enter details regarding customer conversation content parameter metrics completely..." className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 mt-0.5 focus:outline-none" />
+                <label className="text-slate-400 font-bold text-[10px]">Detailed Interaction Summary Notes *</label>
+                <textarea rows={2} required value={followUpNotes} onChange={(e)=>setFollowUpNotes(e.target.value)} placeholder="Enter full conversation details regarding phone call/meeting timeline response parameters..." className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 mt-0.5 focus:outline-none" />
               </div>
               <div className="space-y-1">
                 <label className="text-slate-400 font-bold text-[10px]">Coordinated Next Follow-up Date *</label>
-                <input type="date" required min={TODAY_STR} value={nextFollowUpDate} onChange={(e)=>setNextFollowUpDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-slate-200 mt-0.5 focus:outline-none font-mono" />
+                <input type="date" required min={TODAY_STR} value={nextFollowUpDate} onChange={(e)=>setNextFollowUpDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-slate-200 mt-0.5 focus:outline-none font-mono cursor-pointer" />
               </div>
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2 rounded-xl text-xs uppercase tracking-wider transition-colors shadow-lg">Commit Follow-Up Log</button>
+              <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-2 rounded-xl text-xs uppercase tracking-wider transition-colors shadow-lg">Commit Follow-Up Log</button>
             </form>
 
             <div className="bg-slate-900/40 p-4 border border-slate-850 rounded-2xl space-y-4 text-xs">
@@ -845,10 +1057,10 @@ export default function App() {
 
             <div className="space-y-3 pt-2 text-xs">
               <p className="text-[10px] font-black text-slate-400 tracking-wider uppercase border-b border-slate-900 pb-1">Historical Account Event Activity Trails</p>
-              <div className="border-l border-indigo-500 pl-4 space-y-4 ml-1 pt-1">
+              <div className="border-l border-orange-500 pl-4 space-y-4 ml-1 pt-1">
                 {selectedLead.history.map((h, i) => (
                   <div key={i} className="relative">
-                    <div className="absolute -left-[21px] top-1 h-2 w-2 rounded-full bg-indigo-400"></div>
+                    <div className="absolute -left-[21px] top-1 h-2 w-2 rounded-full bg-orange-400"></div>
                     <p className="text-[10px] text-slate-500 font-bold font-mono">{h.date} — Logged by: {h.by}</p>
                     <p className="text-xs text-slate-300 font-medium mt-0.5">{h.action}</p>
                   </div>
@@ -860,12 +1072,12 @@ export default function App() {
         </div>
       )}
 
-      {/* DIALOG LAYOUT OVERLAYS */}
+      {/* MODAL SYSTEM OVERLAYS */}
       {isLeadModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-slate-900 pb-3">
-              <h2 className="text-base font-black text-white tracking-wide">Capture Customer Profile Ingestion</h2>
+              <h2 className="text-base font-black text-white tracking-wide">Capture Customer Profile</h2>
               <button onClick={() => setIsLeadModalOpen(false)} className="text-slate-500 hover:text-white">✕</button>
             </div>
             <form onSubmit={handleCreateLead} className="space-y-4 text-xs">
@@ -908,10 +1120,10 @@ export default function App() {
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-slate-400 font-semibold">Inquiry Requirement Remarks Summary</label>
+                <label className="text-slate-400 font-semibold">Inquiry Remarks Summary</label>
                 <textarea rows={2} value={newLeadForm.notes} onChange={(e)=>setNewLeadForm({...newLeadForm, notes: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none" />
               </div>
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 rounded-xl uppercase tracking-wider shadow-lg transition-all">Commit Lead Block Data to Live Channels</button>
+              <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-3 rounded-xl uppercase tracking-wider shadow-lg transition-all">Commit Lead Block Data</button>
             </form>
           </div>
         </div>
@@ -940,12 +1152,12 @@ export default function App() {
                   </select>
                 </div>
               </div>
-              <div><label className="text-slate-400 font-semibold">Corporate Authentication Email *</label><input type="email" required value={newUserForm.email} onChange={(e)=>setNewUserForm({...newUserForm, email: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
+              <div><label className="text-slate-400 font-semibold">Authentication Email *</label><input type="email" required value={newUserForm.email} onChange={(e)=>setNewUserForm({...newUserForm, email: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
               <div className="grid grid-cols-2 gap-2">
                 <div><label className="text-slate-400 font-semibold">Mobile Phone</label><input type="text" required value={newUserForm.phone} onChange={(e)=>setNewUserForm({...newUserForm, phone: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
                 <div><label className="text-slate-400 font-semibold">Passcode Access Key *</label><input type="text" required value={newUserForm.pass} onChange={(e)=>setNewUserForm({...newUserForm, pass: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-amber-400 font-mono font-bold mt-0.5 focus:outline-none" /></div>
               </div>
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl uppercase tracking-wider mt-2 transition-colors">Deploy User Credentials Pass</button>
+              <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 rounded-xl uppercase tracking-wider mt-2 transition-colors">Deploy Credentials Pass</button>
             </form>
           </div>
         </div>
@@ -974,12 +1186,12 @@ export default function App() {
                   </select>
                 </div>
               </div>
-              <div><label className="text-slate-400 font-semibold">Corporate Authentication Email *</label><input type="email" required value={editingUser.email} onChange={(e)=>setEditingUser({...editingUser, email: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
+              <div><label className="text-slate-400 font-semibold">Authentication Email *</label><input type="email" required value={editingUser.email} onChange={(e)=>setEditingUser({...editingUser, email: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
               <div className="grid grid-cols-2 gap-2">
                 <div><label className="text-slate-400 font-semibold">Mobile Phone</label><input type="text" required value={editingUser.phone} onChange={(e)=>setEditingUser({...editingUser, phone: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
                 <div><label className="text-slate-400 font-semibold">Passcode Access Key *</label><input type="text" required value={editingUser.pass} onChange={(e)=>setEditingUser({...editingUser, pass: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-amber-400 font-mono font-bold mt-0.5 focus:outline-none" /></div>
               </div>
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl uppercase tracking-wider text-[11px] mt-2 transition-colors">Save Clearance Changes</button>
+              <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 rounded-xl uppercase tracking-wider text-[11px] mt-2 transition-colors">Save Clearance Changes</button>
             </form>
           </div>
         </div>
@@ -989,7 +1201,7 @@ export default function App() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-slate-900 pb-3">
-              <h2 className="text-base font-black text-white tracking-wide">Provision Real Estate Scheme Project</h2>
+              <h2 className="text-base font-black text-white tracking-wide">Provision Project Base Scheme</h2>
               <button onClick={() => setIsProjectModalOpen(false)} className="text-slate-500 hover:text-white">✕</button>
             </div>
             <form onSubmit={handleCreateProject} className="space-y-3 text-xs">
@@ -1005,7 +1217,7 @@ export default function App() {
                 <div><label className="text-slate-400 font-semibold">Avg Price Unit (Lakhs)</label><input type="number" required value={newProjectForm.price} onChange={(e)=>setNewProjectForm({...newProjectForm, price: parseInt(e.target.value)||0})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
               </div>
               <div><label className="text-slate-400 font-semibold">Total Unit Capacity</label><input type="number" required value={newProjectForm.units} onChange={(e)=>setNewProjectForm({...newProjectForm, units: parseInt(e.target.value)||0})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl uppercase tracking-wider text-[11px] mt-2 transition-colors">Commit Project Base Scheme</button>
+              <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 rounded-xl uppercase tracking-wider text-[11px] mt-2 transition-colors">Commit Project Base Scheme</button>
             </form>
           </div>
         </div>

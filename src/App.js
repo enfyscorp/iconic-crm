@@ -5,14 +5,13 @@ import {
   DollarSign, MapPin, Shield, FileText, Clock, LogOut, Lock, Mail
 } from "lucide-react";
 
-// ─── CORE SYSTEM CONFIGURATIONS ─────────────────────────────────────────────
+// ─── SYSTEM DATA SETTINGS ───────────────────────────────────────────────────
 const ROLES = ["Admin", "Branch Manager", "Team Lead", "Telecaller", "Field Agent"];
 const BRANCHES = ["Madurai", "Chennai South", "Chennai North", "Coimbatore"];
 const SOURCES = ["Website", "IVR", "Referral", "Walk-in", "Social Media", "99acres", "MagicBricks"];
 const STATUSES = ["New", "Contacted", "Interested", "Site Visit Scheduled", "Site Visit Done", "Negotiation", "Converted", "Not Interested", "On Hold"];
 const BHK_OPTIONS = ["1 BHK", "2 BHK", "3 BHK", "4 BHK", "Villa"];
 
-// Master Credentials Registry for Login Systems Simulation
 const USERS_REGISTRY = [
   { id: 1, name: "Arjun Sharma", avatar: "AS", role: "Admin", branch: "All Branches", email: "admin@iconic.in", pass: "admin123", phone: "98400 00001", active: true },
   { id: 2, name: "Priya Nair", avatar: "PN", role: "Branch Manager", branch: "Madurai", email: "manager@iconic.in", pass: "manager123", phone: "98400 00002", active: true },
@@ -29,42 +28,48 @@ const INITIAL_PROJECTS = [
 ];
 
 const INITIAL_LEADS = [
-  { id: 1, name: "Suresh Kumar", phone: "98400 11234", email: "suresh@gmail.com", source: "99acres", assignedTo: "Rohan Das", branch: "Madurai", status: "Interested", bhk: "3 BHK", budget: 85, project: "Vishal Virinchi Apartments", notes: "Prefers higher floors.", svDate: "", svNotes: "", history: [{ date: "2026-05-15", by: "Divya Menon", action: "Called – Interested in 3BHK layout." }] },
-  { id: 2, name: "Lakshmi Rao", phone: "99400 22345", email: "lakshmi@yahoo.com", source: "IVR", assignedTo: "Rohan Das", branch: "Madurai", status: "Site Visit Scheduled", bhk: "2 BHK", budget: 68, project: "Vishal Virinchi Apartments", notes: "Wants family car parking slots.", svDate: "", svNotes: "", history: [{ date: "2026-05-20", by: "Divya Menon", action: "Site visit confirmed via follow-up call." }] },
-  { id: 3, name: "Vijay Anand", phone: "97400 33456", email: "vijay@outlook.com", source: "Referral", assignedTo: "Divya Menon", branch: "Madurai", status: "New", bhk: "4 BHK", budget: 140, project: "ICONIC Greens", notes: "Looking for independent villa structure.", svDate: "", svNotes: "", history: [{ date: "2026-05-28", by: "System Gateway", action: "Lead ingestion completed cleanly." }] },
-  { id: 4, name: "Meena Selvam", phone: "96400 44567", email: "meena@gmail.com", source: "Walk-in", assignedTo: "Rohan Das", branch: "Madurai", status: "Negotiation", bhk: "3 BHK", budget: 90, project: "Vishal Virinchi Apartments", notes: "Negotiating terminal layout pricing structures.", svDate: "2026-05-21", svNotes: "Completed walkthrough.", history: [{ date: "2026-05-21", by: "Rohan Das", action: "Physical layout tour finalized." }] },
+  { id: 1, name: "Suresh Kumar", phone: "98400 11234", email: "suresh@gmail.com", source: "99acres", assignedTo: "Rohan Das", branch: "Madurai", status: "Interested", bhk: "3 BHK", budget: 85, project: "Vishal Virinchi Apartments", notes: "Prefers higher floors.", svDate: "", svNotes: "", history: [{ date: "2026-05-15", by: "Divya Menon", action: "Inquiry recorded." }] },
+  { id: 2, name: "Lakshmi Rao", phone: "99400 22345", email: "lakshmi@yahoo.com", source: "IVR", assignedTo: "Rohan Das", branch: "Madurai", status: "Site Visit Scheduled", bhk: "2 BHK", budget: 68, project: "Vishal Virinchi Apartments", notes: "Wants family car parking slots.", svDate: "", svNotes: "", history: [{ date: "2026-05-20", by: "Divya Menon", action: "Site visit confirmed." }] },
+  { id: 3, name: "Vijay Anand", phone: "97400 33456", email: "vijay@outlook.com", source: "Referral", assignedTo: "Divya Menon", branch: "Madurai", status: "New", bhk: "4 BHK", budget: 140, project: "ICONIC Greens", notes: "Looking for independent villa structure.", svDate: "", svNotes: "", history: [{ date: "2026-05-28", by: "System Gateway", action: "Lead ingestion completed." }] },
+  { id: 4, name: "Meena Selvam", phone: "96400 44567", email: "meena@gmail.com", source: "Walk-in", assignedTo: "Rohan Das", branch: "Madurai", status: "Negotiation", bhk: "3 BHK", budget: 90, project: "Vishal Virinchi Apartments", notes: "Negotiating terminal pricing structures.", svDate: "2026-05-21", svNotes: "Completed walkthrough.", history: [{ date: "2026-05-21", by: "Rohan Das", action: "Physical tour finalized." }] },
   { id: 5, name: "Ramesh Babu", phone: "93400 77890", email: "ramesh@gmail.com", source: "MagicBricks", assignedTo: "Divya Menon", branch: "Madurai", status: "Converted", bhk: "2 BHK", budget: 75, project: "Vishal Virinchi Apartments", notes: "Closed deal closure standard.", svDate: "2026-05-10", svNotes: "Advance tokens processed.", history: [{ date: "2026-05-12", by: "Priya Nair", action: "Converted to formal booked unit account." }] },
 ];
 
+const SC = {
+  New:                    { bg: "rgba(59,130,246,0.1)", text: "#60a5fa", border: "rgba(59,130,246,0.2)" },
+  Contacted:              { bg: "rgba(245,158,11,0.1)", text: "#fbbf24", border: "rgba(245,158,11,0.2)" },
+  Interested:             { bg: "rgba(16,185,129,0.1)", text: "#34d399", border: "rgba(16,185,129,0.2)" },
+  "Site Visit Scheduled": { bg: "rgba(139,92,246,0.1)", text: "#a78bfa", border: "rgba(139,92,246,0.2)" },
+  "Site Visit Done":      { bg: "rgba(20,184,166,0.1)", text: "#2dd4bf", border: "rgba(20,184,166,0.2)" },
+  Negotiation:            { bg: "rgba(236,72,153,0.1)", text: "#f472b6", border: "rgba(236,72,153,0.2)" },
+  Converted:              { bg: "rgba(52,211,153,0.15)", text: "#34d399", border: "rgba(52,211,153,0.3)" },
+  "Not Interested":       { bg: "rgba(239,68,68,0.1)", text: "#f87171", border: "rgba(239,68,68,0.2)" },
+  "On Hold":              { bg: "rgba(107,114,128,0.1)", text: "#9ca3af", border: "rgba(107,114,128,0.2)" },
+};
+
 export default function App() {
-  // Authentication System State Engine
   const [currentUser, setCurrentUser] = useState(null); 
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
-  // UI Navigation Control States
   const [activeTab, setActiveTab] = useState("dashboard");
   const [globalSearch, setGlobalSearch] = useState("");
 
-  // App Core Runtime Memories
   const [leads, setLeads] = useState(INITIAL_LEADS);
   const [users, setUsers] = useState(USERS_REGISTRY);
   const [projects] = useState(INITIAL_PROJECTS);
 
-  // Interaction Modals States
   const [selectedLead, setSelectedLead] = useState(null);
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
 
-  // Form Management Structures
   const [newLeadForm, setNewLeadForm] = useState({ name: "", phone: "", email: "", source: "Website", assignedTo: "Rohan Das", branch: "Madurai", status: "New", bhk: "3 BHK", location: "Bypass Road", budget: 75, project: "Vishal Virinchi Apartments", notes: "" });
   const [newUserForm, setNewUserForm] = useState({ name: "", role: "Telecaller", branch: "Madurai", email: "", phone: "", pass: "iconic123" });
 
   const [svDate, setSvDate] = useState("");
   const [svNotes, setSvNotes] = useState("");
 
-  // ─── LOGIN GATE AUTHENTICATION INTERACTION INTERCEPTOR ─────────────────────
   const handleLoginSubmit = (e) => {
     e.preventDefault();
     const account = users.find(u => u.email.toLowerCase() === loginEmail.toLowerCase().trim() && u.pass === loginPassword);
@@ -83,11 +88,9 @@ export default function App() {
     setActiveTab("dashboard");
   };
 
-  // ─── DYNAMIC CROSS-TAB ARCHITECTURE FILTERING (Search & RBAC Layer) ────────
   const processedLeads = useMemo(() => {
     if (!currentUser) return [];
     
-    // Step A: Filter by Role Permissions
     let roleFiltered = leads;
     if (currentUser.role === "Telecaller") {
       roleFiltered = leads.filter(l => l.assignedTo === "Divya Menon" || l.status === "New");
@@ -95,7 +98,6 @@ export default function App() {
       roleFiltered = leads.filter(l => l.assignedTo === "Rohan Das");
     }
 
-    // Step B: Filter by Active Search String
     if (!globalSearch.trim()) return roleFiltered;
     const term = globalSearch.toLowerCase();
     return roleFiltered.filter(l => 
@@ -106,7 +108,6 @@ export default function App() {
     );
   }, [leads, currentUser, globalSearch]);
 
-  // ─── ACTION EXECUTION LAYER METHODS ────────────────────────────────────────
   const handleCreateLead = (e) => {
     e.preventDefault();
     const created = {
@@ -114,7 +115,7 @@ export default function App() {
       id: Date.now(),
       svDate: "",
       svNotes: "",
-      history: [{ date: new Date().toISOString().split("T")[0], by: currentUser.name, action: "Lead recorded inside system storage indexes." }]
+      history: [{ date: new Date().toISOString().split("T")[0], by: currentUser.name, action: "Lead recorded." }]
     };
     setLeads([created, ...leads]);
     setIsLeadModalOpen(false);
@@ -146,7 +147,6 @@ export default function App() {
     } : l));
   };
 
-  // ─── RENDER GATE A: SECURITY LOGIN OVERLAY ────────────────────────────────
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased">
@@ -192,11 +192,9 @@ export default function App() {
     );
   }
 
-  // ─── RENDER GATE B: AUTHENTICATED SYSTEM ENVIRONMENT MAIN FRAMEWORK ───────
   return (
     <div className="flex h-screen bg-slate-900 text-slate-100 font-sans antialiased overflow-hidden">
       
-      {/* SIDEBAR NAVIGATION CONTROLS */}
       <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between">
         <div>
           <div className="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
@@ -221,7 +219,6 @@ export default function App() {
           </nav>
         </div>
 
-        {/* LOGGED CONTEXT CRITICAL FOOTER */}
         <div className="p-4 border-t border-slate-800 bg-slate-950/40 space-y-3">
           <div className="flex items-center justify-between bg-slate-900 p-2.5 rounded-xl border border-slate-850">
             <div className="flex items-center gap-2">
@@ -238,14 +235,12 @@ export default function App() {
         </div>
       </aside>
 
-      {/* WORKSPACE CONTENT SHELL */}
       <div className="flex-1 flex flex-col overflow-hidden">
         
-        {/* TOP LIVE HEADER SEARCH DESK */}
         <header className="h-16 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-8 z-10">
           <div className="relative w-96">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-            <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live Lookup Engine: Type client name, project, or pipeline stage..." className="w-full bg-slate-900 border border-slate-850 rounded-lg pl-9 pr-4 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 tracking-wide font-medium" />
+            <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live Lookup Engine: Type name, project, status..." className="w-full bg-slate-900 border border-slate-850 rounded-lg pl-9 pr-4 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 tracking-wide font-medium" />
             {globalSearch && <button onClick={() => setGlobalSearch("")} className="absolute right-3 top-2 text-slate-500 hover:text-slate-200 text-xs font-bold">✕</button>}
           </div>
 
@@ -255,10 +250,8 @@ export default function App() {
           </div>
         </header>
 
-        {/* WORKSPACE ROUTING INJECTION PANELS */}
         <main className="flex-1 overflow-y-auto p-8">
           
-          {/* TAB 1: ADVANCED VISUAL DATA CHART METRICS DASHBOARDS */}
           {activeTab === "dashboard" && (
             <div className="space-y-8">
               <div>
@@ -266,7 +259,6 @@ export default function App() {
                 <p className="text-xs text-slate-400 mt-1">Real-time performance matrices and visual graph charts for ICONIC Projects operations.</p>
               </div>
 
-              {/* CARD DATA COUNTERS */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Ingestion Scope <Briefcase className="h-4 w-4 text-indigo-400" /></p>
@@ -286,10 +278,8 @@ export default function App() {
                 </div>
               </div>
 
-              {/* DYNAMIC PURE-CSS GRAPH CARDS VISUAL REPRESENTATION */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
-                {/* CHART BLOCK A: PIPELINE STAGE CONVERSION FUNNEL */}
                 <div className="lg:col-span-2 bg-slate-950 border border-slate-800 rounded-xl p-6">
                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><BarChart3 className="h-4 w-4 text-indigo-400" /> Pipeline Milestone Distribution Weight (Visual Graph)</h3>
                   <div className="space-y-4">
@@ -300,7 +290,7 @@ export default function App() {
                         <div key={st} className="flex items-center gap-4 text-xs font-medium">
                           <div className="w-36 text-slate-400 truncate">{st}</div>
                           <div className="flex-1 bg-slate-900 h-6 rounded-md overflow-hidden border border-slate-850 relative flex items-center">
-                            <div className="bg-gradient-to-r from-indigo-600 to-indigo-400 h-full transition-all duration-500" style={{ width: `${pct}%` }}></div>
+                            <div className="bg-indigo-600 h-full transition-all duration-500" style={{ width: `${pct}%` }}></div>
                             <span className="absolute left-3 text-[10px] font-bold font-mono text-slate-200">{share} Accounts ({Math.round(pct)}%)</span>
                           </div>
                         </div>
@@ -309,7 +299,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* CHART BLOCK B: ACQUISITION SOURCE STREAMS DATA CHIPS */}
                 <div className="bg-slate-950 border border-slate-800 rounded-xl p-6 flex flex-col justify-between">
                   <div>
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><FileText className="h-4 w-4 text-sky-400" /> Platform Attribution Share</h3>
@@ -337,7 +326,6 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB 2: LEAD ECOSYSTEM DATA GRID VIEW */}
           {activeTab === "leads" && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
@@ -352,7 +340,6 @@ export default function App() {
                 )}
               </div>
 
-              {/* LIVE LEADS DATA TABLE */}
               <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
@@ -402,7 +389,6 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB 3: ASSET PORTFOLIO ARCHITECTURE METRICS */}
           {activeTab === "projects" && (
             <div className="space-y-6">
               <div>
@@ -430,7 +416,6 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB 4: SECURE SYSTEM USER PROVISION SEATS GOVERNANCE */}
           {activeTab === "users" && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
@@ -450,7 +435,7 @@ export default function App() {
                       <th className="p-4">Personnel Identity Name</th>
                       <th className="p-4">Clearance Role</th>
                       <th className="p-4">Regional Gateway Area</th>
-                      <th className="p-4">Simulated Portal Password Passcode</th>
+                      <th className="p-4">Simulated Password Passcode</th>
                       <th className="p-4 text-right">Status State</th>
                     </tr>
                   </thead>
@@ -473,7 +458,6 @@ export default function App() {
         </main>
       </div>
 
-      {/* MODAL ACTION VIEW DRAWER: ACCOUNT TIMELINE HISTORY TRAIL */}
       {selectedLead && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-end" onClick={() => setSelectedLead(null)}>
           <div className="bg-slate-950 w-[500px] border-l border-slate-800 h-full flex flex-col p-6 overflow-y-auto space-y-6" onClick={(e) => e.stopPropagation()}>
@@ -494,4 +478,119 @@ export default function App() {
               </div>
               <div className="space-y-1">
                 <label className="text-slate-500 font-bold text-[10px]">Observations Notes Log</label>
-                <textarea rows={3} value={svNotes} onChange={(e) => setSvNotes(e.target.value)} placeholder="Enter full team feedback files..." className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-3
+                <textarea rows={3} value={svNotes} onChange={(e) => setSvNotes(e.target.value)} placeholder="Enter walkthrough feedback..." className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-300 text-xs focus:outline-none" />
+              </div>
+              <button type="button" onClick={() => {
+                if(!svDate || !svNotes.trim()) { alert("All verification parameters required."); return; }
+                setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, svDate, svNotes, status: "Site Visit Done" } : l));
+                setSelectedLead(null);
+                setSvDate(""); setSvNotes("");
+              }} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded text-xs transition-colors">Commit Verification File Logs</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isLeadModalOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 rounded-xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-slate-900 pb-3">
+              <h2 className="text-base font-black text-white tracking-wide">Capture Incoming Client Data</h2>
+              <button onClick={() => setIsLeadModalOpen(false)} className="text-slate-500 hover:text-white">✕</button>
+            </div>
+            <form onSubmit={handleCreateLead} className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-semibold">Client Name *</label>
+                  <input type="text" required value={newLeadForm.name} onChange={(e)=>setNewLeadForm({...newLeadForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2 rounded-lg text-slate-200 focus:outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-semibold">Source Channel Hub</label>
+                  <select value={newLeadForm.source} onChange={(e)=>setNewLeadForm({...newLeadForm, source: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2 rounded-lg text-slate-300 focus:outline-none">
+                    {SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-semibold">Phone Matrix *</label>
+                  <input type="text" required value={newLeadForm.phone} onChange={(e)=>setNewLeadForm({...newLeadForm, phone: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2 rounded-lg text-slate-200 focus:outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-semibold">Email Endpoint</label>
+                  <input type="email" value={newLeadForm.email} onChange={(e)=>setNewLeadForm({...newLeadForm, email: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2 rounded-lg text-slate-200 focus:outline-none" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-semibold">BHK Variant</label>
+                  <select value={newLeadForm.bhk} onChange={(e)=>setNewLeadForm({...newLeadForm, bhk: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2 rounded-lg text-slate-300 focus:outline-none">
+                    {BHK_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-semibold">Budget (Lakhs)</label>
+                  <input type="number" value={newLeadForm.budget} onChange={(e)=>setNewLeadForm({...newLeadForm, budget: parseInt(e.target.value)||0})} className="w-full bg-slate-900 border border-slate-850 p-2 rounded-lg text-slate-200 focus:outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-semibold">Project Name</label>
+                  <select value={newLeadForm.project} onChange={(e)=>setNewLeadForm({...newLeadForm, project: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2 rounded-lg text-slate-300 focus:outline-none">
+                    {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg shadow-lg transition-colors text-xs uppercase tracking-wider">Commit Record to Active Pipeline</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isUserModalOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 rounded-xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-slate-900 pb-3">
+              <h2 className="text-base font-black text-white tracking-wide">Provision Clearance Authorization Pass</h2>
+              <button onClick={() => setIsUserModalOpen(false)} className="text-slate-500 hover:text-white">✕</button>
+            </div>
+            <form onSubmit={handleCreateUser} className="space-y-3 text-xs">
+              <div className="space-y-1">
+                <label className="text-slate-400 font-semibold">Personnel Legal Name *</label>
+                <input type="text" required value={newUserForm.name} onChange={(e)=>setNewUserForm({...newUserForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2 rounded-lg text-slate-200 focus:outline-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-semibold">Privilege Tier Role</label>
+                  <select value={newUserForm.role} onChange={(e)=>setNewUserForm({...newUserForm, role: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2 rounded-lg text-slate-300 focus:outline-none">
+                    {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-semibold">Area Branch Scope</label>
+                  <select value={newUserForm.branch} onChange={(e)=>setNewUserForm({...newUserForm, branch: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2 rounded-lg text-slate-300 focus:outline-none">
+                    {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-slate-400 font-semibold">Corporate Authentication Email *</label>
+                <input type="email" required value={newUserForm.email} onChange={(e)=>setNewUserForm({...newUserForm, email: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2 rounded-lg text-slate-200 focus:outline-none" placeholder="name@iconic.in" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-semibold">Gateway Phone *</label>
+                  <input type="text" required value={newUserForm.phone} onChange={(e)=>setNewUserForm({...newUserForm, phone: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2 rounded-lg text-slate-200 focus:outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-semibold">Portal Password Passcode *</label>
+                  <input type="text" required value={newUserForm.pass} onChange={(e)=>setNewUserForm({...newUserForm, pass: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2 rounded-lg text-amber-400 font-mono font-bold focus:outline-none" />
+                </div>
+              </div>
+              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-lg shadow-lg transition-colors text-xs uppercase tracking-wider mt-2">Deploy Identity Credentials Pass</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}

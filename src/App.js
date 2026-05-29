@@ -7,7 +7,7 @@ import {
   AlertTriangle, Download, Upload, Info, FileSpreadsheet, Check
 } from "lucide-react";
 
-// ─── SYSTEM CONFIGURATIONS & ENUMS ──────────────────────────────────────────
+// ─── 1. FIXED ENUMS & CONSTANT STATIC REGISTRIES ───────────────────────────
 const INITIAL_ROLES = ["Admin", "Manager", "Executive", "Telecaller"];
 
 const INITIAL_SOURCES = [
@@ -23,7 +23,6 @@ const INITIAL_STATUSES = [
 const BRANCHES = ["Madurai Desk", "Chennai South", "Chennai North", "Coimbatore"];
 const PROJECT_TYPES = ["Apartment", "Villa", "Plot"];
 
-// Dynamic Team Assignments Mapping Group Profiles
 const TEAMS_REGISTRY = {
   "Madurai Desk": "Team Alpha (Madurai Core)",
   "Chennai South": "Team Delta (Chennai Hub)",
@@ -63,7 +62,7 @@ const SC = {
 export default function App() {
   const TODAY_STR = "2026-05-29";
 
-  // ─── HOOK STATE DICTIONARIES ──────────────────────────────────────────────
+  // ─── 2. STATE INITIALIZATION (LOCKED REACT HOOK ORDER SEQUENCE) ───────────
   const [currentUser, setCurrentUser] = useState(null); 
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -93,7 +92,6 @@ export default function App() {
   const [importText, setImportText] = useState("");
   const [showImportWizard, setShowImportWizard] = useState(false);
 
-  // Custom Intercept Confirmation Modals Engine States
   const [customPopup, setCustomPopup] = useState({ isOpen: false, leadId: null, targetValue: "", type: "status", title: "", message: "" });
   const [toastNotification, setToastNotification] = useState({ isVisible: false, message: "" });
 
@@ -111,41 +109,13 @@ export default function App() {
   const [svDate, setSvDate] = useState("");
   const [svFeedback, setSvFeedback] = useState("");
   const [svFamily, setSvFamily] = useState("");
-  const [svProbability, setSvProbability] = useState("High");
 
   const [bkUnit, setBkUnit] = useState("");
   const [bkAmount, setBkAmount] = useState("");
   const [bkMode, setBkMode] = useState("Cheque");
   const [bkDate, setBkDate] = useState("");
 
-  // ─── REUSABLE ALERTS ACTIONS MODALS ────────────────────────────────────────
-  const triggerToastAlert = (msg) => {
-    setToastNotification({ isVisible: true, message: msg });
-    setTimeout(() => setToastNotification({ isVisible: false, message: "" }), 3500);
-  };
-
-  // ─── AUTHENTICATION ACCESS SUBMITS ────────────────────────────────────────
-  const handleLoginSubmit = (e) => {
-    e.preventDefault();
-    const account = users.find(u => u.email.toLowerCase() === loginEmail.toLowerCase().trim() && u.pass === loginPassword && u.active);
-    if (account) {
-      setCurrentUser(account);
-      setLoginError("");
-      triggerToastAlert(`Clearance Verified. Welcome back to Desam Hub, ${account.name}!`);
-    } else {
-      setLoginError("Invalid clearance email or passcode authentication key parameter.");
-    }
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    setLoginEmail("");
-    setLoginPassword("");
-    setGlobalSearch("");
-    setActiveTab("dashboard");
-  };
-
-  // ─── ROLE ACCESS DATA ISOLATION PER TEAM REGISTRIES ───────────────────────
+  // ─── 3. MEMOIZED DATA SELECTORS ───────────────────────────────────────────
   const visibleProjects = useMemo(() => {
     if (!currentUser) return [];
     if (currentUser.role === "Admin") return projects;
@@ -162,7 +132,6 @@ export default function App() {
     if (!currentUser) return [];
     let result = leads;
 
-    // Enforce Team Manager routing boundaries via bound project parameters
     if (currentUser.role === "Manager") {
       result = leads.filter(l => l.branch === currentUser.branch);
     } else if (currentUser.role === "Executive" || currentUser.role === "Telecaller") {
@@ -194,7 +163,32 @@ export default function App() {
     return processedLeads.filter(l => l.nextFollowUp === TODAY_STR);
   }, [processedLeads, TODAY_STR]);
 
-  // ─── RE-ENGINEERED POP-UP CONFIRMATION INTERCEPT INTERFACE NODES ──────────
+  // ─── 4. CORE PIPELINE CONTROLLERS ─────────────────────────────────────────
+  const triggerToastAlert = (msg) => {
+    setToastNotification({ isVisible: true, message: msg });
+    setTimeout(() => setToastNotification({ isVisible: false, message: "" }), 3500);
+  };
+
+  const handleLoginSubmit = (e) => {
+    e.preventDefault();
+    const account = users.find(u => u.email.toLowerCase() === loginEmail.toLowerCase().trim() && u.pass === loginPassword && u.active);
+    if (account) {
+      setCurrentUser(account);
+      setLoginError("");
+      triggerToastAlert(`Welcome back, ${account.name}!`);
+    } else {
+      setLoginError("Invalid corporate credential pairings.");
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setLoginEmail("");
+    setLoginPassword("");
+    setGlobalSearch("");
+    setActiveTab("dashboard");
+  };
+
   const requestStatusTransitionPopup = (leadId, nextStatus) => {
     const target = leads.find(l => l.id === leadId);
     if (!target) return;
@@ -203,8 +197,8 @@ export default function App() {
       leadId,
       targetValue: nextStatus,
       type: "status",
-      title: "Confirm Status Milestone Shift",
-      message: `Are you sure you want to transition client row reference "${target.name}" into the "${nextStatus}" pipeline milestone tracking tier?`
+      title: "Confirm Status Shift",
+      message: `Are you sure you want to transfer "${target.name}" into the "${nextStatus}" milestone track?`
     });
   };
 
@@ -216,8 +210,8 @@ export default function App() {
       leadId,
       targetValue: personnelName,
       type: "assign",
-      title: "Confirm Team Seat Allocation",
-      message: `Do you want to delegate operational ownership of client lead "${target.name}" to team seat executive "${personnelName}"?`
+      title: "Confirm Lead Allocation",
+      message: `Delegate active ownership of client "${target.name}" to executive "${personnelName}"?`
     });
   };
 
@@ -226,161 +220,202 @@ export default function App() {
     if (type === "status") {
       setLeads(leads.map(l => l.id === leadId ? {
         ...l, status: targetValue,
-        history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `Milestone trajectory updated to: ${targetValue}` }]
+        history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `Milestone updated to: ${targetValue}` }]
       } : l));
       if (selectedLead && selectedLead.id === leadId) {
         setSelectedLead({ ...selectedLead, status: targetValue });
       }
-      triggerToastAlert("Pipeline phase updated successfully.");
+      triggerToastAlert("Pipeline status successfully updated.");
     } else if (type === "assign") {
       setLeads(leads.map(l => l.id === leadId ? {
         ...l, assignedTo: targetValue, status: targetValue === "Unassigned" ? "New" : "Assigned",
-        history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `Lead deployment targeted to team executive seat: ${targetValue}` }]
+        history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `Routed lead to team desk: ${targetValue}` }]
       } : l));
-      triggerToastAlert(`Lead successfully routed to: ${targetValue}`);
+      triggerToastAlert(`Lead assigned to ${targetValue}`);
     }
     setCustomPopup({ isOpen: false, leadId: null, targetValue: "", type: "status", title: "", message: "" });
   };
 
-  // ─── ADMIN SHEET RAW STRING PARSER INGESTION MODULE ────────────────────────
   const handleDataImportSubmit = (e) => {
     e.preventDefault();
     if (!importText.trim()) return;
-
     try {
       const lines = importText.split("\n").map(l => l.trim()).filter(Boolean);
       const newlyIngestedLeads = [];
-
       lines.forEach(line => {
         const columns = line.split("\t");
         if (columns.length >= 4) {
-          // Identify targeted project scheme to auto-resolve matching corporate team boundaries
           const matchedProj = projects.find(p => p.name.toLowerCase() === (columns[3] || "").toLowerCase().trim());
-          const determinedBranch = matchedProj ? matchedProj.branch : "Madurai Desk";
-
+          const branchHome = matchedProj ? matchedProj.branch : "Madurai Desk";
           newlyIngestedLeads.push({
             id: Date.now() + Math.floor(Math.random() * 10000),
-            name: columns[0] || "Imported Client Profile",
+            name: columns[0] || "Spreadsheet Lead",
             phone: columns[1] || "00000",
             email: columns[2] || "imported@desam.in",
             project: columns[3] || "Vishal Virinchi Apartments",
-            location: columns[4] || "Madurai",
+            location: columns[4] || "Inbound",
             budget: parseInt(columns[5]) || 65,
             source: columns[6] || "Website",
             assignedTo: "Unassigned",
             status: "New",
-            branch: determinedBranch, 
+            branch: branchHome, 
             dateCreated: TODAY_STR,
             lastFollowUp: "None",
             nextFollowUp: TODAY_STR,
-            history: [{ date: TODAY_STR, by: currentUser.name, action: "Imported from spreadsheet stream ledger." }]
+            history: [{ date: TODAY_STR, by: currentUser.name, action: "Ingested via sheet copy-paste terminal." }]
           });
         }
       });
-
       if (newlyIngestedLeads.length > 0) {
         setLeads([...newlyIngestedLeads, ...leads]);
-        triggerToastAlert(`Spreadsheet parsed. Ingested ${newlyIngestedLeads.length} leads into team managers queues.`);
+        triggerToastAlert(`Successfully imported ${newlyIngestedLeads.length} leads.`);
         setImportText("");
         setShowImportWizard(false);
-      } else {
-        alert("Parser mismatch. Ensure columns are separated using Tab spaces.");
       }
     } catch (err) {
-      alert(`Sheet parsing error encountered: ${err.message}`);
+      alert(`Parsing Exception: ${err.message}`);
     }
   };
 
-  // ─── DATA MATRIX EXPORT DOWNSTREAMS CONTROLLERS ────────────────────────────
   const exportDataPipeline = (formatType) => {
-    if (processedLeads.length === 0) {
-      alert("No data available in filtered view to execute export stream.");
-      return;
-    }
-    const headers = ["Client Name", "Phone", "Email", "Project Scheme", "Source", "Agent", "Milestone", "Budget (Lakhs)"];
+    if (processedLeads.length === 0) return;
+    const headers = ["Client Name", "Phone", "Email", "Project", "Source", "Agent", "Milestone", "Budget"];
     const rows = processedLeads.map(l => [l.name, l.phone, l.email, l.project, l.source, l.assignedTo, l.status, `Rs.${l.budget}L`]);
-
     if (formatType === "csv" || formatType === "excel") {
       const delim = formatType === "csv" ? "," : "\t";
       const contentStr = [headers.join(delim), ...rows.map(r => r.join(delim))].join("\n");
       const blob = new Blob([contentStr], { type: "text/plain;charset=utf-8;" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.setAttribute("download", `Desam_Developers_Export_${TODAY_STR}.${formatType === "csv" ? "csv" : "xls"}`);
+      link.setAttribute("download", `Desam_Export_${TODAY_STR}.${formatType === "csv" ? "csv" : "xls"}`);
       document.body.appendChild(link); link.click(); document.body.removeChild(link);
     } else if (formatType === "pdf") {
-      let docWindow = window.open("", "_blank");
-      docWindow.document.write(`
-        <html>
-          <head><title>Desam Developers - Pipeline Master Export Matrix</title><style>body { font-family: sans-serif; padding: 24px; color: #1e293b; } h1 { color: #ea580c; font-size: 20px; } table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 12px; } th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; } th { background: #f1f5f9; }</style></head>
-          <body><h1>DESAM DEVELOPERS PVT LTD</h1><p>Pipeline Master Matrix Report — Generated on ${TODAY_STR}</p><table><thead><tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(td => `<td>${td}</td>`).join("")}</tr>`).join("")}</tbody></table><script>window.print();</script></body>
-        </html>
-      `);
-      docWindow.document.close();
+      let w = window.open("", "_blank");
+      w.document.write(`<html><head><style>body{font-family:sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ddd;padding:8px;font-size:11px;}</style></head><body><h2>Desam Developers Export Matrix</h2><table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(d=>`<td>${d}</td>`).join("")}</tr>`).join("")}</tbody></table><script>window.print();</script></body></html>`);
+      w.document.close();
     }
   };
 
   const commitManualFollowUpReport = (e) => {
     e.preventDefault();
-    if (!followUpNotes.trim() || !nextFollowUpDate) {
-      alert("Interaction Notes and Next Follow-up dates are mandatory configuration parameters.");
-      return;
-    }
-
-    const updatedLeads = leads.map(l => {
+    if (!followUpNotes.trim() || !nextFollowUpDate) return;
+    const updated = leads.map(l => {
       if (l.id === selectedLead.id) {
-        const updated = {
-          ...l,
-          lastFollowUp: TODAY_STR,
-          nextFollowUp: nextFollowUpDate,
-          history: [
-            ...l.history,
-            { date: TODAY_STR, by: currentUser.name, action: `LOGGED REACTION SUMMARY: ${followUpNotes.trim()} (Next check-in slated for: ${nextFollowUpDate})` }
-          ]
+        const obj = {
+          ...l, lastFollowUp: TODAY_STR, nextFollowUp: nextFollowUpDate,
+          history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `LOG: ${followUpNotes.trim()} (Next: ${nextFollowUpDate})` }]
         };
-        setSelectedLead(updated);
-        return updated;
+        setSelectedLead(obj);
+        return obj;
       }
       return l;
     });
+    setLeads(updated); setFollowUpNotes(""); setNextFollowUpDate("");
+    triggerToastAlert("Follow-up successfully written.");
+  };
 
-    setLeads(updatedLeads);
-    setFollowUpNotes("");
-    setNextFollowUpDate("");
-    triggerToastAlert("Followup log successfully written.");
+  const handleAddSource = (e) => {
+    e.preventDefault();
+    if (newSourceInput.trim() && !sources.includes(newSourceInput.trim())) {
+      setSources([...sources, newSourceInput.trim()]);
+      setNewSourceInput("");
+    }
+  };
+
+  const handleAddStatus = (e) => {
+    e.preventDefault();
+    if (newStatusInput.trim() && !statuses.includes(newStatusInput.trim())) {
+      setStatuses([...statuses, newStatusInput.trim()]);
+      setNewStatusInput("");
+    }
+  };
+
+  const handleCreateLead = (e) => {
+    e.preventDefault();
+    const created = {
+      ...newLeadForm, id: Date.now(), branch: currentUser.role === "Admin" ? "Madurai Desk" : currentUser.branch,
+      dateCreated: TODAY_STR, lastFollowUp: "None", nextFollowUp: TODAY_STR,
+      bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false,
+      history: [{ date: TODAY_STR, by: currentUser.name, action: "Lead Ingested." }]
+    };
+    setLeads([created, ...leads]); setIsLeadModalOpen(false);
+  };
+
+  const handleCreateUser = (e) => {
+    e.preventDefault();
+    const created = { ...newUserForm, id: Date.now(), avatar: newUserForm.name[0], active: true };
+    setUsers([...users, created]); setIsUserModalOpen(false);
+  };
+
+  const handleUpdateUser = (e) => {
+    e.preventDefault();
+    setUsers(users.map(u => u.id === editingUser.id ? editingUser : u)); setEditingUser(null);
+  };
+
+  const handleDeleteUser = (id) => {
+    if (id === currentUser.id) return;
+    if (window.confirm("Delete account seat?")) setUsers(users.filter(u => u.id !== id));
+  };
+
+  const handleCreateProject = (e) => {
+    e.preventDefault();
+    const created = { ...newProjectForm, id: Date.now(), branch: "Madurai Desk", sold: 0, status: "Active" };
+    setProjects([...projects, created]); setIsProjectModalOpen(false);
+  };
+
+  const assignLeadOwner = (leadId, ownerName) => {
+    setLeads(leads.map(l => l.id === leadId ? { ...l, assignedTo: ownerName, status: "Assigned" } : l));
   };
 
   const commitSiteWalkthroughLog = () => {
-    if (!svDate || !svFeedback.trim()) {
-      alert("All parameters are mandatory.");
-      return;
-    }
-    setLeads(leads.map(l => l.id === selectedLead.id ? {
-      ...l, status: "Site Visit Completed", lastFollowUp: svDate,
-      history: [...l.history, { date: svDate, by: currentUser.name, action: `Site visit logged. Family: ${svFamily || "Self"}. Feedback: ${svFeedback}` }]
-    } : l));
-    setSelectedLead(null); setSvFeedback(""); setSvDate(""); setSvFamily("");
-    triggerToastAlert("Site visit recorded.");
+    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Site Visit Completed", history: [...l.history, { date: svDate, by: currentUser.name, action: `Visit Done. Notes: ${svFeedback}` }] } : l));
+    setSelectedLead(null);
   };
 
   const commitFinancialBookingLog = () => {
-    if (!bkUnit || !bkAmount || !bkDate) {
-      alert("All fields are mandatory.");
-      return;
-    }
-    setLeads(leads.map(l => l.id === selectedLead.id ? {
-      ...l, status: "Booking Confirmed", bookingUnit: bkUnit, bookingAmount: parseFloat(bkAmount), bookingMode: bkMode, bookingDate: bkDate, regPending: true,
-      history: [...l.history, { date: bkDate, by: currentUser.name, action: `Unit ${bkUnit} secured with advance token of ₹${bkAmount}` }]
-    } : l));
-    setProjects(projects.map(p => p.name === selectedLead.project ? { ...p, sold: p.sold + 1 } : p));
-    setSelectedLead(null); setBkUnit(""); setBkAmount(""); setBkDate("");
-    triggerToastAlert("Financial booking confirmed successfully.");
+    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Booking Confirmed", bookingUnit: bkUnit } : l));
+    setSelectedLead(null);
   };
+
+  // ─── 5. SECURITY CHECK SWITCH GATE RENDER ─────────────────────────────────
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
+        <div className="sm:mx-auto w-full max-w-md text-center space-y-3">
+          <div className="h-12 w-12 bg-gradient-to-tr from-orange-600 to-orange-500 flex items-center justify-center rounded-2xl text-base font-black text-white shadow-xl mx-auto">DD</div>
+          <h2 className="text-2xl font-black text-white tracking-wide uppercase">DESAM DEVELOPERS PVT LTD</h2>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Client Management Portal</p>
+        </div>
+        <div className="mt-6 sm:mx-auto w-full max-w-md px-4">
+          <div className="bg-slate-950 py-8 px-6 border border-slate-800 rounded-2xl shadow-2xl space-y-6">
+            <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
+              <div className="space-y-1.5">
+                <label className="text-slate-400 font-bold uppercase tracking-wide">Corporate Clearance Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                  <input type="email" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="manager@iconic.in" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-slate-400 font-bold uppercase tracking-wide">Passcode Clearance Key</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                  <input type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="••••••••" />
+                </div>
+              </div>
+              {loginError && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded border border-rose-500/20">{loginError}</p>}
+              <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg">Authorize Access Token</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-slate-900 text-slate-100 font-sans antialiased overflow-hidden">
       
-      {/* SIDEBAR LOGOS BRANDING PANELS */}
+      {/* SIDEBAR NAVIGATION RAIL */}
       <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between">
         <div>
           <div className="h-16 flex items-center px-4 border-b border-slate-800 gap-2">
@@ -429,11 +464,10 @@ export default function App() {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         
-        {/* INTERFACE TOP HEADER */}
         <header className="h-16 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-8 z-10">
           <div className="relative w-96">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-            <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Search records by name, project context, phone channels..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />
+            <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live pipeline filtering search context..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />
           </div>
           
           <div className="text-xs text-slate-300 font-bold bg-slate-900 px-4 py-2 border border-slate-800 rounded-xl shadow-inner">
@@ -444,13 +478,13 @@ export default function App() {
 
         <main className="flex-1 overflow-y-auto p-8">
           
-          {/* VIEWPORT 1: VISUAL DASHBOARD GRAPH ANALYTICS */}
+          {/* VIEWPORT 1: DASHBOARD AND CHARTS SUMMARY */}
           {activeTab === "dashboard" && (
             <div className="space-y-8 animate-fadeIn">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-950 p-6 border border-slate-800 rounded-2xl">
                 <div>
-                  <h1 className="text-2xl font-black text-white tracking-tight">Ecosystem Metrics Summary</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Real-time analytical graphs mapping team conversions across core project lines.</p>
+                  <h1 className="text-2xl font-black text-white tracking-tight">Ecosystem Metrics Overview</h1>
+                  <p className="text-xs text-slate-400 mt-0.5">Real-time analytical graphs mapping team conversion tracks across core property projects.</p>
                 </div>
                 
                 {dailyFollowUpLeads.length > 0 && (
@@ -464,7 +498,6 @@ export default function App() {
                 )}
               </div>
 
-              {/* URGENT LEADS TRACKING QUEUE PANEL */}
               {dailyFollowUpLeads.length > 0 && (
                 <div className="bg-slate-950 border border-amber-500/20 rounded-2xl p-6 space-y-4">
                   <h2 className="text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-2"><Bell className="h-4 w-4" /> MANDATORY TRACKING TASKS QUEUE</h2>
@@ -487,7 +520,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* KPI CARD SCORE TILES GRID */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Total Pipeline Count <Briefcase className="h-4 w-4 text-orange-400" /></p>
@@ -507,7 +539,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* GRAPHS MODULE CONTAINERS */}
+              {/* GRAPHS PLATFORMS PLOTS */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6">
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><BarChart3 className="h-4 w-4 text-orange-500" /> Milestone Weight (Bar Chart)</h3>
@@ -519,7 +551,7 @@ export default function App() {
                         <div key={st} className="space-y-1">
                           <div className="flex justify-between text-[11px] font-bold text-slate-400"><span>{st}</span><span className="font-mono">{shareCount} accounts</span></div>
                           <div className="w-full bg-slate-900 h-6 border border-slate-850 rounded-lg overflow-hidden relative flex items-center">
-                            <div className="bg-gradient-to-r from-orange-600 to-orange-500 h-full" style={{ width: `${pct || 3}%` }}></div>
+                            <div className="bg-gradient-to-r from-orange-600 to-orange-500 h-full animate-none" style={{ width: `${pct || 3}%` }}></div>
                             <span className="absolute left-2 text-[10px] font-mono font-black text-white">{Math.round(pct)}%</span>
                           </div>
                         </div>
@@ -567,16 +599,16 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 2: LEAD CHANNELS PIPELINE ENGINE WITH ENHANCED TEAM OWNER DELEGATOR SELECTION GATES */}
+          {/* VIEWPORT 2: LEAD TRACKING ROWS MATRIX VIEW */}
           {activeTab === "leads" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex justify-between items-center">
                 <div>
                   <h1 className="text-2xl font-black text-white tracking-tight">Active Team Lead Channels</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Managers assign inbound project requests to their active executive field rosters below.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Managers assign project inquiries directly to their specialized field executive agents here.</p>
                 </div>
                 <button onClick={() => setIsLeadModalOpen(true)} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors shadow-md">
-                  <Plus className="h-4 w-4" /> INGEST RECORD
+                  <Plus className="h-4 w-4" /> INGEST FORM RECORD
                 </button>
               </div>
 
@@ -589,7 +621,7 @@ export default function App() {
                         <th className="p-4">Project Context Scope</th>
                         <th className="p-4">Source</th>
                         <th className="p-4">Team Executive Assignment Gate</th>
-                        <th className="p-4">Pipeline Milestone Status</th>
+                        <th className="p-4">Pipeline Phase Milestone</th>
                         <th className="p-4 text-right">Target Budget</th>
                       </tr>
                     </thead>
@@ -602,7 +634,7 @@ export default function App() {
                         processedLeads.map(l => (
                           <tr key={l.id} className="hover:bg-slate-900/30 transition-all">
                             <td className="p-4">
-                              <p className="font-bold text-white text-sm cursor-pointer hover:text-orange-400 transition-all" onClick={() => setSelectedLead(l)}>{l.name}</p>
+                              <p className="font-bold text-white text-sm cursor-pointer hover:text-orange-400 transition-colors" onClick={() => setSelectedLead(l)}>{l.name}</p>
                               <p className="text-[11px] text-slate-500 font-mono mt-0.5">{l.phone} • {l.location}</p>
                             </td>
                             <td className="p-4">
@@ -613,24 +645,21 @@ export default function App() {
                               <span className="bg-slate-900 border border-slate-850 text-slate-400 px-2 py-0.5 rounded text-[10px] font-bold font-mono">{l.source}</span>
                             </td>
                             
-                            {/* ENHANCED: MANAGER DELEGATION ENTRY SELECTION CONTROLS */}
                             <td className="p-4">
                               {["Admin", "Manager"].includes(currentUser.role) ? (
-                                <div className="flex items-center gap-1">
-                                  <select value={l.assignedTo} onChange={(e) => requestOwnerAssignmentPopup(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 text-slate-200 rounded px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:border-orange-500 cursor-pointer">
-                                    <option value="Unassigned">⚠️ Select Executive to Route</option>
-                                    {visibleUsers.filter(u => ["Executive", "Telecaller"].includes(u.role)).map(u => (
-                                      <option key={u.id} value={u.name}>{u.name} ({u.role})</option>
-                                    ))}
-                                  </select>
-                                </div>
+                                <select value={l.assignedTo} onChange={(e) => requestOwnerAssignmentPopup(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 text-slate-200 rounded px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:border-orange-500 cursor-pointer">
+                                  <option value="Unassigned">⚠️ Select Executive to Route</option>
+                                  {visibleUsers.filter(u => ["Executive", "Telecaller"].includes(u.role)).map(u => (
+                                    <option key={u.id} value={u.name}>{u.name} ({u.role})</option>
+                                  ))}
+                                </select>
                               ) : (
                                 <span className="font-semibold text-slate-400 flex items-center gap-1"><Shield className="h-3.5 w-3.5 text-slate-600" /> {l.assignedTo}</span>
                               )}
                             </td>
 
                             <td className="p-4">
-                              <select value={l.status} onChange={(e) => requestStatusTransitionPopup(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 rounded px-2 py-1 font-bold text-xs focus:outline-none cursor-pointer" style={{ color: SC[l.status]?.text || "#FFF" }}>
+                              <select value={l.status} onChange={(e) => requestStatusTransitionPopup(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 rounded px-2 py-1 font-bold text-xs text-slate-300 focus:outline-none cursor-pointer" style={{ color: SC[l.status]?.text || "#FFF" }}>
                                 {statuses.map(st => <option key={st} value={st}>{st}</option>)}
                               </select>
                             </td>
@@ -645,13 +674,13 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 3: PROJECTS MASTER ASSETS INDICES */}
+          {/* VIEWPORT 3: PROJECTS MASTER INVENTORIES */}
           {activeTab === "projects" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex justify-between items-center">
                 <div>
-                  <h1 className="text-2xl font-black text-white tracking-tight">Corporate Asset Master Matrix</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Track real estate unit capacities assigned under specific branch team headers.</p>
+                  <h1 className="text-2xl font-black text-white tracking-tight">Asset Portfolio Master Matrix</h1>
+                  <p className="text-xs text-slate-400 mt-0.5">Track property inventory capacity volumes mapped across regional team scopes.</p>
                 </div>
                 {currentUser.role === "Admin" && (
                   <button onClick={() => setIsProjectModalOpen(true)} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors">
@@ -680,7 +709,7 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 4: ADMIN CONSOLE EXCLUSIVE SYSTEM HUB */}
+          {/* VIEWPORT 4: ADMIN CONTROLS HUB DATA IMPORTERS */}
           {activeTab === "users" && currentUser.role === "Admin" && (
             <div className="space-y-8 animate-fadeIn">
               
@@ -705,14 +734,14 @@ export default function App() {
                 )}
 
                 <form onSubmit={handleDataImportSubmit} className="space-y-3">
-                  <textarea rows={3} value={importText} onChange={(e)=>setImportText(e.target.value)} placeholder="Paste Excel rows directly in here..." className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-orange-500 font-mono" />
+                  <textarea rows={3} value={importText} onChange={(e)=>setImportText(e.target.value)} placeholder="Paste Excel/CSV table content grid in here..." className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-orange-500 font-mono" />
                   <button type="submit" className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md">
                     <Upload className="h-4 w-4" /> Deploy Spreadsheet Block Ingestion
                   </button>
                 </form>
               </div>
 
-              {/* ENUM ATTRIBUTES EXPANSIONS */}
+              {/* CORE METADATA MODIFIERS ARRAYS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-slate-950 border border-slate-800 p-6 rounded-2xl space-y-4">
                   <h3 className="text-xs font-black uppercase text-orange-400 tracking-wider">Inject New Lead Source</h3>
@@ -728,7 +757,7 @@ export default function App() {
                 <div className="bg-slate-950 border border-slate-800 p-6 rounded-2xl space-y-4">
                   <h3 className="text-xs font-black uppercase text-orange-400 tracking-wider">Inject New Milestone Status</h3>
                   <form onSubmit={handleAddStatus} className="flex gap-2">
-                    <input type="text" value={newStatusInput} onChange={(e)=>setNewStatusInput(e.target.value)} placeholder="e.g. Legal Verified, Cleared..." className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none" />
+                    <input type="text" value={newStatusInput} onChange={(e)=>setNewStatusInput(e.target.value)} placeholder="e.g. Token Transferred..." className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none" />
                     <button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-1.5 rounded-xl text-xs uppercase tracking-wider transition-colors">Inject</button>
                   </form>
                   <div className="flex flex-wrap gap-1.5 pt-2">
@@ -736,16 +765,63 @@ export default function App() {
                   </div>
                 </div>
               </div>
+
+              {/* ACTIVE SYSTEM PRIVILEGE REGISTER TIERS */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest">Active System Seats Register</h3>
+                  <button onClick={() => setIsUserModalOpen(true)} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors">
+                    <UserPlus className="h-4 w-4" /> CREATE USER
+                  </button>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="bg-slate-900 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
+                        <th className="p-4">Personnel Identity Name</th>
+                        <th className="p-4">Clearance Role</th>
+                        <th className="p-4">Regional Scope Office</th>
+                        <th className="p-4">Account Password</th>
+                        <th className="p-4 text-center">Administrative Controls</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-900 text-slate-300">
+                      {users.map(u => (
+                        <tr key={u.id} className="hover:bg-slate-900/30 transition-all">
+                          <td className="p-4">
+                            <div className="flex items-center gap-2.5">
+                              <div className="h-7 w-7 rounded-lg bg-slate-800 text-white flex items-center justify-center font-black text-xs">{u.avatar}</div>
+                              <div>
+                                <p className="font-bold text-white text-sm">{u.name}</p>
+                                <p className="text-[10px] text-slate-500 font-mono mt-0.5">{u.email} • {u.phone}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-4 font-black text-orange-400 flex items-center gap-1.5 py-6 uppercase tracking-wider"><Shield className="h-3.5 w-3.5 text-orange-500" /> {u.role}</td>
+                          <td className="p-4 text-slate-400 font-bold">{u.branch}</td>
+                          <td className="p-4 font-mono font-bold text-amber-400 bg-amber-500/5 px-2.5 py-1 rounded border border-amber-500/10 w-fit">{u.pass}</td>
+                          <td className="p-4 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <button onClick={() => setEditingUser(u)} className="p-2 bg-slate-900 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-orange-400 transition-colors"><Edit2 className="h-3.5 w-3.5" /></button>
+                              <button onClick={() => handleDeleteUser(u.id)} className="p-2 bg-slate-900 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-rose-400 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* VIEWPORT 5: MATRIX PERFORMANCE FILTERING REPORTS WITH INTEGRATED FORMAT DOWNFLOWS */}
+          {/* VIEWPORT 5: MATRIX REPORTS EXPANSIONS AND CALENDARS CLEARERS */}
           {activeTab === "reports" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                   <h1 className="text-2xl font-black text-white tracking-tight">Performance Matrix Engine</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Isolate historical metrics and execute clean downstream system data exports instantly.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Isolate records, clear chronology bounds, and export downstream files instantly.</p>
                 </div>
                 
                 <div className="flex items-center gap-2 bg-slate-950 p-2 border border-slate-800 rounded-xl shadow-lg">
@@ -756,7 +832,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* CONTEXT CONTROLLERS FILTER DOCK */}
               <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl space-y-4 text-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
                   <div className="space-y-1">
@@ -807,7 +882,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* OUTPUT MATRIX GRID WRAPPER */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
                 <div className="overflow-x-auto text-xs">
                   <table className="w-full text-left">
@@ -845,7 +919,7 @@ export default function App() {
         </main>
       </div>
 
-      {/* ─── NEW HIGH-FIDELITY CUSTOM POP-UP CONFIRMATION TOAST OVERLAY (REPLACES DEFAULT SYSTEM DIALOGS) ─── */}
+      {/* ─── 6. DYNAMIC STATE DIALOGS AND TOAST POPUPS OVERLAYS ────────────────── */}
       {customPopup.isOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 w-full max-w-md rounded-2xl p-6 space-y-4 shadow-2xl text-center">
@@ -864,7 +938,6 @@ export default function App() {
         </div>
       )}
 
-      {/* DYNAMIC TIMEOUT INTERACTION SUCCESS TOAST NOTIFIER */}
       {toastNotification.isVisible && (
         <div className="fixed bottom-6 right-6 bg-slate-950 border border-emerald-500/40 text-emerald-400 font-bold px-4 py-3 rounded-xl shadow-2xl z-[110] flex items-center gap-2 text-xs animate-fadeIn uppercase tracking-wide">
           <div className="h-5 w-5 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center"><Check className="h-3 w-3" /></div>
@@ -872,13 +945,13 @@ export default function App() {
         </div>
       )}
 
-      {/* DETAILED COMPREHENSIVE DOSSIER CLIENT DRAWER SHEET */}
+      {/* DETAILED CLIENT DOSSIER DRILLDOWN SHEET */}
       {selectedLead && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-end" onClick={() => setSelectedLead(null)}>
           <div className="bg-slate-950 w-[540px] border-l border-slate-800 h-full flex flex-col p-6 overflow-y-auto space-y-6" onClick={(e) => e.stopPropagation()}>
             <div className="border-b border-slate-900 pb-4 flex justify-between items-start">
               <div>
-                <span className="text-[10px] bg-orange-600 font-mono font-black px-2 py-0.5 rounded text-white tracking-wider">ACCOUNT MASTER DOSSIER #{selectedLead.id}</span>
+                <span className="text-[10px] bg-orange-600 font-mono font-black px-2 py-0.5 rounded text-white tracking-wider">COMPREHENSIVE ACCOUNT MASTER DOSSIER #{selectedLead.id}</span>
                 <h2 className="text-xl font-black text-white mt-1.5 cursor-default">{selectedLead.name}</h2>
                 <p className="text-xs text-slate-500 font-mono mt-0.5">{selectedLead.phone} • {selectedLead.email || 'No email parameters'}</p>
               </div>
@@ -901,7 +974,7 @@ export default function App() {
               <p className="text-[11px] font-black uppercase text-orange-400 tracking-wider flex items-center gap-2"><PhoneCall className="h-4 w-4" /> Log Interaction Follow-up</p>
               <div className="space-y-1">
                 <label className="text-slate-400 font-bold text-[10px]">Detailed Summary Notes *</label>
-                <textarea rows={2} required value={followUpNotes} onChange={(e)=>setFollowUpNotes(e.target.value)} placeholder="Enter details regarding phone call/meeting timeline response parameters completely..." className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 mt-0.5 focus:outline-none" />
+                <textarea rows={2} required value={followUpNotes} onChange={(e)=>setFollowUpNotes(e.target.value)} placeholder="Enter full conversation notes completely..." className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 mt-0.5 focus:outline-none" />
               </div>
               <div className="space-y-1">
                 <label className="text-slate-400 font-bold text-[10px]">Coordinated Next Follow-up Date *</label>
@@ -914,7 +987,7 @@ export default function App() {
               <p className="text-[11px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-amber-500" /> Site Tour Verification Log</p>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1"><label className="text-slate-500 font-bold text-[10px]">Walkthrough Date</label><input type="date" value={svDate} onChange={(e)=>setSvDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 mt-0.5 text-slate-300 focus:outline-none font-mono" /></div>
-                <div className="space-y-1"><label className="text-slate-500 font-bold text-[10px]">Co-Buyers Family Attended</label><input type="text" value={svFamily} onChange={(e)=>setSvFamily(e.target.value)} placeholder=" Spouse" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 mt-0.5 text-slate-300 focus:outline-none" /></div>
+                <div className="space-y-1"><label className="text-slate-500 font-bold text-[10px]">Co-Buyers Family</label><input type="text" placeholder=" Spouse" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 mt-0.5 text-slate-300 focus:outline-none" /></div>
               </div>
               <div className="space-y-1">
                 <label className="text-slate-500 font-bold text-[10px]">Client Response Evaluation Logs *</label>
@@ -923,8 +996,26 @@ export default function App() {
               <button type="button" onClick={commitSiteWalkthroughLog} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 rounded-xl text-xs transition-colors">Commit Site Visit Verification</button>
             </div>
 
+            <div className="bg-slate-900/40 p-4 border border-slate-850 rounded-2xl space-y-4 text-xs">
+              <p className="text-[11px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Financial Token Booking Ingestion</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1"><label className="text-slate-500 font-bold text-[10px]">Unit Designation Code *</label><input type="text" value={bkUnit} onChange={(e)=>setBkUnit(e.target.value)} placeholder="e.g. Flat 2C" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 mt-0.5 text-slate-300 focus:outline-none" /></div>
+                <div className="space-y-1"><label className="text-slate-500 font-bold text-[10px]">Token Amount Processed (₹) *</label><input type="number" value={bkAmount} onChange={(e)=>setBkAmount(e.target.value)} placeholder="INR Value" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 mt-0.5 text-emerald-400 font-bold focus:outline-none" /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-semibold">Payment Method</label>
+                  <select value={bkMode} onChange={(e)=>setBkMode(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 mt-0.5 text-slate-300 focus:outline-none">
+                    <option value="Cheque">Bank Cheque</option><option value="NEFT/RTGS">NEFT / RTGS Wire</option>
+                  </select>
+                </div>
+                <div className="space-y-1"><label className="text-slate-500 font-bold text-[10px]">Settlement Booking Date</label><input type="date" value={bkDate} onChange={(e)=>setBkDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 mt-0.5 text-slate-300 focus:outline-none font-mono" /></div>
+              </div>
+              <button type="button" onClick={commitFinancialBookingLog} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-1.5 rounded-xl text-xs uppercase tracking-wider transition-colors">Secure Unit Allocation</button>
+            </div>
+
             <div className="space-y-3 pt-2 text-xs">
-              <p className="text-[10px] font-black text-slate-400 tracking-wider uppercase border-b border-slate-900 pb-1">Historical Activity Trails</p>
+              <p className="text-[10px] font-black text-slate-400 tracking-wider uppercase border-b border-slate-900 pb-1">Historical Account Event Activity Trails</p>
               <div className="border-l border-orange-500 pl-4 space-y-4 ml-1 pt-1">
                 {selectedLead.history.map((h, i) => (
                   <div key={i} className="relative">
@@ -940,7 +1031,6 @@ export default function App() {
         </div>
       )}
 
-      {/* DIALOG NEW LEAD CAPTURE POPUPS */}
       {isLeadModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
@@ -951,11 +1041,11 @@ export default function App() {
             <form onSubmit={handleCreateLead} className="space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-slate-400 font-semibold">Client Name *</label>
+                  <label className="text-slate-400 font-semibold">Client Target Name *</label>
                   <input type="text" required value={newLeadForm.name} onChange={(e)=>setNewLeadForm({...newLeadForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-slate-400 font-semibold">Channel Source</label>
+                  <label className="text-slate-400 font-semibold">Attribution Channel Source</label>
                   <select value={newLeadForm.source} onChange={(e)=>setNewLeadForm({...newLeadForm, source: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-300 focus:outline-none">
                     {sources.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
@@ -988,6 +1078,100 @@ export default function App() {
                 </div>
               </div>
               <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-3 rounded-xl uppercase tracking-wider shadow-lg transition-all">Commit Lead Block Data</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isUserModalOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-slate-900 pb-3">
+              <h2 className="text-base font-black text-white tracking-wide">Provision Identity Access Pass Node</h2>
+              <button onClick={() => setIsUserModalOpen(false)} className="text-slate-500 hover:text-white">✕</button>
+            </div>
+            <form onSubmit={handleCreateUser} className="space-y-3 text-xs">
+              <div><label className="text-slate-400 font-semibold">Personnel Full Name *</label><input type="text" required value={newUserForm.name} onChange={(e)=>setNewUserForm({...newUserForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-slate-400 font-semibold">Clearance Privilege Tier</label>
+                  <select value={newUserForm.role} onChange={(e)=>setNewUserForm({...newUserForm, role: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-300 mt-0.5 focus:outline-none">
+                    {INITIAL_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-slate-400 font-semibold">Office Branch Scope</label>
+                  <select value={newUserForm.branch} onChange={(e)=>setNewUserForm({...newUserForm, branch: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-300 mt-0.5 focus:outline-none">
+                    {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div><label className="text-slate-400 font-semibold">Authentication Email *</label><input type="email" required value={newUserForm.email} onChange={(e)=>setNewUserForm({...newUserForm, email: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className="text-slate-400 font-semibold">Mobile Phone</label><input type="text" required value={newUserForm.phone} onChange={(e)=>setNewUserForm({...newUserForm, phone: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
+                <div><label className="text-slate-400 font-semibold">Passcode Access Key *</label><input type="text" required value={newUserForm.pass} onChange={(e)=>setNewUserForm({...newUserForm, pass: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-amber-400 font-mono font-bold mt-0.5 focus:outline-none" /></div>
+              </div>
+              <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 rounded-xl uppercase tracking-wider mt-2 transition-colors">Deploy User Credentials Pass</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editingUser && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-slate-900 pb-3">
+              <h2 className="text-base font-black text-white tracking-wide">Modify Account Clearance Parameters</h2>
+              <button onClick={() => setEditingUser(null)} className="text-slate-500 hover:text-white">✕</button>
+            </div>
+            <form onSubmit={handleUpdateUser} className="space-y-3 text-xs">
+              <div><label className="text-slate-400 font-semibold">Personnel Full Name *</label><input type="text" required value={editingUser.name} onChange={(e)=>setEditingUser({...editingUser, name: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-slate-400 font-semibold">Clearance Privilege Tier</label>
+                  <select value={editingUser.role} onChange={(e)=>setEditingUser({...editingUser, role: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-300 mt-0.5 focus:outline-none">
+                    {INITIAL_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-slate-400 font-semibold">Office Branch Scope</label>
+                  <select value={editingUser.branch} onChange={(e)=>setEditingUser({...editingUser, branch: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-300 mt-0.5 focus:outline-none">
+                    {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div><label className="text-slate-400 font-semibold">Authentication Email *</label><input type="email" required value={editingUser.email} onChange={(e)=>setEditingUser({...editingUser, email: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className="text-slate-400 font-semibold">Mobile Phone</label><input type="text" required value={editingUser.phone} onChange={(e)=>setEditingUser({...editingUser, phone: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
+                <div><label className="text-slate-400 font-semibold">Passcode Access Key *</label><input type="text" required value={editingUser.pass} onChange={(e)=>setEditingUser({...editingUser, pass: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-amber-400 font-mono font-bold mt-0.5 focus:outline-none" /></div>
+              </div>
+              <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 rounded-xl uppercase tracking-wider text-[11px] mt-2 transition-colors">Save Clearance Changes</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isProjectModalOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-slate-900 pb-3">
+              <h2 className="text-base font-black text-white tracking-wide">Provision Project Base Scheme</h2>
+              <button onClick={() => setIsProjectModalOpen(false)} className="text-slate-500 hover:text-white">✕</button>
+            </div>
+            <form onSubmit={handleCreateProject} className="space-y-3 text-xs">
+              <div><label className="text-slate-400 font-semibold">Project Name *</label><input type="text" required value={newProjectForm.name} onChange={(e)=>setNewProjectForm({...newProjectForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
+              <div><label className="text-slate-400 font-semibold">Location Address</label><input type="text" required value={newProjectForm.location} onChange={(e)=>setNewProjectForm({...newProjectForm, location: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-slate-400 font-semibold">Build Type</label>
+                  <select value={newProjectForm.type} onChange={(e)=>setNewProjectForm({...newProjectForm, type: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-300 mt-0.5 focus:outline-none">
+                    {PROJECT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div><label className="text-slate-400 font-semibold">Avg Price Unit (Lakhs)</label><input type="number" required value={newProjectForm.price} onChange={(e)=>setNewProjectForm({...newProjectForm, price: parseInt(e.target.value)||0})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
+              </div>
+              <div><label className="text-slate-400 font-semibold">Total Unit Capacity</label><input type="number" required value={newProjectForm.units} onChange={(e)=>setNewProjectForm({...newProjectForm, units: parseInt(e.target.value)||0})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
+              <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 rounded-xl uppercase tracking-wider text-[11px] mt-2 transition-colors">Commit Project Base Scheme</button>
             </form>
           </div>
         </div>

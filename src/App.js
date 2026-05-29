@@ -241,6 +241,46 @@ export default function App() {
     setSelectedLead(null); setBkUnit(""); setBkAmount(""); setBkDate("");
   };
 
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
+        <div className="sm:mx-auto w-full max-w-md text-center space-y-2">
+          <Building2 className="h-12 w-12 text-indigo-500 mx-auto" />
+          <h2 className="text-3xl font-black text-white tracking-tight">ICONIC PROJECTS</h2>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Enterprise Workflow System</p>
+        </div>
+        <div className="mt-8 sm:mx-auto w-full max-w-md px-4">
+          <div className="bg-slate-950 py-8 px-6 border border-slate-800 rounded-2xl shadow-2xl space-y-6">
+            <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
+              <div className="space-y-1.5">
+                <label className="text-slate-400 font-bold uppercase tracking-wide">Corporate Authentication Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                  <input type="email" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="admin@iconic.in" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-slate-400 font-bold uppercase tracking-wide">Security Passcode Access Key</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                  <input type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="••••••••" />
+                </div>
+              </div>
+              {loginError && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded border border-rose-500/20">{loginError}</p>}
+              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-colors shadow-lg">Authorize Access Pipeline</button>
+            </form>
+            <div className="bg-slate-900 p-4 rounded-xl border border-slate-850 space-y-2 text-[11px] text-slate-400">
+              <p className="font-bold text-slate-300 uppercase tracking-wide border-b border-slate-800 pb-1">Testing Credentials Registry Grid:</p>
+              <p>• Admin: <span className="text-indigo-400 font-mono">admin@iconic.in</span> / admin123</p>
+              <p>• Manager: <span className="text-indigo-400 font-mono">manager@iconic.in</span> / manager123</p>
+              <p>• Executive Agent: <span className="text-indigo-400 font-mono">executive@iconic.in</span> / agent123</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-slate-900 text-slate-100 font-sans antialiased overflow-hidden">
       
@@ -273,7 +313,7 @@ export default function App() {
         </div>
 
         <div className="p-4 border-t border-slate-800 bg-slate-950/40">
-          <div className="flex items-center justify-between bg-slate-900 p-3 heart rounded-xl border border-slate-850">
+          <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-850">
             <div className="flex items-center gap-2 overflow-hidden">
               <div className="h-7 w-7 rounded-lg bg-indigo-600 font-black text-xs flex items-center justify-center text-white flex-shrink-0">{currentUser.avatar}</div>
               <div className="truncate w-24">
@@ -541,7 +581,7 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 5: MATRIX REPORTS */}
+          {/* VIEWPORT 5: DYNAMIC MATRIX REPORTS */}
           {activeTab === "reports" && (
             <div className="space-y-6 animate-fadeIn">
               <div>
@@ -620,13 +660,13 @@ export default function App() {
 
       {/* ─── MODALS AND DRAWER OVERLAYS ─── */}
       
-      {/* DRAWER 1: ACTION COMPLIANCE OVERLAY PANEL */}
+      {/* DRAWER 1: ACTION SEQUENCE COMPLIANCE */}
       {selectedLead && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-end" onClick={() => setSelectedLead(null)}>
           <div className="bg-slate-950 w-[520px] border-l border-slate-800 h-full flex flex-col p-6 overflow-y-auto space-y-6" onClick={(e) => e.stopPropagation()}>
             <div className="border-b border-slate-900 pb-4 flex justify-between items-start">
               <div>
-                <span className="text-[10px] bg-indigo-600 font-mono font-black px-2 py-0.5 rounded text-white tracking-wider">ACCOUNT PATH RECORD #{selectedLead.id}</span>
+                <span className="text-[10px] bg-indigo-600 font-mono font-black px-2 py-0.5 rounded text-white tracking-wider">ACCOUNT RECORD #{selectedLead.id}</span>
                 <h2 className="text-lg font-black text-white mt-1.5">{selectedLead.name}</h2>
                 <p className="text-xs text-slate-500 font-mono mt-0.5">{selectedLead.phone} • {selectedLead.email}</p>
               </div>
@@ -643,7 +683,7 @@ export default function App() {
                 <label className="text-slate-500 font-bold text-[10px]">Client Response Evaluation Logs *</label>
                 <textarea rows={2} value={svFeedback} onChange={(e)=>setSvFeedback(e.target.value)} placeholder="Notes for pipeline validation gates..." className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-300 mt-0.5 focus:outline-none" />
               </div>
-              <button type="button" onClick={commitSiteWalkthroughLog} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 rounded-xl text-xs transition-colors">Commit Walkthrough Verification File</button>
+              <button type="button" onClick={commitSiteWalkthroughLog} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 rounded-xl text-xs transition-colors">Commit Site Visit Verification</button>
             </div>
 
             <div className="bg-slate-900 p-4 border border-slate-850 rounded-2xl space-y-4 text-xs">
@@ -661,13 +701,13 @@ export default function App() {
                 </div>
                 <div className="space-y-1"><label className="text-slate-500 font-bold text-[10px]">Settlement Booking Date</label><input type="date" value={bkDate} onChange={(e)=>setBkDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 mt-0.5 text-slate-300 focus:outline-none" /></div>
               </div>
-              <button type="button" onClick={commitFinancialBookingLog} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2 rounded-xl text-xs uppercase tracking-wider transition-colors">Ingest Advance Token and Secure Unit Allocation</button>
+              <button type="button" onClick={commitFinancialBookingLog} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2 rounded-xl text-xs uppercase tracking-wider transition-colors">Ingest Token and Secure Unit Allocation</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* DIALOG 2: CAPTURE NEW LEADS OVERLAY */}
+      {/* DIALOG 2: NEW LEAD ENTRY FORM */}
       {isLeadModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
@@ -724,7 +764,7 @@ export default function App() {
         </div>
       )}
 
-      {/* DIALOG 3: CREATION NEW SEAT USER MODAL */}
+      {/* DIALOG 3: CREATE USER SEAT FORM */}
       {isUserModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
@@ -794,7 +834,7 @@ export default function App() {
         </div>
       )}
 
-      {/* DIALOG 5: PROVISION MASTER PROJECTS INVENTORY */}
+      {/* DIALOG 5: PROVISION PROJECTS MASTER INVENTORY */}
       {isProjectModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">

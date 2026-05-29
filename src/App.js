@@ -29,19 +29,20 @@ const INITIAL_USERS = [
   { id: 102, name: "Priya Nair", email: "manager@iconic.in", pass: "manager123", role: "Manager", branch: "Madurai Desk", phone: "98400 00002", active: true },
   { id: 103, name: "Rohan Das", email: "executive@iconic.in", pass: "agent123", role: "Executive", branch: "Madurai Desk", phone: "98400 00003", active: true },
   { id: 104, name: "Divya Menon", email: "caller@iconic.in", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "98400 00004", active: true },
+  { id: 105, name: "Suresh Chennai", email: "chennai@iconic.in", pass: "chennai123", role: "Executive", branch: "Chennai South", phone: "98400 00005", active: true },
 ];
 
 const INITIAL_PROJECTS = [
-  { id: 1, name: "Vishal Virinchi Apartments", location: "Madurai Bypass", type: "Apartment", price: 65, units: 10, sold: 2, status: "Active" },
-  { id: 2, name: "ICONIC Lakeview Oasis", location: "Velachery, Chennai", type: "Apartment", price: 85, units: 120, sold: 45, status: "Active" },
-  { id: 3, name: "ICONIC Greens Enclave", location: "Saravanampatti, CBE", type: "Villa", price: 140, units: 40, sold: 12, status: "Pre-launch" },
+  { id: 1, name: "Vishal Virinchi Apartments", location: "Madurai Bypass", branch: "Madurai Desk", type: "Apartment", price: 65, units: 10, sold: 2, status: "Active" },
+  { id: 2, name: "ICONIC Lakeview Oasis", location: "Velachery, Chennai", branch: "Chennai South", type: "Apartment", price: 85, units: 120, sold: 45, status: "Active" },
+  { id: 3, name: "ICONIC Greens Enclave", location: "Saravanampatti, CBE", branch: "Coimbatore", type: "Villa", price: 140, units: 40, sold: 12, status: "Pre-launch" },
 ];
 
 const INITIAL_LEADS = [
-  { id: 1001, name: "Suresh Kumar", phone: "98400 11234", altPhone: "98400 11235", email: "suresh@gmail.com", location: "Madurai", project: "Vishal Virinchi Apartments", budget: 85, source: "99acres", assignedTo: "Rohan Das", status: "Interested", notes: "Prefers higher floors.", dateCreated: "2026-05-10", lastFollowUp: "2026-05-25", nextFollowUp: "2026-05-30", history: [{ date: "2026-05-15", by: "Divya Menon", action: "Initial entry Ingestion completed." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
-  { id: 1002, name: "Lakshmi Rao", phone: "99400 22345", altPhone: "", email: "lakshmi@yahoo.com", location: "Chennai", project: "ICONIC Lakeview Oasis", budget: 72, source: "Meta Ads", assignedTo: "Rohan Das", status: "Site Visit Planned", notes: "Arranging transportation for family site walkthrough.", dateCreated: "2026-05-12", lastFollowUp: "2026-05-28", nextFollowUp: "2026-05-31", history: [{ date: "2026-05-28", by: "Rohan Das", action: "Site visit tour routing planned." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
-  { id: 1003, name: "Vijay Anand", phone: "97400 33456", altPhone: "", email: "vijay@outlook.com", location: "Coimbatore", project: "ICONIC Greens Enclave", budget: 140, source: "Google Ads", assignedTo: "Unassigned", status: "New", notes: "Looking for independent premium duplex villa row structure.", dateCreated: "2026-05-29", lastFollowUp: "None", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-29", by: "Auto Capture", action: "Landing page conversion captured." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
-  { id: 1004, name: "Meena Selvam", phone: "96400 44567", altPhone: "96400 44568", email: "meena@gmail.com", location: "Madurai", project: "Vishal Virinchi Apartments", budget: 65, source: "Walk-In", assignedTo: "Rohan Das", status: "Booking Confirmed", notes: "Token collected cleanly.", dateCreated: "2026-04-20", lastFollowUp: "2026-05-20", nextFollowUp: "None", history: [{ date: "2026-05-20", by: "Rohan Das", action: "Booking validated." }], bookingUnit: "A-402", bookingAmount: 500000, bookingMode: "Cheque", bookingDate: "2026-05-20", regPending: true, regCompleted: false },
+  { id: 1001, name: "Suresh Kumar", phone: "98400 11234", altPhone: "98400 11235", email: "suresh@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Vishal Virinchi Apartments", budget: 85, source: "99acres", assignedTo: "Rohan Das", status: "Interested", notes: "Prefers higher floors.", dateCreated: "2026-05-10", lastFollowUp: "2026-05-25", nextFollowUp: "2026-05-30", history: [{ date: "2026-05-15", by: "Divya Menon", action: "Initial entry Ingestion completed." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
+  { id: 1002, name: "Lakshmi Rao", phone: "99400 22345", altPhone: "", email: "lakshmi@yahoo.com", location: "Chennai", branch: "Chennai South", project: "ICONIC Lakeview Oasis", budget: 72, source: "Meta Ads", assignedTo: "Suresh Chennai", status: "Site Visit Planned", notes: "Arranging transportation for family site walkthrough.", dateCreated: "2026-05-12", lastFollowUp: "2026-05-28", nextFollowUp: "2026-05-31", history: [{ date: "2026-05-28", by: "Suresh Chennai", action: "Site visit tour routing planned." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
+  { id: 1003, name: "Vijay Anand", phone: "97400 33456", altPhone: "", email: "vijay@outlook.com", location: "Coimbatore", branch: "Coimbatore", project: "ICONIC Greens Enclave", budget: 140, source: "Google Ads", assignedTo: "Unassigned", status: "New", notes: "Looking for independent premium duplex villa row structure.", dateCreated: "2026-05-29", lastFollowUp: "None", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-29", by: "Auto Capture", action: "Landing page conversion captured." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
+  { id: 1004, name: "Meena Selvam", phone: "96400 44567", altPhone: "96400 44568", email: "meena@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Vishal Virinchi Apartments", budget: 65, source: "Walk-In", assignedTo: "Rohan Das", status: "Booking Confirmed", notes: "Token collected cleanly.", dateCreated: "2026-04-20", lastFollowUp: "2026-05-20", nextFollowUp: "None", history: [{ date: "2026-05-20", by: "Rohan Das", action: "Booking validated." }], bookingUnit: "A-402", bookingAmount: 500000, bookingMode: "Cheque", bookingDate: "2026-05-20", regPending: true, regCompleted: false },
 ];
 
 const SC = {
@@ -66,10 +67,15 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("dashboard"); 
   const [globalSearch, setGlobalSearch] = useState("");
 
+  // Filter Master Engine Values
   const [filterSource, setFilterSource] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
   const [filterProject, setFilterProject] = useState("All");
   const [filterExecutive, setFilterExecutive] = useState("All");
+  
+  // Date Range Filters Configuration Engine
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const [leads, setLeads] = useState(INITIAL_LEADS);
   const [users, setUsers] = useState(INITIAL_USERS);
@@ -115,17 +121,34 @@ export default function App() {
     setActiveTab("dashboard");
   };
 
+  // ─── ROLE ACCESS CONTROL DATA ISOLATION FILTERS ───────────────────────────
+  const visibleProjects = useMemo(() => {
+    if (!currentUser) return [];
+    if (currentUser.role === "Admin") return projects;
+    return projects.filter(p => p.branch === currentUser.branch);
+  }, [projects, currentUser]);
+
+  const visibleUsers = useMemo(() => {
+    if (!currentUser) return [];
+    if (currentUser.role === "Admin") return users;
+    return users.filter(u => u.branch === currentUser.branch);
+  }, [users, currentUser]);
+
   const processedLeads = useMemo(() => {
     if (!currentUser) return [];
     
     let result = leads;
 
-    if (currentUser.role === "Executive") {
+    // A: Isolate by Role & Branch Scope Domain Space
+    if (currentUser.role === "Manager") {
+      result = leads.filter(l => l.branch === currentUser.branch);
+    } else if (currentUser.role === "Executive") {
       result = leads.filter(l => l.assignedTo === currentUser.name);
     } else if (currentUser.role === "Telecaller") {
-      result = leads.filter(l => l.assignedTo === currentUser.name || l.status === "New");
+      result = leads.filter(l => l.assignedTo === currentUser.name || (l.status === "New" && l.branch === currentUser.branch));
     }
 
+    // B: Cross-Column Real-time Global Search Parsing
     if (globalSearch.trim()) {
       const term = globalSearch.toLowerCase();
       result = result.filter(l => 
@@ -136,24 +159,34 @@ export default function App() {
       );
     }
 
+    // C: Dropdown Analytical Dropdowns
     if (filterSource !== "All") result = result.filter(l => l.source === filterSource);
     if (filterStatus !== "All") result = result.filter(l => l.status === filterStatus);
     if (filterProject !== "All") result = result.filter(l => l.project === filterProject);
     if (filterExecutive !== "All") result = result.filter(l => l.assignedTo === filterExecutive);
 
+    // D: Chronological Date Range Filter Engine Ingestion (From Date / To Date)
+    if (startDate) {
+      result = result.filter(l => l.dateCreated >= startDate);
+    }
+    if (endDate) {
+      result = result.filter(l => l.dateCreated <= endDate);
+    }
+
     return result;
-  }, [leads, currentUser, globalSearch, filterSource, filterStatus, filterProject, filterExecutive]);
+  }, [leads, currentUser, globalSearch, filterSource, filterStatus, filterProject, filterExecutive, startDate, endDate]);
 
   const handleCreateLead = (e) => {
     e.preventDefault();
     const created = {
       ...newLeadForm,
       id: Date.now(),
+      branch: currentUser.role === "Admin" ? "Madurai Desk" : currentUser.branch,
       dateCreated: new Date().toISOString().split("T")[0],
       lastFollowUp: "None",
       nextFollowUp: new Date().toISOString().split("T")[0],
       bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false,
-      history: [{ date: new Date().toISOString().split("T")[0], by: currentUser.name, action: "Lead logged via corporate capture form." }]
+      history: [{ date: new Date().toISOString().split("T")[0], by: currentUser.name, action: "Lead logged via capture form." }]
     };
     setLeads([created, ...leads]);
     setIsLeadModalOpen(false);
@@ -184,7 +217,7 @@ export default function App() {
       alert("Security Block: You cannot delete your own active administrative session node!");
       return;
     }
-    if (window.confirm("Are you sure you want to permanently delete this user from the CRM registry?")) {
+    if (window.confirm("Are you sure you want to permanently delete this user account slot?")) {
       setUsers(users.filter(u => u.id !== userId));
     }
   };
@@ -194,6 +227,7 @@ export default function App() {
     const created = {
       ...newProjectForm,
       id: Date.now(),
+      branch: "Madurai Desk",
       sold: 0,
       status: "Active"
     };
@@ -205,37 +239,37 @@ export default function App() {
   const assignLeadOwner = (leadId, ownerName) => {
     setLeads(leads.map(l => l.id === leadId ? {
       ...l, assignedTo: ownerName, status: ownerName === "Unassigned" ? "New" : "Assigned",
-      history: [...l.history, { date: new Date().toISOString().split("T")[0], by: currentUser.name, action: `Asset owner assignment routed to: ${ownerName}` }]
+      history: [...l.history, { date: new Date().toISOString().split("T")[0], by: currentUser.name, action: `Lead ownership assigned to: ${ownerName}` }]
     } : l));
   };
 
   const executeStatusTransition = (leadId, nextStatus) => {
     setLeads(leads.map(l => l.id === leadId ? {
       ...l, status: nextStatus,
-      history: [...l.history, { date: new Date().toISOString().split("T")[0], by: currentUser.name, action: `Milestone tracking point shifted to: ${nextStatus}` }]
+      history: [...l.history, { date: new Date().toISOString().split("T")[0], by: currentUser.name, action: `Pipeline milestone modified to: ${nextStatus}` }]
     } : l));
   };
 
   const commitSiteWalkthroughLog = () => {
     if (!svDate || !svFeedback.trim()) {
-      alert("All walkthrough confirmation data fields are strictly mandatory.");
+      alert("All fields are mandatory.");
       return;
     }
     setLeads(leads.map(l => l.id === selectedLead.id ? {
       ...l, status: "Site Visit Completed", lastFollowUp: svDate,
-      history: [...l.history, { date: svDate, by: currentUser.name, action: `Walkthrough completed. Attended: ${svFamily || "Self"}. Feedback: ${svFeedback} (${svProbability} Intent)` }]
+      history: [...l.history, { date: svDate, by: currentUser.name, action: `Site visit logged. Family: ${svFamily || "Self"}. Notes: ${svFeedback}` }]
     } : l));
     setSelectedLead(null); setSvFeedback(""); setSvDate(""); setSvFamily("");
   };
 
   const commitFinancialBookingLog = () => {
     if (!bkUnit || !bkAmount || !bkDate) {
-      alert("All transactional fields are mandatory.");
+      alert("All operational transaction parameters are required.");
       return;
     }
     setLeads(leads.map(l => l.id === selectedLead.id ? {
       ...l, status: "Booking Confirmed", bookingUnit: bkUnit, bookingAmount: parseFloat(bkAmount), bookingMode: bkMode, bookingDate: bkDate, regPending: true,
-      history: [...l.history, { date: bkDate, by: currentUser.name, action: `Unit ${bkUnit} secured with payment allocation of ₹${bkAmount} via ${bkMode}.` }]
+      history: [...l.history, { date: bkDate, by: currentUser.name, action: `Unit ${bkUnit} confirmed with advance token of ₹${bkAmount}` }]
     } : l));
     setProjects(projects.map(p => p.name === selectedLead.project ? { ...p, sold: p.sold + 1 } : p));
     setSelectedLead(null); setBkUnit(""); setBkAmount(""); setBkDate("");
@@ -269,12 +303,6 @@ export default function App() {
               {loginError && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded border border-rose-500/20">{loginError}</p>}
               <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-colors shadow-lg">Authorize Access Pipeline</button>
             </form>
-            <div className="bg-slate-900 p-4 rounded-xl border border-slate-850 space-y-2 text-[11px] text-slate-400">
-              <p className="font-bold text-slate-300 uppercase tracking-wide border-b border-slate-800 pb-1">Testing Credentials Registry Grid:</p>
-              <p>• Admin: <span className="text-indigo-400 font-mono">admin@iconic.in</span> / admin123</p>
-              <p>• Manager: <span className="text-indigo-400 font-mono">manager@iconic.in</span> / manager123</p>
-              <p>• Executive Agent: <span className="text-indigo-400 font-mono">executive@iconic.in</span> / agent123</p>
-            </div>
           </div>
         </div>
       </div>
@@ -301,7 +329,7 @@ export default function App() {
             <button onClick={() => setActiveTab("projects")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "projects" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
               <Building2 className="h-4 w-4" /> PROJECT MASTER
             </button>
-            {["Admin", "Manager"].includes(currentUser.role) && (
+            {currentUser.role === "Admin" && (
               <button onClick={() => setActiveTab("users")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "users" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
                 <Users className="h-4 w-4" /> USER SEATS
               </button>
@@ -337,7 +365,7 @@ export default function App() {
             <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live search by customer name, phone, project or status..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500" />
           </div>
           <div className="text-xs text-slate-400 bg-slate-950 px-3 py-1.5 border border-slate-850 rounded-xl font-mono">
-            Clearance Scope: <span className="text-indigo-400 font-bold">{currentUser.role.toUpperCase()}</span>
+            Clearance Scope Office: <span className="text-indigo-400 font-bold">{currentUser.branch.toUpperCase()}</span>
           </div>
         </header>
 
@@ -375,13 +403,13 @@ export default function App() {
                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><BarChart3 className="h-4 w-4 text-indigo-400" /> Pipeline Milestone Distribution Weight (Visual Graph)</h3>
                   <div className="space-y-4">
                     {["New", "Contacted", "Follow-Up", "Site Visit Planned", "Site Visit Completed", "Booking Confirmed"].map(st => {
-                      const shareCount = leads.filter(l => l.status === st).length;
-                      const pct = Math.min((shareCount / Math.max(leads.length, 1)) * 100, 100);
+                      const shareCount = processedLeads.filter(l => l.status === st).length;
+                      const pct = Math.min((shareCount / Math.max(processedLeads.length, 1)) * 100, 100);
                       return (
                         <div key={st} className="flex items-center gap-4 text-xs font-medium">
                           <div className="w-36 text-slate-400 truncate">{st}</div>
                           <div className="flex-1 bg-slate-900 h-7 rounded-lg border border-slate-850 relative flex items-center overflow-hidden">
-                            <div className="bg-indigo-600 h-full" style={{ width: `${pct || 2}%` }}></div>
+                            <div className="bg-indigo-600 h-full" style={{ width: `${pct || 1}%` }}></div>
                             <span className="absolute left-3 text-[10px] font-black font-mono text-slate-200">{shareCount} accounts ({Math.round(pct)}%)</span>
                           </div>
                         </div>
@@ -395,8 +423,8 @@ export default function App() {
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><TrendingUp className="h-4 w-4 text-sky-400" /> Attribution Stream Share</h3>
                     <div className="space-y-4">
                       {["Website", "Meta Ads", "Google Ads", "Walk-In"].map(src => {
-                        const count = leads.filter(l => l.source === src).length;
-                        const scale = (count / Math.max(leads.length, 1)) * 100;
+                        const count = processedLeads.filter(l => l.source === src).length;
+                        const scale = (count / Math.max(processedLeads.length, 1)) * 100;
                         return (
                           <div key={src} className="space-y-1.5">
                             <div className="flex justify-between text-xs font-medium">
@@ -465,7 +493,7 @@ export default function App() {
                               {["Admin", "Manager"].includes(currentUser.role) ? (
                                 <select value={l.assignedTo} onChange={(e) => assignLeadOwner(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 text-slate-300 rounded px-2 py-1 text-xs focus:outline-none">
                                   <option value="Unassigned">Unassigned</option>
-                                  {users.filter(u => u.role === "Executive").map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                                  {visibleUsers.filter(u => u.role === "Executive").map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
                                 </select>
                               ) : (
                                 <span className="font-semibold text-slate-400">{l.assignedTo}</span>
@@ -503,12 +531,12 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {projects.map(p => (
+                {visibleProjects.map(p => (
                   <div key={p.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4">
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="text-sm font-black text-white">{p.name}</h3>
-                        <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3 text-slate-600" /> {p.location}</p>
+                        <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3 text-slate-600" /> {p.location} • <span className="font-semibold text-indigo-400">{p.branch}</span></p>
                       </div>
                       <span className="text-[10px] font-black bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded uppercase tracking-wider">{p.status}</span>
                     </div>
@@ -522,19 +550,17 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 4: USER SEATS CONTROL */}
-          {activeTab === "users" && (
+          {/* VIEWPORT 4: USER SEATS CONTROL (Admin Role Exclusive Gate) */}
+          {activeTab === "users" && currentUser.role === "Admin" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex justify-between items-center">
                 <div>
                   <h1 className="text-2xl font-black text-white tracking-tight">Identity Access Governance</h1>
                   <p className="text-xs text-slate-400 mt-0.5">Provision team member authorization keys and clearance tier nodes.</p>
                 </div>
-                {currentUser.role === "Admin" && (
-                  <button onClick={() => setIsUserModalOpen(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors">
-                    <UserPlus className="h-4 w-4" /> CREATE USER
-                  </button>
-                )}
+                <button onClick={() => setIsUserModalOpen(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors">
+                  <UserPlus className="h-4 w-4" /> CREATE USER
+                </button>
               </div>
 
               <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
@@ -581,49 +607,65 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 5: DYNAMIC MATRIX REPORTS */}
+          {/* VIEWPORT 5: MATRIX REPORTS (With Date Range Filters Included) */}
           {activeTab === "reports" && (
             <div className="space-y-6 animate-fadeIn">
               <div>
                 <h1 className="text-2xl font-black text-white tracking-tight">Ecosystem Analytics Filtering Engine</h1>
-                <p className="text-xs text-slate-400 mt-0.5">Isolate source attribution streams, conversion types, and milestones instantly.</p>
+                <p className="text-xs text-slate-400 mt-0.5">Isolate source attribution streams, conversion types, and chronological tracking windows.</p>
               </div>
 
-              <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl grid grid-cols-1 sm:grid-cols-4 gap-3.5 text-xs">
-                <div className="space-y-1">
-                  <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Source Channel Hub</label>
-                  <select value={filterSource} onChange={(e) => setFilterSource(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
-                    <option value="All">All Sources</option>
-                    {SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
+              {/* FILTERING CONTAINER - DROPDOWNS & DATE RANGES */}
+              <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
+                  <div className="space-y-1">
+                    <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Source Channel Hub</label>
+                    <select value={filterSource} onChange={(e) => setFilterSource(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
+                      <option value="All">All Sources</option>
+                      {SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Pipeline Phase Status</label>
+                    <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
+                      <option value="All">All Statuses</option>
+                      {PRIMARY_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Target Asset Scheme</label>
+                    <select value={filterProject} onChange={(e) => setFilterProject(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
+                      <option value="All">All Projects</option>
+                      {visibleProjects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Executive Allocation</label>
+                    <select value={filterExecutive} onChange={(e) => setFilterExecutive(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
+                      <option value="All">All Executives</option>
+                      {visibleUsers.filter(u => u.role === "Executive").map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                    </select>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Pipeline Phase Status</label>
-                  <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
-                    <option value="All">All Statuses</option>
-                    {PRIMARY_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Target Asset Scheme</label>
-                  <select value={filterProject} onChange={(e) => setFilterProject(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
-                    <option value="All">All Projects</option>
-                    {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Executive Allocation</label>
-                  <select value={filterExecutive} onChange={(e) => setFilterExecutive(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
-                    <option value="All">All Executives</option>
-                    {users.filter(u => u.role === "Executive").map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-                  </select>
+
+                {/* DATE RANGE CHRONO GRID BLOCK */}
+                <div className="border-t border-slate-900 pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Chronological From Date</label>
+                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-indigo-500 font-mono" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Chronological To Date</label>
+                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-indigo-500 font-mono" />
+                  </div>
                 </div>
               </div>
 
+              {/* REPORTING ROWS MATRIX PANEL */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
                 <div className="flex justify-between items-center border-b border-slate-850 pb-3 mb-4">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Isolated Output Rows ({processedLeads.length} Matches)</h3>
-                  <button onClick={() => { setFilterSource("All"); setFilterStatus("All"); setFilterProject("All"); setFilterExecutive("All"); }} className="text-indigo-400 hover:text-white text-xs font-bold font-mono">Clear Matrix Settings</button>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Isolated Dataset Output Rows ({processedLeads.length} Matches)</h3>
+                  <button onClick={() => { setFilterSource("All"); setFilterStatus("All"); setFilterProject("All"); setFilterExecutive("All"); setStartDate(""); setEndDate(""); }} className="text-indigo-400 hover:text-white text-xs font-bold font-mono">Clear Matrix Settings</button>
                 </div>
                 <div className="overflow-x-auto text-xs">
                   <table className="w-full text-left">
@@ -640,7 +682,10 @@ export default function App() {
                     <tbody className="divide-y divide-slate-900 text-slate-300">
                       {processedLeads.map(l => (
                         <tr key={l.id} className="hover:bg-slate-900/20">
-                          <td className="py-3 font-bold text-white">{l.name}</td>
+                          <td className="py-3 font-bold text-white">
+                            <p>{l.name}</p>
+                            <p className="text-[10px] text-slate-500 font-normal font-mono">{l.dateCreated}</p>
+                          </td>
                           <td className="py-3 font-medium">{l.project}</td>
                           <td className="py-3 font-mono text-slate-400">{l.source}</td>
                           <td className="py-3 text-slate-400 font-semibold">{l.assignedTo}</td>
@@ -658,9 +703,7 @@ export default function App() {
         </main>
       </div>
 
-      {/* ─── MODALS AND DRAWER OVERLAYS ─── */}
-      
-      {/* DRAWER 1: ACTION SEQUENCE COMPLIANCE */}
+      {/* ─── ACTION WINDOW DIALOGS OVERLAYS ─── */}
       {selectedLead && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-end" onClick={() => setSelectedLead(null)}>
           <div className="bg-slate-950 w-[520px] border-l border-slate-800 h-full flex flex-col p-6 overflow-y-auto space-y-6" onClick={(e) => e.stopPropagation()}>
@@ -707,7 +750,6 @@ export default function App() {
         </div>
       )}
 
-      {/* DIALOG 2: NEW LEAD ENTRY FORM */}
       {isLeadModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
@@ -748,14 +790,14 @@ export default function App() {
                   <input type="number" value={newLeadForm.budget} onChange={(e)=>setNewLeadForm({...newLeadForm, budget: parseInt(e.target.value)||0})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-slate-400 font-semibold">Target Scheme Project</label>
+                  <label className="text-slate-400 font-semibold">Target Project</label>
                   <select value={newLeadForm.project} onChange={(e)=>setNewLeadForm({...newLeadForm, project: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-300 focus:outline-none">
-                    {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                    {visibleProjects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                   </select>
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-slate-400 font-semibold">Inquiry Requirement Notes Summary</label>
+                <label className="text-slate-400 font-semibold">Inquiry Requirement Remarks Summary</label>
                 <textarea rows={2} value={newLeadForm.notes} onChange={(e)=>setNewLeadForm({...newLeadForm, notes: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none" />
               </div>
               <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 rounded-xl uppercase tracking-wider shadow-lg transition-all">Commit Lead Block Data to Live Channels</button>
@@ -764,7 +806,6 @@ export default function App() {
         </div>
       )}
 
-      {/* DIALOG 3: CREATE USER SEAT FORM */}
       {isUserModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
@@ -799,7 +840,6 @@ export default function App() {
         </div>
       )}
 
-      {/* DIALOG 4: ACTIVE SEAT MODIFY DRAWER */}
       {editingUser && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
@@ -834,7 +874,6 @@ export default function App() {
         </div>
       )}
 
-      {/* DIALOG 5: PROVISION PROJECTS MASTER INVENTORY */}
       {isProjectModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
@@ -843,7 +882,7 @@ export default function App() {
               <button onClick={() => setIsProjectModalOpen(false)} className="text-slate-500 hover:text-white">✕</button>
             </div>
             <form onSubmit={handleCreateProject} className="space-y-3 text-xs">
-              <div><label className="text-slate-400 font-semibold">Project Core Name *</label><input type="text" required value={newProjectForm.name} onChange={(e)=>setNewProjectForm({...newProjectForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
+              <div><label className="text-slate-400 font-semibold">Project Name *</label><input type="text" required value={newProjectForm.name} onChange={(e)=>setNewProjectForm({...newProjectForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
               <div><label className="text-slate-400 font-semibold">Location Address</label><input type="text" required value={newProjectForm.location} onChange={(e)=>setNewProjectForm({...newProjectForm, location: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
               <div className="grid grid-cols-2 gap-2">
                 <div>

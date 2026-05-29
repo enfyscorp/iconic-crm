@@ -3,7 +3,7 @@ import {
   Users, ShieldAlert, BarChart3, Building2, Briefcase, 
   Layers, PhoneCall, Calendar, Search, Plus, TrendingUp, 
   DollarSign, MapPin, Shield, FileText, Clock, LogOut, Lock, 
-  Mail, CheckCircle2, UserPlus
+  Mail, CheckCircle2, UserPlus, Trash2, Edit2
 } from "lucide-react";
 
 // ─── SYSTEM CONFIGURATIONS & ENUMS ──────────────────────────────────────────
@@ -21,6 +21,7 @@ const PRIMARY_STATUSES = [
   "Registration Pending", "Registered", "Closed", "Cancelled", "Dropped", "Future Follow-Up"
 ];
 
+const BRANCHES = ["Madurai Desk", "Chennai South", "Chennai North", "Coimbatore"];
 const PROJECT_TYPES = ["Apartment", "Villa", "Plot"];
 
 const INITIAL_USERS = [
@@ -62,7 +63,7 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
-  const [activeTab, setActiveTab] = useState("dashboard"); 
+  const [activeTab, setActiveTab] = useState("dashboard"); // Options: dashboard, leads, projects, users, reports
   const [globalSearch, setGlobalSearch] = useState("");
 
   const [filterSource, setFilterSource] = useState("All");
@@ -75,6 +76,8 @@ export default function App() {
   const [projects, setProjects] = useState(INITIAL_PROJECTS);
 
   const [selectedLead, setSelectedLead] = useState(null);
+  const [editingUser, setEditingUser] = useState(null); // For handling user modifications
+
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -170,6 +173,22 @@ export default function App() {
     setNewUserForm({ name: "", email: "", pass: "iconic123", role: "Executive", branch: "Madurai Desk", phone: "" });
   };
 
+  const handleUpdateUser = (e) => {
+    e.preventDefault();
+    setUsers(users.map(u => u.id === editingUser.id ? editingUser : u));
+    setEditingUser(null);
+  };
+
+  const handleDeleteUser = (userId) => {
+    if (userId === currentUser.id) {
+      alert("Security Block: You cannot delete your own active administrative session node!");
+      return;
+    }
+    if (window.confirm("Are you sure you want to permanently delete this user from the CRM registry?")) {
+      setUsers(users.filter(u => u.id !== userId));
+    }
+  };
+
   const handleCreateProject = (e) => {
     e.preventDefault();
     const created = {
@@ -222,49 +241,10 @@ export default function App() {
     setSelectedLead(null); setBkUnit(""); setBkAmount(""); setBkDate("");
   };
 
-  if (!currentUser) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
-        <div className="sm:mx-auto w-full max-w-md text-center space-y-2">
-          <Building2 className="h-12 w-12 text-indigo-500 mx-auto" />
-          <h2 className="text-3xl font-black text-white tracking-tight">ICONIC PROJECTS</h2>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Enterprise Workflow System</p>
-        </div>
-        <div className="mt-8 sm:mx-auto w-full max-w-md px-4">
-          <div className="bg-slate-950 py-8 px-6 border border-slate-800 rounded-2xl shadow-2xl space-y-6">
-            <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
-              <div className="space-y-1.5">
-                <label className="text-slate-400 font-bold uppercase tracking-wide">Corporate Authentication Email</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                  <input type="email" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="admin@iconic.in" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-slate-400 font-bold uppercase tracking-wide">Security Passcode Access Key</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                  <input type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="••••••••" />
-                </div>
-              </div>
-              {loginError && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded border border-rose-500/20">{loginError}</p>}
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-colors shadow-lg">Authorize Access Pipeline</button>
-            </form>
-            <div className="bg-slate-900 p-4 rounded-xl border border-slate-850 space-y-2 text-[11px] text-slate-400">
-              <p className="font-bold text-slate-300 uppercase tracking-wide border-b border-slate-800 pb-1">Testing Credentials Registry Grid:</p>
-              <p>• Admin: <span className="text-indigo-400 font-mono">admin@iconic.in</span> / admin123</p>
-              <p>• Manager: <span className="text-indigo-400 font-mono">manager@iconic.in</span> / manager123</p>
-              <p>• Executive Agent: <span className="text-indigo-400 font-mono">executive@iconic.in</span> / agent123</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex h-screen bg-slate-900 text-slate-100 font-sans antialiased overflow-hidden">
       
+      {/* SIDEBAR NAVIGATION STRUCTURE */}
       <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between">
         <div>
           <div className="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
@@ -308,6 +288,7 @@ export default function App() {
         </div>
       </aside>
 
+      {/* WORKSPACE CONTENT COMPONENT SHELL */}
       <div className="flex-1 flex flex-col overflow-hidden">
         
         <header className="h-16 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-8 z-10">
@@ -322,6 +303,7 @@ export default function App() {
 
         <main className="flex-1 overflow-y-auto p-8">
           
+          {/* VIEWPORT 1: VISUAL DASHBOARD */}
           {activeTab === "dashboard" && (
             <div className="space-y-8 animate-fadeIn">
               <div>
@@ -382,7 +364,7 @@ export default function App() {
                               <span className="text-slate-300 font-mono font-bold">{count} entries</span>
                             </div>
                             <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-850">
-                              <div className="bg-sky-400 h-full rounded-full" style={{ width: `${scale}%` }}></div>
+                              <div className="bg-sky-400 h-full" style={{ width: `${scale}%` }}></div>
                             </div>
                           </div>
                         );
@@ -394,6 +376,7 @@ export default function App() {
             </div>
           )}
 
+          {/* VIEWPORT 2: LEAD CHANNELS */}
           {activeTab === "leads" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex justify-between items-center">
@@ -464,6 +447,7 @@ export default function App() {
             </div>
           )}
 
+          {/* VIEWPORT 3: PROJECT MASTER */}
           {activeTab === "projects" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex justify-between items-center">
@@ -498,6 +482,7 @@ export default function App() {
             </div>
           )}
 
+          {/* VIEWPORT 4: USER SEATS (Gated Control with Modify/Delete Options) */}
           {activeTab === "users" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex justify-between items-center">
@@ -507,7 +492,7 @@ export default function App() {
                 </div>
                 {currentUser.role === "Admin" && (
                   <button onClick={() => setIsUserModalOpen(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors">
-                    <UserPlus className="h-4 w-4" /> PROVISION SEAT PASS
+                    <UserPlus className="h-4 w-4" /> CREATE USER
                   </button>
                 )}
               </div>
@@ -519,8 +504,8 @@ export default function App() {
                       <th className="p-4">Personnel Identity Name</th>
                       <th className="p-4">Clearance Role</th>
                       <th className="p-4">Regional Scope Office</th>
-                      <th className="p-4">Simulated Account Password</th>
-                      <th className="p-4 text-right">System State</th>
+                      <th className="p-4">Account Password</th>
+                      <th className="p-4 text-center">Administrative Controls</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900 text-slate-300">
@@ -538,7 +523,16 @@ export default function App() {
                         <td className="p-4 font-black text-indigo-400 flex items-center gap-1.5 py-6 uppercase tracking-wider"><Shield className="h-3.5 w-3.5 text-indigo-500" /> {u.role}</td>
                         <td className="p-4 text-slate-400 font-bold">{u.branch}</td>
                         <td className="p-4 font-mono font-bold text-amber-400 bg-amber-500/5 px-2.5 py-1 rounded border border-amber-500/10 w-fit">{u.pass}</td>
-                        <td className="p-4 text-right"><span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/20">Authorized Active</span></td>
+                        <td className="p-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button onClick={() => setEditingUser(u)} className="p-2 bg-slate-900 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-indigo-400 transition-colors" title="Modify details">
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                            <button onClick={() => handleDeleteUser(u.id)} className="p-2 bg-slate-900 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-rose-400 transition-colors" title="Delete account node">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -547,6 +541,7 @@ export default function App() {
             </div>
           )}
 
+          {/* VIEWPORT 5: MATRIX REPORTS */}
           {activeTab === "reports" && (
             <div className="space-y-6 animate-fadeIn">
               <div>
@@ -623,6 +618,9 @@ export default function App() {
         </main>
       </div>
 
+      {/* ─── MODAL DIALOGS AND COMPLIANCE ACTIONS PANELS ────────────────── */}
+      
+      {/* DIALOG 1: LEAD INSPECTION TIMELINE TRACKING */}
       {selectedLead && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-end" onClick={() => setSelectedLead(null)}>
           <div className="bg-slate-950 w-[520px] border-l border-slate-800 h-full flex flex-col p-6 overflow-y-auto space-y-6" onClick={(e) => e.stopPropagation()}>
@@ -656,7 +654,7 @@ export default function App() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-slate-500 font-bold text-[10px]">Transaction Mode</label>
+                  <label className="text-slate-400 font-semibold">Payment Method</label>
                   <select value={bkMode} onChange={(e)=>setBkMode(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 mt-0.5 text-slate-300 focus:outline-none">
                     <option value="Cheque">Bank Cheque</option><option value="NEFT/RTGS">NEFT / RTGS Wire</option>
                   </select>
@@ -665,24 +663,11 @@ export default function App() {
               </div>
               <button type="button" onClick={commitFinancialBookingLog} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2 rounded-xl text-xs uppercase tracking-wider transition-colors">Ingest Advance Token and Secure Unit Allocation</button>
             </div>
-
-            <div className="space-y-3 pt-2 text-xs">
-              <p className="text-[10px] font-bold text-slate-500 tracking-wider uppercase border-b border-slate-900 pb-1">Historical Operation Activity Trails</p>
-              <div className="border-l border-slate-800 pl-4 space-y-3.5 ml-1">
-                {selectedLead.history.map((h, i) => (
-                  <div key={i} className="relative">
-                    <div className="absolute -left-[21px] top-1 h-2 w-2 rounded-full bg-indigo-500"></div>
-                    <p className="text-[10px] text-slate-500 font-bold font-mono">{h.date} — Executed via {h.by}</p>
-                    <p className="text-xs text-slate-300 font-medium mt-0.5">{h.action}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
           </div>
         </div>
       )}
 
+      {/* DIALOG 2: CAPTURE NEW LEADS OVERLAY */}
       {isLeadModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
@@ -739,6 +724,7 @@ export default function App() {
         </div>
       )}
 
+      {/* DIALOG 3: PROVISION NEW USER SEAT INTERACTION FORM */}
       {isUserModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
@@ -767,12 +753,48 @@ export default function App() {
                 <div><label className="text-slate-400 font-semibold">Mobile Phone</label><input type="text" required value={newUserForm.phone} onChange={(e)=>setNewUserForm({...newUserForm, phone: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
                 <div><label className="text-slate-400 font-semibold">Passcode Access Key *</label><input type="text" required value={newUserForm.pass} onChange={(e)=>setNewUserForm({...newUserForm, pass: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-amber-400 font-mono font-bold mt-0.5 focus:outline-none" /></div>
               </div>
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl uppercase tracking-wider text-[11px] mt-2 transition-colors">Deploy Account Credentials pass</button>
+              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl uppercase tracking-wider mt-2 transition-colors">Deploy User Credentials Node</button>
             </form>
           </div>
         </div>
       )}
 
+      {/* DIALOG 4: ACTIVE SEAT MODIFY DRAWER (NEW ADDITION) */}
+      {editingUser && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-slate-900 pb-3">
+              <h2 className="text-base font-black text-white tracking-wide">Modify Account Clearance Parameters</h2>
+              <button onClick={() => setEditingUser(null)} className="text-slate-500 hover:text-white">✕</button>
+            </div>
+            <form onSubmit={handleUpdateUser} className="space-y-3 text-xs">
+              <div><label className="text-slate-400 font-semibold">Personnel Full Name *</label><input type="text" required value={editingUser.name} onChange={(e)=>setEditingUser({...editingUser, name: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-slate-400 font-semibold">Clearance Privilege Tier</label>
+                  <select value={editingUser.role} onChange={(e)=>setEditingUser({...editingUser, role: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-300 mt-0.5 focus:outline-none">
+                    {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-slate-400 font-semibold">Office Branch Scope</label>
+                  <select value={editingUser.branch} onChange={(e)=>setEditingUser({...editingUser, branch: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-300 mt-0.5 focus:outline-none">
+                    {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div><label className="text-slate-400 font-semibold">Corporate Authentication Email *</label><input type="email" required value={editingUser.email} onChange={(e)=>setEditingUser({...editingUser, email: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className="text-slate-400 font-semibold">Mobile Phone</label><input type="text" required value={editingUser.phone} onChange={(e)=>setEditingUser({...editingUser, phone: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
+                <div><label className="text-slate-400 font-semibold">Passcode Access Key *</label><input type="text" required value={editingUser.pass} onChange={(e)=>setEditingUser({...editingUser, pass: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-amber-400 font-mono font-bold mt-0.5 focus:outline-none" /></div>
+              </div>
+              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl uppercase tracking-wider text-[11px] mt-2 transition-colors">Save Clearance Changes</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DIALOG 5: PROVISION MASTER INVENTORY SCHEMES */}
       {isProjectModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">

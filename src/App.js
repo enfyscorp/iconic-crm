@@ -54,8 +54,9 @@ const SC = {
 };
 
 export default function App() {
-  const TODAY_STR = "2026-05-29"; // Synchronized system reference timestamp
+  const TODAY_STR = "2026-05-29";
 
+  // ─── ALL STATE HOOK INITIALIZATIONS (DETERMINISTIC COMPONENT ORDER) ───
   const [currentUser, setCurrentUser] = useState(null); 
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -64,13 +65,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("dashboard"); 
   const [globalSearch, setGlobalSearch] = useState("");
 
-  // System Attributor Collections Managed via Admin Controls
   const [sources, setSources] = useState(INITIAL_SOURCES);
   const [statuses, setStatuses] = useState(INITIAL_STATUSES);
   const [newSourceInput, setNewSourceInput] = useState("");
   const [newStatusInput, setNewStatusInput] = useState("");
 
-  // Report Filter Master Engine Values
   const [filterSource, setFilterSource] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
   const [filterProject, setFilterProject] = useState("All");
@@ -78,7 +77,6 @@ export default function App() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  // Main System State Memory
   const [leads, setLeads] = useState(INITIAL_LEADS);
   const [users, setUsers] = useState(INITIAL_USERS);
   const [projects, setProjects] = useState(INITIAL_PROJECTS);
@@ -90,12 +88,10 @@ export default function App() {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
-  // Forms Binding Controllers
   const [newLeadForm, setNewLeadForm] = useState({ name: "", phone: "", altPhone: "", email: "", location: "", project: "Vishal Virinchi Apartments", budget: 65, source: "Website", assignedTo: "Unassigned", notes: "" });
   const [newUserForm, setNewUserForm] = useState({ name: "", email: "", pass: "iconic123", role: "Executive", branch: "Madurai Desk", phone: "" });
   const [newProjectForm, setNewProjectForm] = useState({ name: "", location: "", type: "Apartment", price: 50, units: 10 });
 
-  // Direct Inbound Follow-Up Interaction Logs State
   const [followUpNotes, setFollowUpNotes] = useState("");
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
 
@@ -109,6 +105,7 @@ export default function App() {
   const [bkMode, setBkMode] = useState("Cheque");
   const [bkDate, setBkDate] = useState("");
 
+  // ─── AUTHENTICATION SUBMIT HANDLERS ───────────────────────────────────────
   const handleLoginSubmit = (e) => {
     e.preventDefault();
     const account = users.find(u => u.email.toLowerCase() === loginEmail.toLowerCase().trim() && u.pass === loginPassword && u.active);
@@ -128,7 +125,7 @@ export default function App() {
     setActiveTab("dashboard");
   };
 
-  // ─── ROLE ACCESS DATA ISOLATION METRIC COMPUTATIONS ───────────────────────
+  // ─── ROLE ACCESS DATA ISOLATION COMPUTE TIERS ─────────────────────────────
   const visibleProjects = useMemo(() => {
     if (!currentUser) return [];
     if (currentUser.role === "Admin") return projects;
@@ -175,12 +172,11 @@ export default function App() {
     return result;
   }, [leads, currentUser, globalSearch, filterSource, filterStatus, filterProject, filterExecutive, startDate, endDate]);
 
-  // Daily Follow-Up Reminder Queue
   const dailyFollowUpLeads = useMemo(() => {
     return processedLeads.filter(l => l.nextFollowUp === TODAY_STR);
-  }, [processedLeads]);
+  }, [processedLeads, TODAY_STR]);
 
-  // Admin Injection Form Submissions
+  // ─── COMPONENT OPERATION HANDLERS ──────────────────────────────────────────
   const handleAddSource = (e) => {
     e.preventDefault();
     if (newSourceInput.trim() && !sources.includes(newSourceInput.trim())) {
@@ -205,7 +201,7 @@ export default function App() {
       branch: currentUser.role === "Admin" ? "Madurai Desk" : currentUser.branch,
       dateCreated: TODAY_STR,
       lastFollowUp: "None",
-      nextFollowUp: TODAY_STR, // Auto-bind entry checklist alert queue
+      nextFollowUp: TODAY_STR,
       bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false,
       history: [{ date: TODAY_STR, by: currentUser.name, action: "Lead recorded inside system channels." }]
     };
@@ -214,13 +210,12 @@ export default function App() {
     setNewLeadForm({ name: "", phone: "", altPhone: "", email: "", location: "", project: "Vishal Virinchi Apartments", budget: 65, source: "Website", assignedTo: "Unassigned", notes: "" });
   };
 
-  // ─── CRITICAL: CONFIRMATION PROMPT GATE INTERCEPTOR ───────────────────────
   const executeStatusTransition = (leadId, nextStatus) => {
     const target = leads.find(l => l.id === leadId);
     if (!target) return;
 
     const validationConfirmation = window.confirm(
-      `CRITICAL CONFIRMATION: Are you sure you want to shift client workflow profile "${target.name}" from current milestone "${target.status}" into next tracking segment "${nextStatus}"?`
+      `CRITICAL CONFIRMATION: Are you sure you want to shift client profile "${target.name}" from status "${target.status}" into next phase "${nextStatus}"?`
     );
 
     if (validationConfirmation) {
@@ -229,14 +224,12 @@ export default function App() {
         history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `Pipeline milestone modified to: ${nextStatus}` }]
       } : l));
       
-      // Keep state contextual mirror clean if selected sidebar profile row matches active context
       if (selectedLead && selectedLead.id === leadId) {
         setSelectedLead({ ...selectedLead, status: nextStatus });
       }
     }
   };
 
-  // ─── CRITICAL: SYSTEM CHRONOLOGY FOLLOW-UP INTERACTION TRACKING ENGINE ─────
   const commitManualFollowUpReport = (e) => {
     e.preventDefault();
     if (!followUpNotes.trim() || !nextFollowUpDate) {
@@ -255,7 +248,7 @@ export default function App() {
             { date: TODAY_STR, by: currentUser.name, action: `LOGGED INTERACTION SUMMARY: ${followUpNotes.trim()} (Next Follow-up coordinated for: ${nextFollowUpDate})` }
           ]
         };
-        setSelectedLead(revisedObject); // Flush detail modal layout views dynamically
+        setSelectedLead(revisedObject); 
         return revisedObject;
       }
       return l;
@@ -288,7 +281,7 @@ export default function App() {
 
   const handleDeleteUser = (userId) => {
     if (userId === currentUser.id) {
-      alert("Security Block: Administrative sessions cannot delete their own system validation tokens.");
+      alert("Security Block: Active administrator slots cannot wipe their validation node.");
       return;
     }
     if (window.confirm("Confirm deletion of user?")) {
@@ -342,10 +335,46 @@ export default function App() {
     setSelectedLead(null); setBkUnit(""); setBkAmount(""); setBkDate("");
   };
 
+  // ─── GATE CONTROL: IF ANONYMOUS, RENDER LOGIN SECURE FRAME ──────────────────
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
+        <div className="sm:mx-auto w-full max-w-md text-center space-y-2">
+          <Building2 className="h-12 w-12 text-indigo-500 mx-auto" />
+          <h2 className="text-3xl font-black text-white tracking-tight">ICONIC PROJECTS</h2>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Enterprise Workflow System</p>
+        </div>
+        <div className="mt-8 sm:mx-auto w-full max-w-md px-4">
+          <div className="bg-slate-950 py-8 px-6 border border-slate-800 rounded-2xl shadow-2xl space-y-6">
+            <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
+              <div className="space-y-1.5">
+                <label className="text-slate-400 font-bold uppercase tracking-wide">Corporate Authentication Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                  <input type="email" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="admin@iconic.in" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-slate-400 font-bold uppercase tracking-wide">Security Passcode Access Key</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                  <input type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="••••••••" />
+                </div>
+              </div>
+              {loginError && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded border border-rose-500/20">{loginError}</p>}
+              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-colors shadow-lg">Authorize Access Pipeline</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── MAIN WORKSPACE SUITE RENDER ──────────────────────────────────────────
   return (
     <div className="flex h-screen bg-slate-900 text-slate-100 font-sans antialiased overflow-hidden">
       
-      {/* NAVIGATION RAIL CONTROL BAR */}
+      {/* SIDEBAR NAVIGATION RAIL */}
       <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between">
         <div>
           <div className="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
@@ -403,26 +432,24 @@ export default function App() {
 
         <main className="flex-1 overflow-y-auto p-8">
           
-          {/* VIEWPORT 1: PERFORMANCE DASHBOARD AND DAILY ACTION MATRICES */}
+          {/* VIEWPORT 1: VISUAL DASHBOARD */}
           {activeTab === "dashboard" && (
             <div className="space-y-8 animate-fadeIn">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-950 p-6 border border-slate-800 rounded-2xl">
                 <div>
                   <h1 className="text-2xl font-black text-white tracking-tight">{currentUser.role} Control Panel</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Real-time action queues scoped exclusively under authorization nodes.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Real-time action queues scoped under current authority nodes.</p>
                 </div>
                 
-                {/* ─── MANDATORY ACTION ATTENTION CONTROLLER BLOCKS ─── */}
-                <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 px-4 py-3 rounded-xl animate-pulse">
+                <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 px-4 py-3 rounded-xl">
                   <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0" />
                   <div>
                     <p className="text-xs font-black text-amber-400 uppercase tracking-wide">Follow-Ups Pending Today</p>
-                    <p className="text-[11px] text-slate-300 font-medium font-mono">{dailyFollowUpLeads.length} critical actions require logging updates.</p>
+                    <p className="text-[11px] text-slate-300 font-medium font-mono">{dailyFollowUpLeads.length} items require interaction updates.</p>
                   </div>
                 </div>
               </div>
 
-              {/* ACTION TASK LIST RADAR - ACTION DOCK GRID ROW */}
               {dailyFollowUpLeads.length > 0 && (
                 <div className="bg-slate-950 border border-amber-500/30 rounded-2xl p-6 space-y-4">
                   <h2 className="text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-2"><Bell className="h-4 w-4" /> URGENT MANDATORY TRACKING QUEUE</h2>
@@ -435,10 +462,10 @@ export default function App() {
                             <span className="text-[9px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded uppercase tracking-wider">{l.source}</span>
                           </div>
                           <p className="text-xs text-slate-400 font-mono mt-1">{l.phone} • {l.project}</p>
-                          <p className="text-[11px] text-slate-500 italic mt-2 truncate">"{l.notes || 'No notes mapped.'}"</p>
+                          <p className="text-[11px] text-slate-500 italic mt-2 truncate">"{l.notes || 'No custom requirement remarks recorded.'}"</p>
                         </div>
                         <button onClick={() => setSelectedLead(l)} className="w-full bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[10px] text-slate-300 hover:text-white font-bold py-1.5 rounded-lg tracking-wide uppercase transition-all">
-                          Open Client Profile & Log Interaction
+                          Open Profile & Log Followup
                         </button>
                       </div>
                     ))}
@@ -446,7 +473,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* KPI CARD SCORE TILES GRID */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Leads Inbound Scope <Briefcase className="h-4 w-4 text-indigo-400" /></p>
@@ -468,13 +494,13 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 2: LEAD CHANNELS STORAGE AND DRILLDOWN TABLE MAPS */}
+          {/* VIEWPORT 2: LEAD CHANNELS CHANNELS TABLE INDEX */}
           {activeTab === "leads" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex justify-between items-center">
                 <div>
-                  <h1 className="text-2xl font-black text-white tracking-tight">Active Inbound Lead Ledger</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Isolated layout columns monitoring customer pipeline movement states.</p>
+                  <h1 className="text-2xl font-black text-white tracking-tight">Lead Inbound Channels</h1>
+                  <p className="text-xs text-slate-400 mt-0.5">Comprehensive grid row index monitoring real-time conversion movement.</p>
                 </div>
                 <button onClick={() => setIsLeadModalOpen(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors">
                   <Plus className="h-4 w-4" /> INGEST RECORD
@@ -487,8 +513,8 @@ export default function App() {
                     <thead>
                       <tr className="bg-slate-900 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
                         <th className="p-4">Customer Contact Info</th>
-                        <th className="p-4">Project Context</th>
-                        <th className="p-4">Channel Origin</th>
+                        <th className="p-4">Project Scope Context</th>
+                        <th className="p-4">Channel Source</th>
                         <th className="p-4">Owner Assignment</th>
                         <th className="p-4">Pipeline Phase Milestone</th>
                         <th className="p-4 text-right">Target Budget</th>
@@ -497,7 +523,7 @@ export default function App() {
                     <tbody className="divide-y divide-slate-900 text-slate-300">
                       {processedLeads.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="p-12 text-center text-slate-500 font-semibold italic">No active records match the current filters.</td>
+                          <td colSpan={6} className="p-12 text-center text-slate-500 font-semibold italic">No active records match selected tracking filters.</td>
                         </tr>
                       ) : (
                         processedLeads.map(l => (
@@ -524,7 +550,7 @@ export default function App() {
                               )}
                             </td>
                             <td className="p-4">
-                              <select value={l.status} onChange={(e) => executeStatusTransition(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 rounded px-2 py-1 font-bold text-xs text-slate-300 focus:outline-none cursor-pointer animate-none" style={{ color: SC[l.status]?.text || "#FFF" }}>
+                              <select value={l.status} onChange={(e) => executeStatusTransition(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 rounded px-2 py-1 font-bold text-xs text-slate-300 focus:outline-none cursor-pointer" style={{ color: SC[l.status]?.text || "#FFF" }}>
                                 {statuses.map(st => <option key={st} value={st}>{st}</option>)}
                               </select>
                             </td>
@@ -544,8 +570,8 @@ export default function App() {
             <div className="space-y-6 animate-fadeIn">
               <div className="flex justify-between items-center">
                 <div>
-                  <h1 className="text-2xl font-black text-white tracking-tight">Ecosystem Asset Registry Portfolio Matrix</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Track active real estate unit configurations based on branch scopes.</p>
+                  <h1 className="text-2xl font-black text-white tracking-tight">Ecosystem Asset Registry</h1>
+                  <p className="text-xs text-slate-400 mt-0.5">Track real estate units capacity and sold allocation parameters.</p>
                 </div>
                 {currentUser.role === "Admin" && (
                   <button onClick={() => setIsProjectModalOpen(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors">
@@ -574,17 +600,14 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 4: ADMIN ADVANCED PRIVILEGE TIERS SYSTEM CONTROL HUB */}
+          {/* VIEWPORT 4: SYSTEM MANAGEMENT CONTROL HUB */}
           {activeTab === "users" && currentUser.role === "Admin" && (
             <div className="space-y-8 animate-fadeIn">
-              
-              {/* EXTRA SYSTEM CONTROLS FOR ATTRIBUTE ENUM EXPANSIONS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* SOURCE MODIFIER PANEL */}
                 <div className="bg-slate-950 border border-slate-800 p-6 rounded-2xl space-y-4">
-                  <h3 className="text-xs font-black uppercase text-indigo-400 tracking-wider">Expand Lead Source Attribution Hub</h3>
+                  <h3 className="text-xs font-black uppercase text-indigo-400 tracking-wider">Expand Lead Source Options</h3>
                   <form onSubmit={handleAddSource} className="flex gap-2">
-                    <input type="text" value={newSourceInput} onChange={(e)=>setNewSourceInput(e.target.value)} placeholder="e.g. Newspaper Ad, Radio, etc." className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none" />
+                    <input type="text" value={newSourceInput} onChange={(e)=>setNewSourceInput(e.target.value)} placeholder="e.g. Magazine, Radio, Broker..." className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none" />
                     <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-1.5 rounded-xl text-xs uppercase tracking-wider transition-colors">Inject</button>
                   </form>
                   <div className="flex flex-wrap gap-1.5 pt-2">
@@ -592,11 +615,10 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* STATUS MILESTONE MODIFIER PANEL */}
                 <div className="bg-slate-950 border border-slate-800 p-6 rounded-2xl space-y-4">
-                  <h3 className="text-xs font-black uppercase text-indigo-400 tracking-wider">Expand Pipeline Phase Milestones</h3>
+                  <h3 className="text-xs font-black uppercase text-indigo-400 tracking-wider">Expand Phase Milestones</h3>
                   <form onSubmit={handleAddStatus} className="flex gap-2">
-                    <input type="text" value={newStatusInput} onChange={(e)=>setNewStatusInput(e.target.value)} placeholder="e.g. Legal Verified, Document Shared, etc." className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none" />
+                    <input type="text" value={newStatusInput} onChange={(e)=>setNewStatusInput(e.target.value)} placeholder="e.g. Token Cleared, Verified..." className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none" />
                     <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-1.5 rounded-xl text-xs uppercase tracking-wider transition-colors">Inject</button>
                   </form>
                   <div className="flex flex-wrap gap-1.5 pt-2">
@@ -605,10 +627,9 @@ export default function App() {
                 </div>
               </div>
 
-              {/* CORE TEAM SEATS REGISTER TABLE MAPS */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest">Active Identity Passes Registry</h3>
+                  <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest">Active System Seats Register</h3>
                   <button onClick={() => setIsUserModalOpen(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors">
                     <UserPlus className="h-4 w-4" /> CREATE USER
                   </button>
@@ -654,15 +675,14 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 5: MATRIX REPORTS (Featuring Clearable Pop-Up Custom Calendar Nodes) */}
+          {/* VIEWPORT 5: MATRIX REPORTS */}
           {activeTab === "reports" && (
             <div className="space-y-6 animate-fadeIn">
               <div>
                 <h1 className="text-2xl font-black text-white tracking-tight">Ecosystem Analytics Filtering Engine</h1>
-                <p className="text-xs text-slate-400 mt-0.5">Isolate channels, source attributions, and chronological tracking parameters instantly.</p>
+                <p className="text-xs text-slate-400 mt-0.5">Isolate source attribution channels and clear chronological tracking fields instantly.</p>
               </div>
 
-              {/* FILTER PANELS CONTAINER BOX */}
               <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl space-y-4 text-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
                   <div className="space-y-1">
@@ -695,7 +715,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* ─── ENHANCED: CLEARABLE POP-UP DATE RANGE CALENDARS CHRONO CORE ─── */}
                 <div className="border-t border-slate-900 pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px] flex justify-between items-center">
@@ -714,7 +733,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ROW DISPLAY MATRIX DISPLAY CORE BOX */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
                 <div className="flex justify-between items-center border-b border-slate-850 pb-3 mb-4">
                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Isolated Output Rows ({processedLeads.length} Matches)</h3>
@@ -756,20 +774,19 @@ export default function App() {
         </main>
       </div>
 
-      {/* ─── DETAILED COMPREHENSIVE DOSSIER ACCOUNT TIMELINE OVERLAY DRAWER ─── */}
+      {/* ─── DETAILED COMPREHENSIVE CLIENT TIMELINE PROFILE DRAWER ─── */}
       {selectedLead && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-end" onClick={() => setSelectedLead(null)}>
           <div className="bg-slate-950 w-[540px] border-l border-slate-800 h-full flex flex-col p-6 overflow-y-auto space-y-6" onClick={(e) => e.stopPropagation()}>
             <div className="border-b border-slate-900 pb-4 flex justify-between items-start">
               <div>
-                <span className="text-[10px] bg-indigo-600 font-mono font-black px-2 py-0.5 rounded text-white tracking-wider">COMPREHENSIVE PROFILE RECORD FOR PATH DOSSIER #{selectedLead.id}</span>
+                <span className="text-[10px] bg-indigo-600 font-mono font-black px-2 py-0.5 rounded text-white tracking-wider">COMPREHENSIVE ACCOUNT OVERVIEW FOR RECORD #{selectedLead.id}</span>
                 <h2 className="text-xl font-black text-white mt-1.5 cursor-default">{selectedLead.name}</h2>
-                <p className="text-xs text-slate-500 font-mono mt-0.5">{selectedLead.phone} • {selectedLead.email || 'No email shared'}</p>
+                <p className="text-xs text-slate-500 font-mono mt-0.5">{selectedLead.phone} • {selectedLead.email || 'No email parameters'}</p>
               </div>
               <button onClick={() => setSelectedLead(null)} className="text-slate-500 hover:text-white font-bold text-sm">✕</button>
             </div>
 
-            {/* PIPELINE DATA CARD STATS REVIEWS */}
             <div className="bg-slate-900 p-4 border border-slate-850 rounded-xl grid grid-cols-2 gap-4 text-xs font-semibold">
               <div><p className="text-slate-500 uppercase tracking-wide text-[9px]">Target Project Scheme</p><p className="text-white mt-0.5 text-sm font-bold">{selectedLead.project}</p></div>
               <div><p className="text-slate-500 uppercase tracking-wide text-[9px]">Current Allocation Owner</p><p className="text-indigo-400 mt-0.5 text-sm font-bold">{selectedLead.assignedTo}</p></div>
@@ -779,42 +796,39 @@ export default function App() {
                   {statuses.map(st => <option key={st} value={st}>{st}</option>)}
                 </select>
               </div>
-              <div><p className="text-slate-500 uppercase tracking-wide text-[9px]">Next Mandatory Follow-Up Date</p><p className="text-amber-400 mt-1 text-sm font-mono font-black uppercase flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {selectedLead.nextFollowUp || "None Scheduled"}</p></div>
+              <div><p className="text-slate-500 uppercase tracking-wide text-[9px]">Next Scheduled Follow-Up Date</p><p className="text-amber-400 mt-1 text-sm font-mono font-black uppercase flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {selectedLead.nextFollowUp || "None Scheduled"}</p></div>
             </div>
 
-            {/* ─── DYNAMIC INGESTION INTERACTION MODULE FOR LOGGING FOLLOWUPS ─── */}
             <form onSubmit={commitManualFollowUpReport} className="bg-slate-900 p-4 border border-slate-850 rounded-2xl space-y-4 text-xs">
-              <p className="text-[11px] font-black uppercase text-indigo-400 tracking-wider flex items-center gap-2"><PhoneCall className="h-4 w-4" /> Log New Follow-Up Interaction</p>
+              <p className="text-[11px] font-black uppercase text-indigo-400 tracking-wider flex items-center gap-2"><PhoneCall className="h-4 w-4" /> Log Interaction Follow-up</p>
               <div className="space-y-1">
-                <label className="text-slate-400 font-bold text-[10px]">Detailed Interaction Summary Notes *</label>
-                <textarea rows={2} required value={followUpNotes} onChange={(e)=>setFollowUpNotes(e.target.value)} placeholder="Mandatory log entry data to record phone call/meeting response content parameters completely..." className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 mt-0.5 focus:outline-none" />
+                <label className="text-slate-400 font-bold text-[10px]">Detailed Summary Notes *</label>
+                <textarea rows={2} required value={followUpNotes} onChange={(e)=>setFollowUpNotes(e.target.value)} placeholder="Enter details regarding customer conversation content parameter metrics completely..." className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 mt-0.5 focus:outline-none" />
               </div>
               <div className="space-y-1">
-                <label className="text-slate-400 font-bold text-[10px]">Coordinated Next Follow-Up Pop-up Calendar Date *</label>
+                <label className="text-slate-400 font-bold text-[10px]">Coordinated Next Follow-up Date *</label>
                 <input type="date" required min={TODAY_STR} value={nextFollowUpDate} onChange={(e)=>setNextFollowUpDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-slate-200 mt-0.5 focus:outline-none font-mono" />
               </div>
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2 rounded-xl text-xs uppercase tracking-wider transition-colors shadow-lg">Commit Follow-Up Log Summary</button>
+              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2 rounded-xl text-xs uppercase tracking-wider transition-colors shadow-lg">Commit Follow-Up Log</button>
             </form>
 
-            {/* WORKFLOW DRAWER SUBS: SITE TOUR WALKTHROUGH CHECKLISTS */}
             <div className="bg-slate-900/40 p-4 border border-slate-850 rounded-2xl space-y-4 text-xs">
               <p className="text-[11px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-amber-500" /> Sequence Action: Site Tour Verification Log</p>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1"><label className="text-slate-500 font-bold text-[10px]">Walkthrough Date</label><input type="date" value={svDate} onChange={(e)=>setSvDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 mt-0.5 text-slate-300 focus:outline-none font-mono" /></div>
-                <div className="space-y-1"><label className="text-slate-500 font-bold text-[10px]">Co-Buyers Family Attended</label><input type="text" value={svFamily} onChange={(e)=>setSvFamily(e.target.value)} placeholder="e.g. Spouse" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 mt-0.5 text-slate-300 focus:outline-none" /></div>
+                <div className="space-y-1"><label className="text-slate-500 font-bold text-[10px]">Co-Buyers Family Attended</label><input type="text" value={svFamily} onChange={(e)=>setSvFamily(e.target.value)} placeholder=" Spouse" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 mt-0.5 text-slate-300 focus:outline-none" /></div>
               </div>
               <div className="space-y-1">
                 <label className="text-slate-500 font-bold text-[10px]">Client Response Evaluation Logs *</label>
-                <textarea rows={1} value={svFeedback} onChange={(e)=>setSvFeedback(e.target.value)} placeholder="Notes for site validation gates..." className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-300 mt-0.5 focus:outline-none" />
+                <textarea rows={1} value={svFeedback} onChange={(e)=>setSvFeedback(e.target.value)} placeholder="Notes for walkthrough parameters..." className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-300 mt-0.5 focus:outline-none" />
               </div>
               <button type="button" onClick={commitSiteWalkthroughLog} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 rounded-xl text-xs transition-colors">Commit Site Visit Verification</button>
             </div>
 
-            {/* WORKFLOW DRAWER SUBS: ADVANCED FINANCIAL DEPOSIT BOOKINGS FORMS */}
             <div className="bg-slate-900/40 p-4 border border-slate-850 rounded-2xl space-y-4 text-xs">
               <p className="text-[11px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Sequence Action: Financial Token Booking Ingestion</p>
               <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1"><label className="text-slate-500 font-bold text-[10px]">Unit Designation Code *</label><input type="text" value={bkUnit} onChange={(e)=>setBkUnit(e.target.value)} placeholder="e.g. Flat 4A" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 mt-0.5 text-slate-300 focus:outline-none" /></div>
+                <div className="space-y-1"><label className="text-slate-500 font-bold text-[10px]">Unit Designation Code *</label><input type="text" value={bkUnit} onChange={(e)=>setBkUnit(e.target.value)} placeholder="e.g. Flat 2C" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 mt-0.5 text-slate-300 focus:outline-none" /></div>
                 <div className="space-y-1"><label className="text-slate-500 font-bold text-[10px]">Token Amount Processed (₹) *</label><input type="number" value={bkAmount} onChange={(e)=>setBkAmount(e.target.value)} placeholder="INR Value" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 mt-0.5 text-emerald-400 font-bold focus:outline-none" /></div>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -829,13 +843,12 @@ export default function App() {
               <button type="button" onClick={commitFinancialBookingLog} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-1.5 rounded-xl text-xs uppercase tracking-wider transition-colors">Secure Unit Allocation</button>
             </div>
 
-            {/* CHRONOLOGICAL DOSSIER EVENT MATRIX AUDITING TRAILS */}
             <div className="space-y-3 pt-2 text-xs">
-              <p className="text-[10px] font-black text-slate-400 tracking-wider uppercase border-b border-slate-900 pb-1">Historical Operation Activity Trails (Dossier Timeline View)</p>
+              <p className="text-[10px] font-black text-slate-400 tracking-wider uppercase border-b border-slate-900 pb-1">Historical Account Event Activity Trails</p>
               <div className="border-l border-indigo-500 pl-4 space-y-4 ml-1 pt-1">
                 {selectedLead.history.map((h, i) => (
                   <div key={i} className="relative">
-                    <div className="absolute -left-[21px] top-1 h-2 w-2 rounded-full bg-indigo-400 shadow-md shadow-indigo-500/50"></div>
+                    <div className="absolute -left-[21px] top-1 h-2 w-2 rounded-full bg-indigo-400"></div>
                     <p className="text-[10px] text-slate-500 font-bold font-mono">{h.date} — Logged by: {h.by}</p>
                     <p className="text-xs text-slate-300 font-medium mt-0.5">{h.action}</p>
                   </div>
@@ -847,7 +860,7 @@ export default function App() {
         </div>
       )}
 
-      {/* DIALOG FRAMES BLOCKS: INGEST NEW CUSTOMER PROFILE */}
+      {/* DIALOG LAYOUT OVERLAYS */}
       {isLeadModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
@@ -904,7 +917,6 @@ export default function App() {
         </div>
       )}
 
-      {/* DIALOG FRAMES BLOCKS: CREATE NEW USER IDENTITY NODE */}
       {isUserModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
@@ -916,7 +928,7 @@ export default function App() {
               <div><label className="text-slate-400 font-semibold">Personnel Full Name *</label><input type="text" required value={newUserForm.name} onChange={(e)=>setNewUserForm({...newUserForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-slate-400 font-semibold">Clearance privilege Tier</label>
+                  <label className="text-slate-400 font-semibold">Clearance Privilege Tier</label>
                   <select value={newUserForm.role} onChange={(e)=>setNewUserForm({...newUserForm, role: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-300 mt-0.5 focus:outline-none">
                     {INITIAL_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
@@ -933,13 +945,12 @@ export default function App() {
                 <div><label className="text-slate-400 font-semibold">Mobile Phone</label><input type="text" required value={newUserForm.phone} onChange={(e)=>setNewUserForm({...newUserForm, phone: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 mt-0.5 focus:outline-none" /></div>
                 <div><label className="text-slate-400 font-semibold">Passcode Access Key *</label><input type="text" required value={newUserForm.pass} onChange={(e)=>setNewUserForm({...newUserForm, pass: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-amber-400 font-mono font-bold mt-0.5 focus:outline-none" /></div>
               </div>
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl uppercase tracking-wider text-[11px] mt-2 transition-colors">Deploy User Credentials Pass</button>
+              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl uppercase tracking-wider mt-2 transition-colors">Deploy User Credentials Pass</button>
             </form>
           </div>
         </div>
       )}
 
-      {/* DIALOG FRAMES BLOCKS: MODIFY USER PASS DEPLOYMENT */}
       {editingUser && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
@@ -974,7 +985,6 @@ export default function App() {
         </div>
       )}
 
-      {/* DIALOG FRAMES BLOCKS: PROVISION PROJECTS MASTER ASSET */}
       {isProjectModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">

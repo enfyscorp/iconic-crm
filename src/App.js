@@ -9,18 +9,55 @@ import {
 } from "lucide-react";
 
 // ─── AUTHENTIC DESAM BRANDING EMBEDDED DATA STRING ────────────────────────
-const DESAM_LOGO_ASSET = "data:image/png;base64,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";
+const DESAM_LOGO_ASSET = "data:image/png;base64,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ळे header context ───
+const INITIAL_ROLES = ["Admin", "Manager", "Executive", "Telecaller"];
 
-// ─── STAGE SECTIONS DYNAMIC WORKSPACE MATRIX ──────────────────────────────
-const SC = {
-  New:                    { bg: "rgba(59,130,246,0.1)", text: "#60a5fa", border: "rgba(59,130,246,0.2)" },
-  Assigned:               { bg: "rgba(16,185,129,0.1)", text: "#34d399", border: "rgba(16,185,129,0.2)" },
-  Contacted:              { bg: "rgba(245,158,11,0.1)", text: "#fbbf24", border: "rgba(245,158,11,0.2)" },
-  "Follow-Up":            { bg: "rgba(236,72,153,0.1)", text: "#f472b6", border: "rgba(236,72,153,0.2)" },
-  "Site Visit Planned":   { bg: "rgba(139,92,246,0.1)", text: "#a78bfa", border: "rgba(139,92,246,0.2)" },
-  "Booking Confirmed":    { bg: "rgba(52,211,153,0.15)", text: "#34d399", border: "rgba(52,211,153,0.3)" },
-  Closed:                 { bg: "rgba(107,114,128,0.1)", text: "#9ca3af", border: "rgba(107,114,128,0.2)" },
+const INITIAL_SOURCES = [
+  "Website", "Meta Ads", "Google Ads", "Direct Enquiry", "Walk-In", 
+  "Reference", "Expo / Event", "Own Leads", "WhatsApp Campaign", "Property Portals"
+];
+
+const INITIAL_STATUSES = [
+  "New", "Assigned", "Contacted", "Follow-Up", "Site Visit Planned", 
+  "Site Visit Completed", "Negotiation", "Booking Pending", "Booking Confirmed", "Closed"
+];
+
+const BRANCHES = ["Madurai Desk", "Chennai South", "Chennai North", "Coimbatore"];
+const PROJECT_TYPES = ["Apartment", "Villa", "Plot"];
+
+const TEAMS_REGISTRY = {
+  "Madurai Desk": "Team Alpha (Madurai Core)",
+  "Chennai South": "Team Delta (Chennai Hub)",
+  "Coimbatore": "Team Orion (CBE Vistas)",
+  "Chennai North": "Team Beta (Chennai North)"
 };
+
+const INITIAL_USERS = [
+  { id: 101, name: "Arjun Sharma", email: "admin@desam.in", pass: "admin123", role: "Admin", branch: "All Branches", phone: "9840000001", active: true, avatar: "A" },
+  { id: 102, name: "Jibril", email: "jibril@desam.in", pass: "manager123", role: "Manager", branch: "Madurai Desk", phone: "9840000002", active: true, avatar: "J" },
+  { id: 103, name: "AryaLakshmi", email: "aryalakshmi@desam.in", pass: "manager123", role: "Manager", branch: "Chennai South", phone: "9840000003", active: true, avatar: "A" },
+  { id: 104, name: "Rohini", email: "rohini@desam.in", pass: "agent123", role: "Executive", branch: "Madurai Desk", phone: "9840000004", active: true, avatar: "R" },
+  { id: 105, name: "Priyadarshini", email: "priya@desam.in", pass: "agent123", role: "Executive", branch: "Madurai Desk", phone: "9840000005", active: true, avatar: "P" },
+  { id: 106, name: "Arun", email: "arun@desam.in", pass: "agent123", role: "Executive", branch: "Chennai South", phone: "9840000006", active: true, avatar: "A" },
+  { id: 107, name: "Sumathi", email: "sumathi@desam.in", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "9840000007", active: true, avatar: "S" },
+  { id: 108, name: "Shakila", email: "shakila@desam.in", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "9840000008", active: true, avatar: "S" },
+  { id: 109, name: "Gowshika", email: "gowshika@desam.in", pass: "caller123", role: "Telecaller", branch: "Chennai South", phone: "9840000009", active: true, avatar: "G" },
+];
+
+const INITIAL_PROJECTS = [
+  { id: 1, name: "Desam Garden", location: "Madurai Bypass", branch: "Madurai Desk", type: "Plot", price: 25, units: 80, sold: 15, status: "Active" },
+  { id: 2, name: "Fairland", location: "Uthangudi, Madurai", branch: "Madurai Desk", type: "Villa", price: 95, units: 35, sold: 8, status: "Active" },
+  { id: 3, name: "Vishal Virinchi", location: "Bypass Road, Madurai", branch: "Madurai Desk", type: "Apartment", price: 65, units: 10, sold: 2, status: "Active" },
+  { id: 4, name: "GK Apartments", location: "Velachery, Chennai", branch: "Chennai South", type: "Apartment", price: 85, units: 120, sold: 45, status: "Active" },
+  { id: 5, name: "Anbu Desam", location: "Saravanampatti, CBE", branch: "Coimbatore", type: "Villa", price: 140, units: 40, sold: 12, status: "Pre-launch" },
+];
+
+const INITIAL_LEADS = [
+  { id: 1001, name: "Suresh Kumar", phone: "9840011234", altPhone: "9840011235", email: "suresh@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Vishal Virinchi", budget: 65, source: "Website", assignedTo: "Rohini", assignedByRole: "Manager", status: "Interested", notes: "Prefers higher floors.", dateCreated: "2026-05-10", lastFollowUp: "2026-05-25", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-25", by: "Rohini", action: "Follow-up conversation done. Discussing financing pathways and bank loan eligibility matrices." }, { date: "2026-05-15", by: "Sumathi", action: "Called client. Expressed keen interest in structural layouts. Requested site layout blueprints via WhatsApp." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
+  { id: 1002, name: "Lakshmi Rao", phone: "9940022345", altPhone: "", email: "lakshmi@yahoo.com", location: "Chennai", branch: "Chennai South", project: "GK Apartments", budget: 85, source: "Meta Ads", assignedTo: "Unassigned", assignedByRole: "", status: "New", notes: "Arranging transportation for family walkthrough.", dateCreated: "2026-05-12", lastFollowUp: "2026-05-28", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-28", by: "System Master", action: "Initial lead automated validation complete." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
+  { id: 1003, name: "Vijay Anand", phone: "9740033456", altPhone: "", email: "vijay@outlook.com", location: "Madurai", branch: "Madurai Desk", project: "Desam Garden", budget: 30, source: "Google Ads", assignedTo: "Jibril", assignedByRole: "Admin", status: "New", notes: "Premium corner plot structural interest.", dateCreated: "2026-05-29", lastFollowUp: "None", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-29", by: "Arjun Sharma", action: "Admin deployed tracking parameters directly to Manager Jibril view queue." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
+  { id: 1004, name: "Meena Selvam", phone: "9640044567", altPhone: "9640044568", email: "meena@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Fairland", budget: 95, source: "Walk-In", assignedTo: "Unassigned", assignedByRole: "", status: "New", notes: "Token collected cleanly.", dateCreated: "2026-04-20", lastFollowUp: "2026-05-20", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-20", by: "Priyadarshini", action: "Initial walkthrough context established." }], bookingUnit: "Villa 12", bookingAmount: 500000, bookingMode: "Cheque", bookingDate: "2026-05-20", regPending: true, regCompleted: false },
+];
 
 export default function App() {
   const TODAY_STR = "2026-05-29";
@@ -363,7 +400,6 @@ export default function App() {
   const SidebarContent = () => (
     <>
       <div>
-        {/* ─── NATIVE EMBEDDED REAL BRAND LOGO MATRIX INTEGRATION ─── */}
         <div className="h-16 flex items-center px-4 border-b border-slate-800 bg-slate-950">
           <img 
             src={DESAM_LOGO_ASSET} 
@@ -410,7 +446,7 @@ export default function App() {
     </>
   );
 
-  // ─── LOGIN SCREEN WITH NATIVE EMBEDDED LOGO ASSET ────────────────────────
+  // ─── LOGIN SCREEN (FIXED ENTIRELY FOR CHARACTERS SUBMISSION) ─────────────
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
@@ -438,7 +474,7 @@ export default function App() {
                     value={loginEmail} 
                     onChange={(e) => setLoginEmail(e.target.value)} 
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" 
-                    placeholder="Username or Corporate Email Address" 
+                    placeholder="Enter Username" 
                   />
                 </div>
               </div>
@@ -492,7 +528,7 @@ export default function App() {
             </button>
             <div className="relative w-48 sm:w-80 hidden sm:block">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-              <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live context query filtering search..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />
+              <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live context query filtering search..." className="w-full bg-slate-900 border border-slate-855 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />
             </div>
           </div>
           
@@ -835,7 +871,7 @@ export default function App() {
                 <span className="text-[10px] bg-orange-600 font-mono font-black px-2 py-0.5 rounded text-white uppercase tracking-wider">
                   {["Admin", "Manager"].includes(currentUser.role) ? "Direct Assignment Hub" : "Lead Context Dossier"}
                 </span>
-                <h3 className="text-xl font-black text-white">{selectedLead.name}</h3>
+                h3 className="text-xl font-black text-white">{selectedLead.name}</h3>
                 <p className="text-xs text-slate-500 tracking-wide font-mono">Reference ID: #{selectedLead.id} • Assigned Agent: <span className="text-slate-300 font-bold">{selectedLead.assignedTo}</span></p>
               </div>
               

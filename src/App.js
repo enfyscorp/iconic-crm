@@ -189,7 +189,6 @@ export default function App() {
     return result;
   }, [leads, currentUser, globalSearch, filterSource, filterStatus, filterProject, filterExecutive, startDate, endDate]);
 
-  // Updated Dashboard router engine logic mapping "Site Visit Planned" directly to Manager views
   const dashboardActionQueueLeads = useMemo(() => {
     if (!currentUser) return [];
     if (currentUser.role === "Admin") return leads.filter(l => l.assignedTo === "Unassigned" || l.status === "Site Visit Planned");
@@ -282,7 +281,7 @@ export default function App() {
     triggerToastAlert("Tentative date saved and metrics broadcasted.");
   };
 
-  // ─── DATA EXPORT TRIGGER METHODS (Fixed Document Generation Paths) ────────────────
+  // ─── DATA EXPORT TRIGGER METHODS ──────────────────────────────────────────
   const executeDataExportSequence = (formatType) => {
     if (processedLeads.length === 0) {
       triggerToastAlert("No scoped logs available to compile.");
@@ -317,7 +316,6 @@ export default function App() {
       calculatedExtension = formatType === "excel" ? "xlsx" : "csv"; 
     } 
     else if (formatType === "pdf") {
-      // Formatted as print-ready text snapshot document layout to prevent browser format corruption crashes
       let pdfLayoutText = `========================================================================\n`;
       pdfLayoutText += `                  DESAM DEVELOPERS - PERFORMANCE LEDGER AUDIT\n`;
       pdfLayoutText += `                  Report Compiled On: ${TODAY_STR} By: ${currentUser.name}\n`;
@@ -337,7 +335,7 @@ export default function App() {
       
       rawOutputBuffer = pdfLayoutText;
       fileMimeType = "text/plain;charset=utf-8;";
-      calculatedExtension = "txt"; // Safely downloaded as text document file representation
+      calculatedExtension = "txt";
     }
 
     try {
@@ -884,7 +882,7 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 3: PROJECTS MASTER */}
+          {/* VIEWPORT 3: PROJECTS MASTER (Strictly Admin Access to Creation Action) */}
           {activeTab === "projects" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -892,7 +890,8 @@ export default function App() {
                   <h1 className="text-2xl font-black text-white tracking-tight">Corporate Asset Registry</h1>
                   <p className="text-xs text-slate-400 mt-0.5">Track property inventory capacities, sales volume, and structural workflows.</p>
                 </div>
-                {["Admin", "Manager"].includes(currentUser.role) && (
+                {/* Condition updated so that ONLY Admin role renders the Add Project button */}
+                {currentUser.role === "Admin" && (
                   <button onClick={() => setIsProjectModalOpen(true)} className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md w-fit">
                     <Plus className="h-4 w-4" /> Add Project
                   </button>
@@ -1265,7 +1264,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* ─── INFOGRAPHIC TREE GRAPH TIMELINE DESIGN ─── */}
+            {/* INFOGRAPHIC TREE GRAPH TIMELINE DESIGN */}
             <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-5">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">

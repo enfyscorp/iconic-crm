@@ -37,15 +37,15 @@ const TEAMS_REGISTRY = {
 };
 
 const INITIAL_USERS = [
-  { id: 101, name: "Shaj", email: "admin@desam", pass: "admin123", role: "Admin", branch: "All Branches", phone: "9840000001", active: true, avatar: "S" },
-  { id: 102, name: "Jibril", email: "jibril@desam", pass: "manager123", role: "Manager", branch: "Madurai Desk", phone: "9840000002", active: true, avatar: "J" },
-  { id: 103, name: "AryaLakshmi", email: "aryalakshmi@desam", pass: "manager123", role: "Manager", branch: "Chennai South", phone: "9840000003", active: true, avatar: "A" },
-  { id: 104, name: "Rohini", email: "rohini@desam", pass: "agent123", role: "Executive", branch: "Madurai Desk", phone: "9840000004", active: true, avatar: "R" },
+  { id: 101, name: "Shaj", email: "admin@desam", pass: "saamrat@123", role: "Admin", branch: "All Branches", phone: "9840000001", active: true, avatar: "S" },
+  { id: 102, name: "Jibril", email: "jibril@desam", pass: "angel@26", role: "Manager", branch: "Madurai Desk", phone: "9840000002", active: true, avatar: "J" },
+  { id: 103, name: "AryaLakshmi", email: "arya@lakshmi", pass: "manager123", role: "Manager", branch: "Madurai Desk", phone: "9840000003", active: true, avatar: "A" },
+  { id: 104, name: "Rohini", email: "rohini@desam", pass: "rohu@desam", role: "Executive", branch: "Madurai Desk", phone: "9840000004", active: true, avatar: "R" },
   { id: 105, name: "Priyadarshini", email: "priya@desam", pass: "agent123", role: "Executive", branch: "Madurai Desk", phone: "9840000005", active: true, avatar: "P" },
-  { id: 106, name: "Arun", email: "arun@desam", pass: "agent123", role: "Executive", branch: "Chennai South", phone: "9840000006", active: true, avatar: "A" },
+  { id: 106, name: "Arun", email: "arun@desam", pass: "arun@desam", role: "Executive", branch: "Madurai Desk", phone: "9840000006", active: true, avatar: "A" },
   { id: 107, name: "Sumathi", email: "sumathi@desam", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "9840000007", active: true, avatar: "S" },
   { id: 108, name: "Shakila", email: "shakila@desam", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "9840000008", active: true, avatar: "S" },
-  { id: 109, name: "Gowshika", email: "gowshika@desam", pass: "caller123", role: "Telecaller", branch: "Chennai South", phone: "9840000009", active: true, avatar: "G" },
+  { id: 109, name: "Gowshika", email: "gowshika@desam", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "9840000009", active: true, avatar: "G" },
 ];
 
 const INITIAL_PROJECTS = [

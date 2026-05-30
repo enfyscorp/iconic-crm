@@ -8,10 +8,7 @@ import {
   Menu, ArrowRight
 } from "lucide-react";
 
-// ─── STATIC BRAND LOGO ROUTING DIRECTORY ──────────────────────────────────
-const DESAM_LOGO_ASSET = "/DESAM-NEW-LOGO.png";
-
-// ─── CONSTANT STATIC DATA REGISTRIES ──────────────────────────────────────
+// ─── CONSTANT STATIC REGISTRIES ───────────────────────────────────────────
 const INITIAL_ROLES = ["Admin", "Manager", "Executive", "Telecaller"];
 
 const INITIAL_SOURCES = [
@@ -209,7 +206,7 @@ export default function App() {
     const updatedHistoryLog = {
       date: TODAY_STR,
       by: currentUser.name,
-      action: `Transformed active pipeline milestone to state tracked tier [${targetStatus}].`
+      action: `INLINE MODIFIER: Transformed tracking milestone to [${targetStatus}].`
     };
 
     setLeads(leads.map(l => l.id === leadId ? {
@@ -359,7 +356,7 @@ export default function App() {
           status: "Contacted", 
           lastFollowUp: TODAY_STR, 
           nextFollowUp: nextFollowUpDate,
-          history: [{ date: TODAY_STR, by: currentUser.name, action: `[Follow-Up Entry]: ${followUpNotes.trim()} (Next review scheduled for: ${nextFollowUpDate})` }, ...l.history]
+          history: [{ date: TODAY_STR, by: currentUser.name, action: `FOLLOW-UP LOG ENTRY: ${followUpNotes.trim()} (Next: ${nextFollowUpDate})` }, ...l.history]
         };
         setSelectedLead(obj);
         return obj;
@@ -398,13 +395,13 @@ export default function App() {
   };
 
   const commitSiteWalkthroughLog = () => {
-    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Site Visit Completed", history: [{ date: svDate, by: currentUser.name, action: `[Walkthrough Matrix Validation]: Tour executed cleanly with family co-buyers (${svFamily}). Response details: ${svFeedback}` }, ...l.history] } : l));
+    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Site Visit Completed", history: [{ date: svDate, by: currentUser.name, action: `SITE WALKTHROUGH CONFIRMED: Completed walkthrough. Feedback notes: ${svFeedback}` }, ...l.history] } : l));
     setSelectedLead(null);
     triggerToastAlert("Site walkthrough registered successfully.");
   };
 
   const commitFinancialBookingLog = () => {
-    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Booking Confirmed", bookingUnit: bkUnit, history: [{ date: TODAY_STR, by: currentUser.name, action: `[Advance Token Secured]: Formally allocated unit block [${bkUnit}] with secured deposit validation.` }, ...l.history] } : l));
+    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Booking Confirmed", bookingUnit: bkUnit, history: [{ date: TODAY_STR, by: currentUser.name, action: `ADVANCE SECURED: Allocated block unit [${bkUnit}].` }, ...l.history] } : l));
     setSelectedLead(null);
     triggerToastAlert("Advance token payment captured.");
   };
@@ -412,13 +409,17 @@ export default function App() {
   const SidebarContent = () => (
     <>
       <div>
-        {/* NATIVE PUBLIC ROUTING LOGO ACCENT BLOCK */}
-        <div className="h-20 flex items-center px-5 border-b border-slate-800 bg-slate-950">
-          <img 
-            src={DESAM_LOGO_ASSET} 
-            alt="Desam Developers Pvt Ltd" 
-            className="h-11 w-auto object-contain max-w-[220px]" 
-          />
+        <div className="h-16 flex items-center px-4 border-b border-slate-800 bg-slate-950">
+          <div className="flex items-center gap-2">
+            <div className="relative flex items-center justify-center h-10 w-11 bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shrink-0">
+              <span className="absolute left-1 top-0.5 font-black text-lg text-orange-500 leading-none">D</span>
+              <span className="absolute right-1 bottom-0.5 font-black text-lg text-emerald-500 leading-none">D</span>
+            </div>
+            <div className="leading-tight">
+              <span className="font-black text-sm tracking-wider text-orange-500 block font-sans">DESAM</span>
+              <span className="text-[8px] font-black text-emerald-500 tracking-widest block font-sans uppercase">DEVELOPERS PVT LTD</span>
+            </div>
+          </div>
         </div>
         
         <nav className="p-4 space-y-1">
@@ -459,23 +460,23 @@ export default function App() {
     </>
   );
 
+  // ─── OVERHAULED LOGIN WORKSPACE (RENAMED TO USERNAME & PASSWORD) ─────────
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
-        <div className="sm:mx-auto w-full max-w-md text-center space-y-4">
-          <div className="flex justify-center mb-2">
-            <img 
-              src={DESAM_LOGO_ASSET} 
-              alt="Desam Developers Logo" 
-              className="h-16 w-auto object-contain drop-shadow-lg" 
-            />
+        <div className="sm:mx-auto w-full max-w-md text-center space-y-3">
+          <div className="relative flex items-center justify-center h-14 w-16 bg-slate-950 border border-slate-800 rounded-2xl mx-auto shadow-xl">
+            <span className="absolute left-2 top-1 font-black text-2xl text-orange-500 leading-none">D</span>
+            <span className="absolute right-2 bottom-1 font-black text-2xl text-emerald-500 leading-none">D</span>
           </div>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Operational Control Platform</p>
+          <h2 className="text-2xl font-black text-orange-500 tracking-wide uppercase">DESAM DEVELOPERS</h2>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Control Platform</p>
         </div>
         <div className="mt-6 sm:mx-auto w-full max-w-md px-4">
           <div className="bg-slate-950 py-8 px-6 border border-slate-800 rounded-2xl shadow-2xl space-y-6">
             <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
               
+              {/* FIXED INPUT INTERFACE */}
               <div className="space-y-1.5">
                 <label className="text-slate-400 font-bold uppercase tracking-wide">Username</label>
                 <div className="relative">
@@ -486,11 +487,12 @@ export default function App() {
                     value={loginEmail} 
                     onChange={(e) => setLoginEmail(e.target.value)} 
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" 
-                    placeholder="Enter Username" 
+                    placeholder="jibril@desam.in" 
                   />
                 </div>
               </div>
 
+              {/* FIXED INPUT INTERFACE */}
               <div className="space-y-1.5">
                 <label className="text-slate-400 font-bold uppercase tracking-wide">Password</label>
                 <div className="relative">
@@ -540,7 +542,7 @@ export default function App() {
             </button>
             <div className="relative w-48 sm:w-80 hidden sm:block">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-              <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live context query filtering search..." className="w-full bg-slate-900 border border-slate-855 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />
+              <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live context query filtering search..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />
             </div>
           </div>
           
@@ -551,7 +553,7 @@ export default function App() {
 
         <main className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-8 w-full">
           
-          {/* VIEWPORT 1: DASHBOARD */}
+          {/* VIEWPORT 1: VISUAL DASHBOARD SUMMARY STATS */}
           {activeTab === "dashboard" && (
             <div className="space-y-8 animate-fadeIn">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-950 p-6 border border-slate-800 rounded-2xl">
@@ -626,7 +628,7 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 2: LEAD TRACKING ROWS */}
+          {/* VIEWPORT 2: LEAD TRACKING ROWS CHANNEL MASTER */}
           {activeTab === "leads" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -634,7 +636,7 @@ export default function App() {
                   <h1 className="text-2xl font-black text-white tracking-tight">Active Team Lead Channels</h1>
                   <p className="text-xs text-slate-400 mt-0.5">Track property interaction vectors inside your regional territory parameters.</p>
                 </div>
-                <button onClick={() => opacity(() => setIsLeadModalOpen(true))} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors shadow-md w-fit">
+                <button onClick={() => setIsLeadModalOpen(true)} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors shadow-md w-fit">
                   <Plus className="h-4 w-4" /> INGEST RECORD
                 </button>
               </div>
@@ -710,7 +712,7 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 3: PROJECTS MASTER */}
+          {/* VIEWPORT 3: PROJECTS MASTER INVENTORIES */}
           {activeTab === "projects" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex justify-between items-center">
@@ -923,56 +925,54 @@ export default function App() {
               </div>
             </div>
 
-            {/* ─── INFOGRAPHIC TREE GRAPH TIMELINE DESIGN MAPPED TO PROVIDED DESIGN SCHEMA ─── */}
-            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-5">
+            {/* ─── INFOGRAPHIC TREE GRAPH TIMELINE DESIGN (LAST UPDATE FIRST) ─── */}
+            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-6">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-orange-500" /> INTERACTION TIMELINE JOURNAL
+                  <Clock className="h-4 w-4 text-orange-500" /> INTERACTION TIMELINE tracking JOURNAL
                 </h4>
-                <span className="text-[10px] bg-slate-900 text-slate-400 px-2.5 py-0.5 rounded-full border border-slate-800 font-mono font-bold">
-                  {selectedLead.history?.length || 0} Entries
+                <span className="text-[10px] bg-slate-900 text-slate-400 px-2.5 py-0.5 rounded-full border border-slate-800 font-mono">
+                  {selectedLead.history?.length || 0} Total Footprints
                 </span>
               </div>
               
-              <div className="relative max-h-[280px] overflow-y-auto pr-2 scrollbar-thin space-y-0 pt-2 pl-2">
-                {/* Visual Backbone Ribbon Track Line matching layout graphics */}
-                <div className="absolute left-[56px] top-0 bottom-4 w-1.5 bg-gradient-to-b from-rose-500 via-orange-500 via-amber-500 to-teal-400 rounded-full"></div>
+              <div className="relative max-h-[260px] overflow-y-auto pr-2 scrollbar-thin space-y-0 pt-2">
+                {/* Visual Backbone Thread Core Line */}
+                <div className="absolute left-[23px] top-0 bottom-4 w-1 bg-gradient-to-b from-orange-600 via-amber-500 to-emerald-500 rounded-full"></div>
                 
                 {selectedLead.history && selectedLead.history.length > 0 ? (
                   selectedLead.history.map((log, index) => {
                     const stepNumber = selectedLead.history.length - index;
-                    const stepString = stepNumber < 10 ? `0${stepNumber}` : `${stepNumber}`;
                     
-                    // Cyclical layout coloring mapped directly onto requirements parameters
-                    const colorMap = [
-                      { text: "text-rose-500", border: "border-rose-500/30", bg: "bg-rose-500", nodeRing: "ring-rose-500/20" },
-                      { text: "text-orange-500", border: "border-orange-500/30", bg: "bg-orange-500", nodeRing: "ring-orange-500/20" },
-                      { text: "text-amber-500", border: "border-amber-500/30", bg: "bg-amber-400", nodeRing: "ring-amber-500/20" },
-                      { text: "text-teal-400", border: "border-teal-400/30", bg: "bg-teal-400", nodeRing: "ring-teal-400/20" }
+                    const stepBadgeColors = [
+                      "bg-orange-600 ring-orange-500/20 text-white",
+                      "bg-amber-500 ring-amber-500/20 text-slate-950",
+                      "bg-yellow-500 ring-yellow-500/20 text-slate-950",
+                      "bg-emerald-500 ring-emerald-500/20 text-white"
                     ][index % 4];
 
                     return (
-                      <div key={index} className="flex gap-4 items-center pb-5 last:pb-2 group animate-fadeIn">
+                      <div key={index} className="flex gap-6 items-start pb-6 last:pb-2 group animate-fadeIn">
                         
-                        {/* Static Label Track Array */}
-                        <div className={`w-10 font-mono font-black text-xs text-right tracking-wider pr-1 shrink-0 ${colorMap.text}`}>
-                          STEP
-                        </div>
-
-                        {/* Central Circular Pointer Node */}
-                        <div className={`h-8 w-8 rounded-full flex-shrink-0 flex items-center justify-center font-black text-[10px] text-slate-950 ring-4 shadow-md z-10 transition-transform font-mono ${colorMap.bg} ${colorMap.nodeRing}`}>
-                          {stepString}
+                        {/* Blueprint Step Circle Node */}
+                        <div className={`h-12 w-12 rounded-full flex-shrink-0 flex items-center justify-center font-black text-sm ring-8 shadow-md transition-transform group-hover:scale-105 ${stepBadgeColors} z-10 font-mono`}>
+                          {stepNumber < 10 ? `0${stepNumber}` : stepNumber}
                         </div>
                         
-                        {/* Right Content Data Row Descriptor Block */}
-                        <div className={`flex-1 bg-slate-900/50 border ${colorMap.border} p-3 rounded-xl relative hover:bg-slate-900 transition-all space-y-1`}>
-                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1">
-                            <h5 className="font-black text-white text-[11px] uppercase tracking-wide">
-                              Log Origin: <span className={colorMap.text}>{log.by}</span>
+                        {/* Blueprint Right Node Body Text block */}
+                        <div className="flex-1 bg-slate-900/60 border border-slate-850 p-4 rounded-2xl relative hover:bg-slate-900 hover:border-slate-700 transition-all space-y-1.5 shadow-inner">
+                          {/* Triangle pointer indicator */}
+                          <div className="absolute left-[-6px] top-4 h-3 w-3 bg-slate-900 border-l border-b border-slate-850 transform rotate-45 group-hover:bg-slate-900 group-hover:border-slate-700"></div>
+                          
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
+                            <h5 className="font-black text-white text-xs uppercase tracking-wide flex items-center gap-1.5">
+                              <span className="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                              Agent Action Desk: <span className="text-orange-400 font-mono ml-0.5">{log.by}</span>
                             </h5>
-                            <span className="text-[9px] font-bold text-slate-500 font-mono bg-slate-950 px-1.5 py-0.5 rounded">{log.date}</span>
+                            <span className="text-[10px] font-bold text-slate-500 font-mono bg-slate-950/80 px-2 py-0.5 rounded border border-slate-900">{log.date}</span>
                           </div>
-                          <p className="text-slate-300 text-[11px] leading-relaxed font-sans font-medium pl-1.5 border-l border-slate-800">
+                          
+                          <p className="text-slate-300 text-[11px] leading-relaxed font-sans font-medium pl-3 border-l-2 border-slate-800 mt-1">
                             {log.action}
                           </p>
                         </div>
@@ -1090,11 +1090,11 @@ export default function App() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-slate-400 font-semibold">Client Target Name *</label>
-                  <input type="text" required value={newLeadForm.name} onChange={(e)=>setNewLeadForm({...newLeadForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-200 focus:outline-none focus:border-orange-500" />
+                  <input type="text" required value={newLeadForm.name} onChange={(e)=>setNewLeadForm({...newLeadForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none focus:border-orange-500" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-slate-400 font-semibold">Attribution Channel Source</label>
-                  <select value={newLeadForm.source} onChange={(e)=>setNewLeadForm({...newLeadForm, source: e.target.value})} className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-300 focus:outline-none">
+                  <select value={newLeadForm.source} onChange={(e)=>setNewLeadForm({...newLeadForm, source: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-300 focus:outline-none">
                     {sources.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
@@ -1109,7 +1109,7 @@ export default function App() {
                     value={newLeadForm.phone} 
                     onChange={(e) => handlePhoneInputChange(e.target.value, false)} 
                     placeholder="e.g. 9840011234"
-                    className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-200 font-mono font-bold tracking-wider focus:outline-none focus:border-orange-500" 
+                    className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 font-mono font-bold tracking-wider focus:outline-none focus:border-orange-500" 
                   />
                 </div>
                 <div className="space-y-1">
@@ -1119,24 +1119,24 @@ export default function App() {
                     value={newLeadForm.altPhone} 
                     onChange={(e) => handlePhoneInputChange(e.target.value, true)} 
                     placeholder="Optional fallback digit string"
-                    className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-200 font-mono focus:outline-none focus:border-orange-500" 
+                    className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 font-mono focus:outline-none focus:border-orange-500" 
                   />
                 </div>
               </div>
               
               <div className="space-y-1">
                 <label className="text-slate-400 font-semibold">Email Contact Parameters <span className="text-slate-500 text-[10px] italic">(Optional)</span></label>
-                <input type="email" value={newLeadForm.email} onChange={(e)=>setNewLeadForm({...newLeadForm, email: e.target.value})} className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-200 focus:outline-none focus:border-orange-500" placeholder="client@domain.com" />
+                <input type="email" value={newLeadForm.email} onChange={(e)=>setNewLeadForm({...newLeadForm, email: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none focus:border-orange-500" placeholder="client@domain.com" />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-slate-400 font-semibold">Location Zone</label>
-                  <input type="text" value={newLeadForm.location} onChange={(e)=>setNewLeadForm({...newLeadForm, location: e.target.value})} className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-200 focus:outline-none" />
+                  <input type="text" value={newLeadForm.location} onChange={(e)=>setNewLeadForm({...newLeadForm, location: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-slate-400 font-semibold">Target Project</label>
-                  <select value={newLeadForm.project} onChange={(e)=>setNewLeadForm({...newLeadForm, project: e.target.value})} className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-300 focus:outline-none">
+                  <select value={newLeadForm.project} onChange={(e)=>setNewLeadForm({...newLeadForm, project: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-300 focus:outline-none">
                     {visibleProjects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                   </select>
                 </div>

@@ -783,6 +783,55 @@ export default function App() {
                 </div>
               )}
 
+              {/* DYNAMIC ACTION DESK (MOVED TO TOP OF DASHBOARD) */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 space-y-4">
+                <h2 className="text-xs font-black text-orange-400 uppercase tracking-widest flex items-center gap-2">
+                  <Bell className="h-4 w-4" /> 
+                  {currentUser.role === "Executive" || currentUser.role === "Telecaller" ? "MY ACTIVE PIPELINE TASKS" : "DIRECT INBOUND DEPLOYMENT QUEUE / SITE VISITS"}
+                </h2>
+                
+                {dashboardActionQueueLeads.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {dashboardActionQueueLeads.map(l => (
+                      <div key={l.id} className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl flex flex-col justify-between space-y-3 relative overflow-hidden">
+                        
+                        {l.assignedByRole === "Admin" && currentUser.role === "Manager" && (
+                          <div className="absolute top-0 right-0 bg-rose-600 text-[8px] font-black tracking-wider uppercase px-2 py-0.5 rounded-bl text-white animate-pulse">
+                            ⭐ Admin Priority
+                          </div>
+                        )}
+
+                        {l.status === "Site Visit Planned" && l.siteVisitTentativeDate && (
+                          <div className="absolute top-0 right-0 bg-purple-600 text-[9px] font-mono font-black tracking-wider uppercase px-2.5 py-0.5 rounded-bl text-white flex items-center gap-1">
+                            <Calendar className="h-3 w-3" /> SV DATE: {l.siteVisitTentativeDate}
+                          </div>
+                        )}
+
+                        <div>
+                          <div className="flex justify-between items-start pr-16">
+                            <h4 className="font-bold text-white text-sm cursor-pointer hover:text-orange-400 transition-all" onClick={() => setSelectedLead(l)}>{l.name}</h4>
+                            <span className="text-[9px] bg-slate-950 border border-slate-855 text-slate-400 px-2 py-0.5 rounded font-mono font-bold">{l.source}</span>
+                          </div>
+                          <p className="text-xs text-slate-400 font-mono mt-1">{l.phone}</p>
+                          <p className="text-[11px] font-semibold text-orange-400 mt-0.5">{l.project}</p>
+                          <div className="mt-2 flex gap-1.5 items-center">
+                            <span className="text-[9px] px-2 py-0.5 font-bold uppercase rounded" style={{ backgroundColor: SC[l.status]?.bg || "rgba(255,255,255,0.05)", color: SC[l.status]?.text || "#FFF" }}>
+                              {l.status}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <button onClick={() => setSelectedLead(l)} className="w-full bg-orange-600/10 hover:bg-orange-600 border border-orange-500/20 text-[10px] text-orange-400 hover:text-white font-black py-1.5 rounded-lg tracking-wide uppercase transition-all">
+                          {["Manager", "Admin"].includes(currentUser.role) ? "⚡ Delegate Out" : "📝 Open Workspace File"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 italic p-4 bg-slate-900/40 rounded-xl border border-slate-900">Your visual dashboard deployment list is clean.</p>
+                )}
+              </div>
+
               {/* CORE METRIC TILES */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
@@ -858,55 +907,6 @@ export default function App() {
                     </ResponsiveContainer>
                   </div>
                 </div>
-              </div>
-
-              {/* DYNAMIC ACTION DESK */}
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 space-y-4">
-                <h2 className="text-xs font-black text-orange-400 uppercase tracking-widest flex items-center gap-2">
-                  <Bell className="h-4 w-4" /> 
-                  {currentUser.role === "Executive" || currentUser.role === "Telecaller" ? "MY ACTIVE PIPELINE TASKS" : "DIRECT INBOUND DEPLOYMENT QUEUE / SITE VISITS"}
-                </h2>
-                
-                {dashboardActionQueueLeads.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {dashboardActionQueueLeads.map(l => (
-                      <div key={l.id} className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl flex flex-col justify-between space-y-3 relative overflow-hidden">
-                        
-                        {l.assignedByRole === "Admin" && currentUser.role === "Manager" && (
-                          <div className="absolute top-0 right-0 bg-rose-600 text-[8px] font-black tracking-wider uppercase px-2 py-0.5 rounded-bl text-white animate-pulse">
-                            ⭐ Admin Priority
-                          </div>
-                        )}
-
-                        {l.status === "Site Visit Planned" && l.siteVisitTentativeDate && (
-                          <div className="absolute top-0 right-0 bg-purple-600 text-[9px] font-mono font-black tracking-wider uppercase px-2.5 py-0.5 rounded-bl text-white flex items-center gap-1">
-                            <Calendar className="h-3 w-3" /> SV DATE: {l.siteVisitTentativeDate}
-                          </div>
-                        )}
-
-                        <div>
-                          <div className="flex justify-between items-start pr-16">
-                            <h4 className="font-bold text-white text-sm cursor-pointer hover:text-orange-400 transition-all" onClick={() => setSelectedLead(l)}>{l.name}</h4>
-                            <span className="text-[9px] bg-slate-950 border border-slate-855 text-slate-400 px-2 py-0.5 rounded font-mono font-bold">{l.source}</span>
-                          </div>
-                          <p className="text-xs text-slate-400 font-mono mt-1">{l.phone}</p>
-                          <p className="text-[11px] font-semibold text-orange-400 mt-0.5">{l.project}</p>
-                          <div className="mt-2 flex gap-1.5 items-center">
-                            <span className="text-[9px] px-2 py-0.5 font-bold uppercase rounded" style={{ backgroundColor: SC[l.status]?.bg || "rgba(255,255,255,0.05)", color: SC[l.status]?.text || "#FFF" }}>
-                              {l.status}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <button onClick={() => setSelectedLead(l)} className="w-full bg-orange-600/10 hover:bg-orange-600 border border-orange-500/20 text-[10px] text-orange-400 hover:text-white font-black py-1.5 rounded-lg tracking-wide uppercase transition-all">
-                          {["Manager", "Admin"].includes(currentUser.role) ? "⚡ Delegate Out" : "📝 Open Workspace File"}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-500 italic p-4 bg-slate-900/40 rounded-xl border border-slate-900">Your visual dashboard deployment list is clean.</p>
-                )}
               </div>
             </div>
           )}

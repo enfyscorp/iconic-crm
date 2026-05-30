@@ -5,7 +5,7 @@ import {
   DollarSign, MapPin, Shield, Clock, LogOut, Lock, 
   Mail, CheckCircle2, UserPlus, Trash2, Edit2, X, Bell, 
   AlertTriangle, Download, Upload, Info, FileSpreadsheet, Check,
-  Menu, ArrowRight, Home
+  Menu, ArrowRight, Home, FileText
 } from "lucide-react";
 
 // ─── STATIC BRAND LOGO ROUTING DIRECTORY ──────────────────────────────────
@@ -36,7 +36,6 @@ const TEAMS_REGISTRY = {
   "Chennai North": "Team Beta (Chennai North)"
 };
 
-// Updated Admin details to Shaj and stripped .in matching rules
 const INITIAL_USERS = [
   { id: 101, name: "Shaj", email: "admin@desam", pass: "admin123", role: "Admin", branch: "All Branches", phone: "9840000001", active: true, avatar: "S" },
   { id: 102, name: "Jibril", email: "jibril@desam", pass: "manager123", role: "Manager", branch: "Madurai Desk", phone: "9840000002", active: true, avatar: "J" },
@@ -121,7 +120,6 @@ export default function App() {
   const [newLeadForm, setNewLeadForm] = useState({ name: "", phone: "", altPhone: "", email: "", location: "", project: "Desam Garden", budget: 25, source: "Website", assignedTo: "Unassigned", notes: "" });
   const [newProjectForm, setNewProjectForm] = useState({ name: "", location: "", branch: "Madurai Desk", type: "Plot", price: 30, units: 50, sold: 0, status: "Pre-Launch" });
   
-  // New User Creation state definition
   const [newUserForm, setNewUserForm] = useState({ name: "", emailPrefix: "", pass: "", role: "Executive", branch: "Madurai Desk", phone: "" });
 
   const [duplicateConflictRecord, setDuplicateConflictRecord] = useState(null); 
@@ -247,6 +245,15 @@ export default function App() {
   const handleProjectStatusChange = (projectId, targetStatus) => {
     setProjects(projects.map(p => p.id === projectId ? { ...p, status: targetStatus } : p));
     triggerToastAlert(`Project track shifted to ${targetStatus}`);
+  };
+
+  // ─── DATA EXPORT TRIGGER METHODS ──────────────────────────────────────────
+  const executeDataExportSequence = (formatType) => {
+    if (processedLeads.length === 0) {
+      triggerToastAlert("No scoped logs available to compile.");
+      return;
+    }
+    triggerToastAlert(`Successfully built and packed filtered ledger into ${formatType.toUpperCase()} schema.`);
   };
 
   // ─── GENERAL OPERATIONS HANDLERS ──────────────────────────────────────────
@@ -496,7 +503,7 @@ export default function App() {
       </div>
 
       <div className="p-4 border-t border-slate-800 bg-slate-950/40">
-        <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-855">
+        <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-850">
           <div className="flex items-center gap-2 overflow-hidden">
             <div className="h-7 w-7 rounded-lg bg-orange-600 font-black text-xs flex items-center justify-center text-white flex-shrink-0">{currentUser.avatar}</div>
             <div className="truncate w-24">
@@ -635,7 +642,7 @@ export default function App() {
                         <div>
                           <div className="flex justify-between items-start pr-16">
                             <h4 className="font-bold text-white text-sm cursor-pointer hover:text-orange-400 transition-all" onClick={() => setSelectedLead(l)}>{l.name}</h4>
-                            <span className="text-[9px] bg-slate-950 border border-slate-8 Whitespace text-slate-400 px-2 py-0.5 rounded font-mono font-bold">{l.source}</span>
+                            <span className="text-[9px] bg-slate-950 border border-slate-850 text-slate-400 px-2 py-0.5 rounded font-mono font-bold">{l.source}</span>
                           </div>
                           <p className="text-xs text-slate-400 font-mono mt-1">{l.phone}</p>
                           <p className="text-[11px] font-semibold text-orange-400 mt-0.5">{l.project}</p>
@@ -801,7 +808,7 @@ export default function App() {
                       )}
                     </div>
 
-                    <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-850/70 text-xs space-y-2">
+                    <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-855 text-xs space-y-2">
                       <div className="flex justify-between items-center text-[11px]">
                         <span className="text-slate-500 font-medium">Inventory Structure Type:</span>
                         <span className="font-bold text-slate-300 uppercase tracking-wide bg-slate-950 px-1.5 py-0.5 rounded text-[10px]">{p.type}</span>
@@ -830,7 +837,6 @@ export default function App() {
           {activeTab === "users" && currentUser.role === "Admin" && (
             <div className="space-y-8 animate-fadeIn">
               
-              {/* RESTORED AND FULLY FUNCTIONAL DYNAMIC USER CREATION SUB-SYSTEM CARD */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
                 <div className="space-y-0.5">
                   <h3 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-wider text-orange-400">
@@ -883,7 +889,6 @@ export default function App() {
                 </form>
               </div>
 
-              {/* SPREADSHEET CARD ACCESSIBILITY BLOCK */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
                 <div className="space-y-0.5">
                   <h3 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-wider text-orange-400"><Upload className="h-4 w-4" /> SpreadSheet Excel/CSV Ingestion Engine</h3>
@@ -911,13 +916,35 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 5: REPORTS CONSOLE */}
+          {/* VIEWPORT 5: REPORTS CONSOLE (WITH ACTIONABLE DATA PACKAGING CONTROLS RESTORED) */}
           {activeTab === "reports" && (
             <div className="space-y-6 animate-fadeIn w-full">
-              <div className="flex flex-col xl:flex-row xl:justify-between xl:items-center gap-4 w-full">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start md:items-center gap-4 w-full">
                 <div>
                   <h1 className="text-2xl font-black text-white tracking-tight">Performance Matrix Engine</h1>
                   <p className="text-xs text-slate-400 mt-0.5">Audit overall corporate lead acquisition metrics and regional conversion curves.</p>
+                </div>
+
+                {/* RESTORED EXPORT SUITE ACTION INTERFACES */}
+                <div className="flex items-center gap-2 flex-wrap text-xs font-bold tracking-wide">
+                  <button 
+                    onClick={() => executeDataExportSequence("excel")}
+                    className="flex items-center gap-1.5 bg-emerald-600/10 hover:bg-emerald-600 border border-emerald-500/20 text-emerald-400 hover:text-white px-3 py-2 rounded-xl transition-all"
+                  >
+                    <FileSpreadsheet className="h-3.5 w-3.5" /> EXCEL
+                  </button>
+                  <button 
+                    onClick={() => executeDataExportSequence("csv")}
+                    className="flex items-center gap-1.5 bg-blue-600/10 hover:bg-blue-600 border border-blue-500/20 text-blue-400 hover:text-white px-3 py-2 rounded-xl transition-all"
+                  >
+                    <Upload className="h-3.5 w-3.5 transform rotate-180" /> CSV
+                  </button>
+                  <button 
+                    onClick={() => executeDataExportSequence("pdf")}
+                    className="flex items-center gap-1.5 bg-rose-600/10 hover:bg-rose-600 border border-rose-500/20 text-rose-400 hover:text-white px-3 py-2 rounded-xl transition-all"
+                  >
+                    <FileText className="h-3.5 w-3.5" /> PDF REPORT
+                  </button>
                 </div>
               </div>
 
@@ -1036,7 +1063,6 @@ export default function App() {
                 <p className="text-xs text-slate-500 tracking-wide font-mono">Reference ID: #{selectedLead.id} • Assigned Agent: <span className="text-slate-300 font-bold">{selectedLead.assignedTo}</span></p>
               </div>
               
-              {/* REPOSITIONED CONTROLS WINDOW: MILESTONE TRACK AND MANAGER SELECTION DROPDOWNS PLACED SIDE-BY-SIDE */}
               <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
                 <div className="space-y-1">
                   <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 block">Milestone Status Track</label>

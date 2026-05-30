@@ -5,10 +5,13 @@ import {
   DollarSign, MapPin, Shield, Clock, LogOut, Lock, 
   Mail, CheckCircle2, UserPlus, Trash2, Edit2, X, Bell, 
   AlertTriangle, Download, Upload, Info, FileSpreadsheet, Check,
-  Menu, ArrowRight
+  Menu, ArrowRight, Home
 } from "lucide-react";
 
-// ─── CONSTANT STATIC REGISTRIES ───────────────────────────────────────────
+// ─── STATIC BRAND LOGO ROUTING DIRECTORY ──────────────────────────────────
+const DESAM_LOGO_ASSET = "/DESAM-NEW-LOGO.png";
+
+// ─── CONSTANT STATIC DATA REGISTRIES ──────────────────────────────────────
 const INITIAL_ROLES = ["Admin", "Manager", "Executive", "Telecaller"];
 
 const INITIAL_SOURCES = [
@@ -20,6 +23,9 @@ const INITIAL_STATUSES = [
   "New", "Assigned", "Contacted", "Follow-Up", "Site Visit Planned", 
   "Site Visit Completed", "Negotiation", "Booking Pending", "Booking Confirmed", "Closed"
 ];
+
+// Updated to requested corporate lifecycles
+const PROJECT_STATUSES = ["Upcoming", "Pre-Launch", "Ongoing", "Completed", "Sold-Out"];
 
 const BRANCHES = ["Madurai Desk", "Chennai South", "Chennai North", "Coimbatore"];
 const PROJECT_TYPES = ["Apartment", "Villa", "Plot"];
@@ -44,11 +50,11 @@ const INITIAL_USERS = [
 ];
 
 const INITIAL_PROJECTS = [
-  { id: 1, name: "Desam Garden", location: "Madurai Bypass", branch: "Madurai Desk", type: "Plot", price: 25, units: 80, sold: 15, status: "Active" },
-  { id: 2, name: "Fairland", location: "Uthangudi, Madurai", branch: "Madurai Desk", type: "Villa", price: 95, units: 35, sold: 8, status: "Active" },
-  { id: 3, name: "Vishal Virinchi", location: "Bypass Road, Madurai", branch: "Madurai Desk", type: "Apartment", price: 65, units: 10, sold: 2, status: "Active" },
-  { id: 4, name: "GK Apartments", location: "Velachery, Chennai", branch: "Chennai South", type: "Apartment", price: 85, units: 120, sold: 45, status: "Active" },
-  { id: 5, name: "Anbu Desam", location: "Saravanampatti, CBE", branch: "Coimbatore", type: "Villa", price: 140, units: 40, sold: 12, status: "Pre-launch" },
+  { id: 1, name: "Desam Garden", location: "Madurai Bypass", branch: "Madurai Desk", type: "Plot", price: 25, units: 80, sold: 15, status: "Ongoing" },
+  { id: 2, name: "Fairland", location: "Uthangudi, Madurai", branch: "Madurai Desk", type: "Villa", price: 95, units: 35, sold: 8, status: "Ongoing" },
+  { id: 3, name: "Vishal Virinchi", location: "Bypass Road, Madurai", branch: "Madurai Desk", type: "Apartment", price: 65, units: 10, sold: 2, status: "Ongoing" },
+  { id: 4, name: "GK Apartments", location: "Velachery, Chennai", branch: "Chennai South", type: "Apartment", price: 85, units: 120, sold: 45, status: "Completed" },
+  { id: 5, name: "Anbu Desam", location: "Saravanampatti, CBE", branch: "Coimbatore", type: "Villa", price: 140, units: 40, sold: 12, status: "Pre-Launch" },
 ];
 
 const INITIAL_LEADS = [
@@ -66,6 +72,14 @@ const SC = {
   "Site Visit Planned":   { bg: "rgba(139,92,246,0.1)", text: "#a78bfa", border: "rgba(139,92,246,0.2)" },
   "Booking Confirmed":    { bg: "rgba(52,211,153,0.15)", text: "#34d399", border: "rgba(52,211,153,0.3)" },
   Closed:                 { bg: "rgba(107,114,128,0.1)", text: "#9ca3af", border: "rgba(107,114,128,0.2)" },
+};
+
+const PSC = {
+  "Upcoming":             { bg: "rgba(147,197,253,0.15)", text: "#93c5fd" },
+  "Pre-Launch":           { bg: "rgba(244,114,182,0.15)", text: "#f472b6" },
+  "Ongoing":              { bg: "rgba(251,191,36,0.15)",  text: "#fbbf24" },
+  "Completed":            { bg: "rgba(52,211,153,0.15)",  text: "#34d399" },
+  "Sold-Out":             { bg: "rgba(239,68,68,0.15)",   text: "#ef4444" },
 };
 
 export default function App() {
@@ -97,14 +111,16 @@ export default function App() {
 
   const [selectedLead, setSelectedLead] = useState(null);
   const [importText, setImportText] = useState("");
-  const [showImportWizard, setShowImportWizard] = useState(false);
 
   const [customPopup, setCustomPopup] = useState({ isOpen: false, leadId: null, targetValue: "", type: "status", title: "", message: "" });
   const [toastNotification, setToastNotification] = useState({ isVisible: false, message: "" });
 
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
   const [newLeadForm, setNewLeadForm] = useState({ name: "", phone: "", altPhone: "", email: "", location: "", project: "Desam Garden", budget: 25, source: "Website", assignedTo: "Unassigned", notes: "" });
+  const [newProjectForm, setNewProjectForm] = useState({ name: "", location: "", branch: "Madurai Desk", type: "Plot", price: 30, units: 50, sold: 0, status: "Pre-Launch" });
+  
   const [duplicateConflictRecord, setDuplicateConflictRecord] = useState(null); 
 
   const [followUpNotes, setFollowUpNotes] = useState("");
@@ -206,7 +222,7 @@ export default function App() {
     const updatedHistoryLog = {
       date: TODAY_STR,
       by: currentUser.name,
-      action: `INLINE MODIFIER: Transformed tracking milestone to [${targetStatus}].`
+      action: `Transformed active pipeline milestone to state tracked tier [${targetStatus}].`
     };
 
     setLeads(leads.map(l => l.id === leadId ? {
@@ -223,6 +239,11 @@ export default function App() {
       }));
     }
     triggerToastAlert(`Milestone set to ${targetStatus}`);
+  };
+
+  const handleProjectStatusChange = (projectId, targetStatus) => {
+    setProjects(projects.map(p => p.id === projectId ? { ...p, status: targetStatus } : p));
+    triggerToastAlert(`Project track shifted to ${targetStatus}`);
   };
 
   // ─── GENERAL OPERATIONS HANDLERS ──────────────────────────────────────────
@@ -339,7 +360,6 @@ export default function App() {
         setLeads([...newlyIngestedLeads, ...leads]);
         triggerToastAlert(`Successfully imported ${newlyIngestedLeads.length} leads.`);
         setImportText("");
-        setShowImportWizard(false);
       }
     } catch (err) {
       alert(`Parsing Exception: ${err.message}`);
@@ -356,7 +376,7 @@ export default function App() {
           status: "Contacted", 
           lastFollowUp: TODAY_STR, 
           nextFollowUp: nextFollowUpDate,
-          history: [{ date: TODAY_STR, by: currentUser.name, action: `FOLLOW-UP LOG ENTRY: ${followUpNotes.trim()} (Next: ${nextFollowUpDate})` }, ...l.history]
+          history: [{ date: TODAY_STR, by: currentUser.name, action: `[Follow-Up Entry]: ${followUpNotes.trim()} (Next review scheduled for: ${nextFollowUpDate})` }, ...l.history]
         };
         setSelectedLead(obj);
         return obj;
@@ -394,14 +414,29 @@ export default function App() {
     triggerToastAlert("New customer captured cleanly.");
   };
 
+  const handleCreateProject = (e) => {
+    e.preventDefault();
+    const createdProj = {
+      ...newProjectForm,
+      id: Date.now(),
+      price: parseInt(newProjectForm.price) || 0,
+      units: parseInt(newProjectForm.units) || 0,
+      sold: parseInt(newProjectForm.sold) || 0,
+    };
+    setProjects([createdProj, ...projects]);
+    setIsProjectModalOpen(false);
+    setNewProjectForm({ name: "", location: "", branch: "Madurai Desk", type: "Plot", price: 30, units: 50, sold: 0, status: "Pre-Launch" });
+    triggerToastAlert(`Project "${createdProj.name}" compiled successfully.`);
+  };
+
   const commitSiteWalkthroughLog = () => {
-    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Site Visit Completed", history: [{ date: svDate, by: currentUser.name, action: `SITE WALKTHROUGH CONFIRMED: Completed walkthrough. Feedback notes: ${svFeedback}` }, ...l.history] } : l));
+    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Site Visit Completed", history: [{ date: svDate, by: currentUser.name, action: `[Walkthrough Matrix Validation]: Tour executed cleanly with family co-buyers (${svFamily}). Response details: ${svFeedback}` }, ...l.history] } : l));
     setSelectedLead(null);
     triggerToastAlert("Site walkthrough registered successfully.");
   };
 
   const commitFinancialBookingLog = () => {
-    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Booking Confirmed", bookingUnit: bkUnit, history: [{ date: TODAY_STR, by: currentUser.name, action: `ADVANCE SECURED: Allocated block unit [${bkUnit}].` }, ...l.history] } : l));
+    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Booking Confirmed", bookingUnit: bkUnit, history: [{ date: TODAY_STR, by: currentUser.name, action: `[Advance Token Secured]: Formally allocated unit block [${bkUnit}] with secured deposit validation.` }, ...l.history] } : l));
     setSelectedLead(null);
     triggerToastAlert("Advance token payment captured.");
   };
@@ -409,17 +444,12 @@ export default function App() {
   const SidebarContent = () => (
     <>
       <div>
-        <div className="h-16 flex items-center px-4 border-b border-slate-800 bg-slate-950">
-          <div className="flex items-center gap-2">
-            <div className="relative flex items-center justify-center h-10 w-11 bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shrink-0">
-              <span className="absolute left-1 top-0.5 font-black text-lg text-orange-500 leading-none">D</span>
-              <span className="absolute right-1 bottom-0.5 font-black text-lg text-emerald-500 leading-none">D</span>
-            </div>
-            <div className="leading-tight">
-              <span className="font-black text-sm tracking-wider text-orange-500 block font-sans">DESAM</span>
-              <span className="text-[8px] font-black text-emerald-500 tracking-widest block font-sans uppercase">DEVELOPERS PVT LTD</span>
-            </div>
-          </div>
+        <div className="h-20 flex items-center px-5 border-b border-slate-800 bg-slate-950">
+          <img 
+            src={DESAM_LOGO_ASSET} 
+            alt="Desam Developers Pvt Ltd" 
+            className="h-11 w-auto object-contain max-w-[220px]" 
+          />
         </div>
         
         <nav className="p-4 space-y-1">
@@ -460,23 +490,23 @@ export default function App() {
     </>
   );
 
-  // ─── OVERHAULED LOGIN WORKSPACE (RENAMED TO USERNAME & PASSWORD) ─────────
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
-        <div className="sm:mx-auto w-full max-w-md text-center space-y-3">
-          <div className="relative flex items-center justify-center h-14 w-16 bg-slate-950 border border-slate-800 rounded-2xl mx-auto shadow-xl">
-            <span className="absolute left-2 top-1 font-black text-2xl text-orange-500 leading-none">D</span>
-            <span className="absolute right-2 bottom-1 font-black text-2xl text-emerald-500 leading-none">D</span>
+        <div className="sm:mx-auto w-full max-w-md text-center space-y-4">
+          <div className="flex justify-center mb-2">
+            <img 
+              src={DESAM_LOGO_ASSET} 
+              alt="Desam Developers Logo" 
+              className="h-16 w-auto object-contain drop-shadow-lg" 
+            />
           </div>
-          <h2 className="text-2xl font-black text-orange-500 tracking-wide uppercase">DESAM DEVELOPERS</h2>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Control Platform</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Operational Control Platform</p>
         </div>
         <div className="mt-6 sm:mx-auto w-full max-w-md px-4">
           <div className="bg-slate-950 py-8 px-6 border border-slate-800 rounded-2xl shadow-2xl space-y-6">
             <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
               
-              {/* FIXED INPUT INTERFACE */}
               <div className="space-y-1.5">
                 <label className="text-slate-400 font-bold uppercase tracking-wide">Username</label>
                 <div className="relative">
@@ -487,12 +517,11 @@ export default function App() {
                     value={loginEmail} 
                     onChange={(e) => setLoginEmail(e.target.value)} 
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" 
-                    placeholder="jibril@desam.in" 
+                    placeholder="Enter Username" 
                   />
                 </div>
               </div>
 
-              {/* FIXED INPUT INTERFACE */}
               <div className="space-y-1.5">
                 <label className="text-slate-400 font-bold uppercase tracking-wide">Password</label>
                 <div className="relative">
@@ -542,7 +571,7 @@ export default function App() {
             </button>
             <div className="relative w-48 sm:w-80 hidden sm:block">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-              <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live context query filtering search..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />
+              <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live context query filtering search..." className="w-full bg-slate-900 border border-slate-855 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />
             </div>
           </div>
           
@@ -553,7 +582,7 @@ export default function App() {
 
         <main className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-8 w-full">
           
-          {/* VIEWPORT 1: VISUAL DASHBOARD SUMMARY STATS */}
+          {/* VIEWPORT 1: DASHBOARD */}
           {activeTab === "dashboard" && (
             <div className="space-y-8 animate-fadeIn">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-950 p-6 border border-slate-800 rounded-2xl">
@@ -628,7 +657,7 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 2: LEAD TRACKING ROWS CHANNEL MASTER */}
+          {/* VIEWPORT 2: LEAD TRACKING ROWS */}
           {activeTab === "leads" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -712,25 +741,65 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 3: PROJECTS MASTER INVENTORIES */}
+          {/* VIEWPORT 3: PROJECTS MASTER (FULLY INTEGRATED INTERACTIVE SYSTEM) */}
           {activeTab === "projects" && (
             <div className="space-y-6 animate-fadeIn">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                 <div>
-                  <h1 className="text-2xl font-black text-white tracking-tight">Corporate Asset Master Registry</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Track property inventory capacity volumes mapped across regional team scopes.</p>
+                  <h1 className="text-2xl font-black text-white tracking-tight">Corporate Asset Registry</h1>
+                  <p className="text-xs text-slate-400 mt-0.5">Track property inventory capacities, sales volume, and structural workflows.</p>
                 </div>
+                {["Admin", "Manager"].includes(currentUser.role) && (
+                  <button onClick={() => setIsProjectModalOpen(true)} className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md w-fit">
+                    <Plus className="h-4 w-4" /> Add Project
+                  </button>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {visibleProjects.map(p => (
-                  <div key={p.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4">
+                  <div key={p.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4 relative overflow-hidden shadow-xl">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="text-sm font-black text-white">{p.name}</h3>
-                        <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3 text-slate-600" /> {p.location} • <span className="font-bold text-orange-400">{p.branch} ({TEAMS_REGISTRY[p.branch] || "Unassigned team"})</span></p>
+                        <h3 className="text-sm font-black text-white flex items-center gap-1.5"><Home className="h-4 w-4 text-slate-500" /> {p.name}</h3>
+                        <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3 text-slate-600" /> {p.location} • <span className="font-bold text-orange-400">{p.branch}</span></p>
                       </div>
-                      <span className="text-[10px] font-black bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2 py-0.5 rounded uppercase tracking-wider">{p.status}</span>
+                      
+                      {/* DYNAMIC DROPDOWN FOR PROJECT ACTIONS MAP */}
+                      {["Admin", "Manager"].includes(currentUser.role) ? (
+                        <select 
+                          value={p.status} 
+                          onChange={(e) => handleProjectStatusChange(p.id, e.target.value)}
+                          className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[10px] font-black focus:outline-none cursor-pointer"
+                          style={{ color: PSC[p.status]?.text || "#FFF" }}
+                        >
+                          {PROJECT_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}
+                        </select>
+                      ) : (
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider" style={{ backgroundColor: PSC[p.status]?.bg, color: PSC[p.status]?.text }}>
+                          {p.status}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-850/70 text-xs space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-500 font-medium">Inventory Structure Type:</span>
+                        <span className="font-bold text-slate-300 uppercase tracking-wide bg-slate-950 px-1.5 py-0.5 rounded text-[10px]">{p.type}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-500 font-medium">Base Starting Capital:</span>
+                        <span className="font-mono font-bold text-emerald-400">₹{p.price}L</span>
+                      </div>
+                      <div className="pt-1.5 border-t border-slate-850">
+                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 mb-1">
+                          <span>UNITS SOLD: {p.sold} / {p.units}</span>
+                          <span className="font-mono text-orange-400">{Math.round((p.sold / p.units) * 100) || 0}%</span>
+                        </div>
+                        <div className="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden">
+                          <div className="bg-gradient-to-r from-orange-600 to-amber-400 h-full transition-all duration-500" style={{ width: `${(p.sold / p.units) * 100}%` }}></div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -738,21 +807,29 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 4: ADMIN CONSOLE */}
+          {/* VIEWPORT 4: ADMIN / SYSTEM CONTROL HUB (RESTORED MASS SPREADSHEET SYSTEM) */}
           {activeTab === "users" && currentUser.role === "Admin" && (
             <div className="space-y-8 animate-fadeIn">
-              <div className="bg-slate-950 border border-orange-500/20 rounded-2xl p-4 lg:p-6 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                  <div className="space-y-0.5">
-                    <h3 className="text-sm font-black text-white flex items-center gap-2"><Upload className="h-4 w-4 text-orange-500" /> SpreadSheet Data Ingestion Engine</h3>
-                    <p className="text-xs text-slate-400">Import leads directly via copying and pasting columns from Excel/CSV.</p>
-                  </div>
+              <div className="bg-slate-950 border border-orange-500/20 rounded-2xl p-6 space-y-4 shadow-2xl">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-wider text-orange-400"><Upload className="h-4 w-4" /> SpreadSheet Excel/CSV Ingestion Engine</h3>
+                  <p className="text-xs text-slate-400">Bulk map customer data streams. Paste matching rows directly using tabular block separations (`Name`, `Phone`, `Email`, `Project Name`).</p>
                 </div>
 
-                <form onSubmit={handleDataImportSubmit} className="space-y-3">
-                  <textarea rows={3} value={importText} onChange={(e)=>setImportText(e.target.value)} placeholder="Paste Excel/CSV rows directly here..." className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-orange-500 font-mono" />
-                  <button type="submit" className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md w-fit">
-                    <Upload className="h-4 w-4" /> Deploy Ingestion
+                <form onSubmit={handleDataImportSubmit} className="space-y-4 pt-1">
+                  <textarea 
+                    rows={5} 
+                    value={importText} 
+                    onChange={(e)=>setImportText(e.target.value)} 
+                    placeholder="Suresh Kumar&#9;9840011234&#9;suresh@gmail.com&#9;Vishal Virinchi&#9;Madurai&#9;65&#10;Lakshmi Rao&#9;9940022345&#9;lakshmi@yahoo.com&#9;GK Apartments&#9;Chennai&#9;85" 
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-orange-500 font-mono leading-relaxed" 
+                  />
+                  <div className="bg-slate-900/40 border border-slate-850 rounded-xl p-3 flex gap-3 items-start text-xs text-slate-400">
+                    <Info className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
+                    <p className="leading-relaxed">Verify that the spelling of your values under the **Project Name** column accurately maps into your static system project catalogs to prevent automatic routing warnings.</p>
+                  </div>
+                  <button type="submit" className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-lg w-fit">
+                    <FileSpreadsheet className="h-4 w-4" /> Deploy Mass Ingestion Engine
                   </button>
                 </form>
               </div>
@@ -765,12 +842,7 @@ export default function App() {
               <div className="flex flex-col xl:flex-row xl:justify-between xl:items-center gap-4 w-full">
                 <div>
                   <h1 className="text-2xl font-black text-white tracking-tight">Performance Matrix Engine</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {["Executive", "Telecaller"].includes(currentUser.role) 
-                      ? "Isolated tracking ledger tracking your personal pipelines conversions cleanly."
-                      : "Audit corporate performance analytics curves across regional pipelines."
-                    }
-                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">Audit overall corporate lead acquisition metrics and regional conversion curves.</p>
                 </div>
               </div>
 
@@ -794,7 +866,7 @@ export default function App() {
                     <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Target Asset Scheme</label>
                     <select value={filterProject} onChange={(e) => setFilterProject(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
                       <option value="All">All Projects</option>
-                      {visibleProjects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                      {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                     </select>
                   </div>
 
@@ -925,58 +997,43 @@ export default function App() {
               </div>
             </div>
 
-            {/* ─── INFOGRAPHIC TREE GRAPH TIMELINE DESIGN (LAST UPDATE FIRST) ─── */}
-            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-6">
+            {/* ─── INFOGRAPHIC TREE GRAPH TIMELINE DESIGN ─── */}
+            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-5">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-orange-500" /> INTERACTION TIMELINE tracking JOURNAL
+                  <Clock className="h-4 w-4 text-orange-500" /> INTERACTION TIMELINE JOURNAL
                 </h4>
-                <span className="text-[10px] bg-slate-900 text-slate-400 px-2.5 py-0.5 rounded-full border border-slate-800 font-mono">
-                  {selectedLead.history?.length || 0} Total Footprints
+                <span className="text-[10px] bg-slate-900 text-slate-400 px-2.5 py-0.5 rounded-full border border-slate-800 font-mono font-bold">
+                  {selectedLead.history?.length || 0} Entries
                 </span>
               </div>
               
-              <div className="relative max-h-[260px] overflow-y-auto pr-2 scrollbar-thin space-y-0 pt-2">
-                {/* Visual Backbone Thread Core Line */}
-                <div className="absolute left-[23px] top-0 bottom-4 w-1 bg-gradient-to-b from-orange-600 via-amber-500 to-emerald-500 rounded-full"></div>
+              <div className="relative max-h-[280px] overflow-y-auto pr-2 scrollbar-thin space-y-0 pt-2 pl-2">
+                <div className="absolute left-[56px] top-0 bottom-4 w-1.5 bg-gradient-to-b from-rose-500 via-orange-500 via-amber-500 to-teal-400 rounded-full"></div>
                 
                 {selectedLead.history && selectedLead.history.length > 0 ? (
                   selectedLead.history.map((log, index) => {
                     const stepNumber = selectedLead.history.length - index;
+                    const stepString = stepNumber < 10 ? `0${stepNumber}` : `${stepNumber}`;
                     
-                    const stepBadgeColors = [
-                      "bg-orange-600 ring-orange-500/20 text-white",
-                      "bg-amber-500 ring-amber-500/20 text-slate-950",
-                      "bg-yellow-500 ring-yellow-500/20 text-slate-950",
-                      "bg-emerald-500 ring-emerald-500/20 text-white"
+                    const colorMap = [
+                      { text: "text-rose-500", border: "border-rose-500/30", bg: "bg-rose-500", nodeRing: "ring-rose-500/20" },
+                      { text: "text-orange-500", border: "border-orange-500/30", bg: "bg-orange-500", nodeRing: "ring-orange-500/20" },
+                      { text: "text-amber-500", border: "border-amber-500/30", bg: "bg-amber-400", nodeRing: "ring-amber-500/20" },
+                      { text: "text-teal-400", border: "border-teal-400/30", bg: "bg-teal-400", nodeRing: "ring-teal-400/20" }
                     ][index % 4];
 
                     return (
-                      <div key={index} className="flex gap-6 items-start pb-6 last:pb-2 group animate-fadeIn">
-                        
-                        {/* Blueprint Step Circle Node */}
-                        <div className={`h-12 w-12 rounded-full flex-shrink-0 flex items-center justify-center font-black text-sm ring-8 shadow-md transition-transform group-hover:scale-105 ${stepBadgeColors} z-10 font-mono`}>
-                          {stepNumber < 10 ? `0${stepNumber}` : stepNumber}
-                        </div>
-                        
-                        {/* Blueprint Right Node Body Text block */}
-                        <div className="flex-1 bg-slate-900/60 border border-slate-850 p-4 rounded-2xl relative hover:bg-slate-900 hover:border-slate-700 transition-all space-y-1.5 shadow-inner">
-                          {/* Triangle pointer indicator */}
-                          <div className="absolute left-[-6px] top-4 h-3 w-3 bg-slate-900 border-l border-b border-slate-850 transform rotate-45 group-hover:bg-slate-900 group-hover:border-slate-700"></div>
-                          
-                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
-                            <h5 className="font-black text-white text-xs uppercase tracking-wide flex items-center gap-1.5">
-                              <span className="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
-                              Agent Action Desk: <span className="text-orange-400 font-mono ml-0.5">{log.by}</span>
-                            </h5>
-                            <span className="text-[10px] font-bold text-slate-500 font-mono bg-slate-950/80 px-2 py-0.5 rounded border border-slate-900">{log.date}</span>
+                      <div key={index} className="flex gap-4 items-center pb-5 last:pb-2 group animate-fadeIn">
+                        <div className={`w-10 font-mono font-black text-xs text-right tracking-wider pr-1 shrink-0 ${colorMap.text}`}>STEP</div>
+                        <div className={`h-8 w-8 rounded-full flex-shrink-0 flex items-center justify-center font-black text-[10px] text-slate-950 ring-4 shadow-md z-10 font-mono ${colorMap.bg} ${colorMap.nodeRing}`}>{stepString}</div>
+                        <div className={`flex-1 bg-slate-900/50 border ${colorMap.border} p-3 rounded-xl relative hover:bg-slate-900 transition-all space-y-1`}>
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1">
+                            <h5 className="font-black text-white text-[11px] uppercase tracking-wide">Log Origin: <span className={colorMap.text}>{log.by}</span></h5>
+                            <span className="text-[9px] font-bold text-slate-500 font-mono bg-slate-950 px-1.5 py-0.5 rounded">{log.date}</span>
                           </div>
-                          
-                          <p className="text-slate-300 text-[11px] leading-relaxed font-sans font-medium pl-3 border-l-2 border-slate-800 mt-1">
-                            {log.action}
-                          </p>
+                          <p className="text-slate-300 text-[11px] leading-relaxed font-sans font-medium pl-1.5 border-l border-slate-800">{log.action}</p>
                         </div>
-                        
                       </div>
                     );
                   })
@@ -1068,21 +1125,9 @@ export default function App() {
                   <div className="flex items-center gap-2 text-rose-400 font-black tracking-wide text-xs">
                     <AlertTriangle className="h-5 w-5 animate-bounce" /> ⚠️ WARNING: DUPLICATE PHONE NUMBER DETECTED
                   </div>
-                  <p className="text-slate-400 text-[11px] leading-relaxed">
-                    The contact number <span className="text-white font-black font-mono bg-slate-900 px-1.5 py-0.5 rounded">{duplicateConflictRecord.phone}</span> is already logged inside the Desam centralized lead ledger database:
-                  </p>
-                  
-                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-850 text-[11px] grid grid-cols-2 gap-3.5 font-semibold text-slate-300">
-                    <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Client Name</span><span className="text-white font-bold">{duplicateConflictRecord.name}</span></div>
-                    <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Target Scheme</span><span className="text-orange-400 font-bold">{duplicateConflictRecord.project}</span></div>
-                    <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Current Milestone</span><span className="text-blue-400 font-bold">{duplicateConflictRecord.status}</span></div>
-                    <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Assigned Staff Seat</span><span className="text-white font-bold">{duplicateConflictRecord.assignedTo}</span></div>
-                  </div>
+                  <p className="text-slate-400 text-[11px] leading-relaxed">The contact number <span className="text-white font-black font-mono bg-slate-900 px-1.5 py-0.5 rounded">{duplicateConflictRecord.phone}</span> is already logged inside the database.</p>
                 </div>
-
-                <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-2.5 rounded-lg text-[10px] font-bold text-center uppercase tracking-wide">
-                  Ingestion Blocked to Maintain High-Accuracy Ledger Integrity.
-                </div>
+                <button type="button" onClick={() => setDuplicateConflictRecord(null)} className="w-full bg-rose-600 text-white text-xs font-bold py-2 rounded-xl uppercase">Modify Entry Parameters</button>
               </div>
             )}
 
@@ -1090,11 +1135,11 @@ export default function App() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-slate-400 font-semibold">Client Target Name *</label>
-                  <input type="text" required value={newLeadForm.name} onChange={(e)=>setNewLeadForm({...newLeadForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none focus:border-orange-500" />
+                  <input type="text" required value={newLeadForm.name} onChange={(e)=>setNewLeadForm({...newLeadForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-200 focus:outline-none focus:border-orange-500" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-slate-400 font-semibold">Attribution Channel Source</label>
-                  <select value={newLeadForm.source} onChange={(e)=>setNewLeadForm({...newLeadForm, source: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-300 focus:outline-none">
+                  <select value={newLeadForm.source} onChange={(e)=>setNewLeadForm({...newLeadForm, source: e.target.value})} className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-300 focus:outline-none">
                     {sources.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
@@ -1102,14 +1147,14 @@ export default function App() {
               
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-slate-400 font-semibold">Primary Contact Phone (Strict Digit Format) *</label>
+                  <label className="text-slate-400 font-semibold">Primary Contact Phone *</label>
                   <input 
                     type="text" 
                     required 
                     value={newLeadForm.phone} 
                     onChange={(e) => handlePhoneInputChange(e.target.value, false)} 
                     placeholder="e.g. 9840011234"
-                    className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 font-mono font-bold tracking-wider focus:outline-none focus:border-orange-500" 
+                    className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-200 font-mono font-bold tracking-wider focus:outline-none focus:border-orange-500" 
                   />
                 </div>
                 <div className="space-y-1">
@@ -1118,37 +1163,83 @@ export default function App() {
                     type="text" 
                     value={newLeadForm.altPhone} 
                     onChange={(e) => handlePhoneInputChange(e.target.value, true)} 
-                    placeholder="Optional fallback digit string"
-                    className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 font-mono focus:outline-none focus:border-orange-500" 
+                    className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-200 font-mono focus:outline-none focus:border-orange-500" 
                   />
                 </div>
               </div>
               
               <div className="space-y-1">
-                <label className="text-slate-400 font-semibold">Email Contact Parameters <span className="text-slate-500 text-[10px] italic">(Optional)</span></label>
-                <input type="email" value={newLeadForm.email} onChange={(e)=>setNewLeadForm({...newLeadForm, email: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none focus:border-orange-500" placeholder="client@domain.com" />
+                <label className="text-slate-400 font-semibold">Target Project</label>
+                <select value={newLeadForm.project} onChange={(e)=>setNewLeadForm({...newLeadForm, project: e.target.value})} className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-300 focus:outline-none">
+                  {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                </select>
+              </div>
+              
+              <button type="submit" disabled={!!duplicateConflictRecord} className="w-full bg-gradient-to-r from-orange-600 to-orange-500 text-white font-black py-3 rounded-xl uppercase tracking-wider shadow-lg disabled:opacity-40">Commit Ingest Record</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DIALOG NEW CORPORATE PROJECT INGEST BLOCK */}
+      {isProjectModalOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-slate-900 pb-3">
+              <h2 className="text-base font-black text-white tracking-wide uppercase">Add New Corporate Project Asset</h2>
+              <button onClick={() => setIsProjectModalOpen(false)} className="text-slate-500 hover:text-white">✕</button>
+            </div>
+
+            <form onSubmit={handleCreateProject} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-slate-400 font-semibold">Project Name *</label>
+                <input type="text" required value={newProjectForm.name} onChange={(e)=>setNewProjectForm({...newProjectForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-200 focus:outline-none focus:border-orange-500" placeholder="e.g. Vishal Virinchi Phase II" />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-slate-400 font-semibold">Location Zone</label>
-                  <input type="text" value={newLeadForm.location} onChange={(e)=>setNewLeadForm({...newLeadForm, location: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none" />
+                  <label className="text-slate-400 font-semibold">Location Parameter *</label>
+                  <input type="text" required value={newProjectForm.location} onChange={(e)=>setNewProjectForm({...newProjectForm, location: e.target.value})} className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-200 focus:outline-none" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-slate-400 font-semibold">Target Project</label>
-                  <select value={newLeadForm.project} onChange={(e)=>setNewLeadForm({...newLeadForm, project: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-300 focus:outline-none">
-                    {visibleProjects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                  <label className="text-slate-400 font-semibold">Allocated Team Desk Branch</label>
+                  <select value={newProjectForm.branch} onChange={(e)=>setNewProjectForm({...newProjectForm, branch: e.target.value})} className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-300 focus:outline-none">
+                    {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
                 </div>
               </div>
-              
-              <button 
-                type="submit" 
-                disabled={!!duplicateConflictRecord}
-                className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-3 rounded-xl uppercase tracking-wider shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Commit Ingest Record
-              </button>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-semibold">Scheme Type</label>
+                  <select value={newProjectForm.type} onChange={(e)=>setNewProjectForm({...newProjectForm, type: e.target.value})} className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-300 focus:outline-none">
+                    {PROJECT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-semibold">Base Price (₹ Lakhs)</label>
+                  <input type="number" value={newProjectForm.price} onChange={(e)=>setNewProjectForm({...newProjectForm, price: e.target.value})} className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-200 font-mono" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-semibold">Live Lifecycle Track</label>
+                  <select value={newProjectForm.status} onChange={(e)=>setNewProjectForm({...newProjectForm, status: e.target.value})} className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-300 focus:outline-none">
+                    {PROJECT_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-semibold">Total Stock Units</label>
+                  <input type="number" value={newProjectForm.units} onChange={(e)=>setNewProjectForm({...newProjectForm, units: e.target.value})} className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-200" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-semibold">Initial Sold Units</label>
+                  <input type="number" value={newProjectForm.sold} onChange={(e)=>setNewProjectForm({...newProjectForm, sold: e.target.value})} className="w-full bg-slate-900 border border-slate-855 p-2.5 rounded-xl text-slate-200" />
+                </div>
+              </div>
+
+              <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 text-white font-black py-3 rounded-xl uppercase tracking-wider shadow-lg">Deploy Project Asset</button>
             </form>
           </div>
         </div>

@@ -24,7 +24,6 @@ const INITIAL_STATUSES = [
   "Site Visit Completed", "Negotiation", "Booking Pending", "Booking Confirmed", "Closed"
 ];
 
-// Updated to requested corporate lifecycles
 const PROJECT_STATUSES = ["Upcoming", "Pre-Launch", "Ongoing", "Completed", "Sold-Out"];
 
 const BRANCHES = ["Madurai Desk", "Chennai South", "Chennai North", "Coimbatore"];
@@ -37,16 +36,17 @@ const TEAMS_REGISTRY = {
   "Chennai North": "Team Beta (Chennai North)"
 };
 
+// Updated Admin details to Shaj and stripped .in matching rules
 const INITIAL_USERS = [
-  { id: 101, name: "Arjun Sharma", email: "admin@desam.in", pass: "admin123", role: "Admin", branch: "All Branches", phone: "9840000001", active: true, avatar: "A" },
-  { id: 102, name: "Jibril", email: "jibril@desam.in", pass: "manager123", role: "Manager", branch: "Madurai Desk", phone: "9840000002", active: true, avatar: "J" },
-  { id: 103, name: "AryaLakshmi", email: "aryalakshmi@desam.in", pass: "manager123", role: "Manager", branch: "Chennai South", phone: "9840000003", active: true, avatar: "A" },
-  { id: 104, name: "Rohini", email: "rohini@desam.in", pass: "agent123", role: "Executive", branch: "Madurai Desk", phone: "9840000004", active: true, avatar: "R" },
-  { id: 105, name: "Priyadarshini", email: "priya@desam.in", pass: "agent123", role: "Executive", branch: "Madurai Desk", phone: "9840000005", active: true, avatar: "P" },
-  { id: 106, name: "Arun", email: "arun@desam.in", pass: "agent123", role: "Executive", branch: "Chennai South", phone: "9840000006", active: true, avatar: "A" },
-  { id: 107, name: "Sumathi", email: "sumathi@desam.in", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "9840000007", active: true, avatar: "S" },
-  { id: 108, name: "Shakila", email: "shakila@desam.in", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "9840000008", active: true, avatar: "S" },
-  { id: 109, name: "Gowshika", email: "gowshika@desam.in", pass: "caller123", role: "Telecaller", branch: "Chennai South", phone: "9840000009", active: true, avatar: "G" },
+  { id: 101, name: "Shaj", email: "admin@desam", pass: "admin123", role: "Admin", branch: "All Branches", phone: "9840000001", active: true, avatar: "S" },
+  { id: 102, name: "Jibril", email: "jibril@desam", pass: "manager123", role: "Manager", branch: "Madurai Desk", phone: "9840000002", active: true, avatar: "J" },
+  { id: 103, name: "AryaLakshmi", email: "aryalakshmi@desam", pass: "manager123", role: "Manager", branch: "Chennai South", phone: "9840000003", active: true, avatar: "A" },
+  { id: 104, name: "Rohini", email: "rohini@desam", pass: "agent123", role: "Executive", branch: "Madurai Desk", phone: "9840000004", active: true, avatar: "R" },
+  { id: 105, name: "Priyadarshini", email: "priya@desam", pass: "agent123", role: "Executive", branch: "Madurai Desk", phone: "9840000005", active: true, avatar: "P" },
+  { id: 106, name: "Arun", email: "arun@desam", pass: "agent123", role: "Executive", branch: "Chennai South", phone: "9840000006", active: true, avatar: "A" },
+  { id: 107, name: "Sumathi", email: "sumathi@desam", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "9840000007", active: true, avatar: "S" },
+  { id: 108, name: "Shakila", email: "shakila@desam", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "9840000008", active: true, avatar: "S" },
+  { id: 109, name: "Gowshika", email: "gowshika@desam", pass: "caller123", role: "Telecaller", branch: "Chennai South", phone: "9840000009", active: true, avatar: "G" },
 ];
 
 const INITIAL_PROJECTS = [
@@ -121,6 +121,9 @@ export default function App() {
   const [newLeadForm, setNewLeadForm] = useState({ name: "", phone: "", altPhone: "", email: "", location: "", project: "Desam Garden", budget: 25, source: "Website", assignedTo: "Unassigned", notes: "" });
   const [newProjectForm, setNewProjectForm] = useState({ name: "", location: "", branch: "Madurai Desk", type: "Plot", price: 30, units: 50, sold: 0, status: "Pre-Launch" });
   
+  // New User Creation state definition
+  const [newUserForm, setNewUserForm] = useState({ name: "", emailPrefix: "", pass: "", role: "Executive", branch: "Madurai Desk", phone: "" });
+
   const [duplicateConflictRecord, setDuplicateConflictRecord] = useState(null); 
 
   const [followUpNotes, setFollowUpNotes] = useState("");
@@ -366,6 +369,25 @@ export default function App() {
     }
   };
 
+  const handleCreateUserSubmit = (e) => {
+    e.preventDefault();
+    const cleanPrefix = newUserForm.emailPrefix.trim().toLowerCase();
+    const createdUser = {
+      id: Date.now(),
+      name: newUserForm.name.trim(),
+      email: `${cleanPrefix}@desam`,
+      pass: newUserForm.pass,
+      role: newUserForm.role,
+      branch: newUserForm.role === "Admin" ? "All Branches" : newUserForm.branch,
+      phone: stripAndNormalizeContactDigits(newUserForm.phone) || "9840000000",
+      active: true,
+      avatar: newUserForm.name.charAt(0).toUpperCase()
+    };
+    setUsers([...users, createdUser]);
+    setNewUserForm({ name: "", emailPrefix: "", pass: "", role: "Executive", branch: "Madurai Desk", phone: "" });
+    triggerToastAlert(`Profile for ${createdUser.name} built cleanly.`);
+  };
+
   const commitManualFollowUpReport = (e) => {
     e.preventDefault();
     if (!followUpNotes.trim() || !nextFollowUpDate) return;
@@ -474,7 +496,7 @@ export default function App() {
       </div>
 
       <div className="p-4 border-t border-slate-800 bg-slate-950/40">
-        <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-850">
+        <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-855">
           <div className="flex items-center gap-2 overflow-hidden">
             <div className="h-7 w-7 rounded-lg bg-orange-600 font-black text-xs flex items-center justify-center text-white flex-shrink-0">{currentUser.avatar}</div>
             <div className="truncate w-24">
@@ -613,7 +635,7 @@ export default function App() {
                         <div>
                           <div className="flex justify-between items-start pr-16">
                             <h4 className="font-bold text-white text-sm cursor-pointer hover:text-orange-400 transition-all" onClick={() => setSelectedLead(l)}>{l.name}</h4>
-                            <span className="text-[9px] bg-slate-950 border border-slate-850 text-slate-400 px-2 py-0.5 rounded font-mono font-bold">{l.source}</span>
+                            <span className="text-[9px] bg-slate-950 border border-slate-8 Whitespace text-slate-400 px-2 py-0.5 rounded font-mono font-bold">{l.source}</span>
                           </div>
                           <p className="text-xs text-slate-400 font-mono mt-1">{l.phone}</p>
                           <p className="text-[11px] font-semibold text-orange-400 mt-0.5">{l.project}</p>
@@ -707,15 +729,13 @@ export default function App() {
                               {["Admin", "Manager"].includes(currentUser.role) ? (
                                 <select value={l.assignedTo} onChange={(e) => requestOwnerAssignmentPopup(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 text-slate-200 rounded px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:border-orange-500 cursor-pointer max-w-[170px]">
                                   <option value="Unassigned">⚠️ Select Staff Member</option>
-                                  {currentUser.role === "Admin" && (
-                                    <optgroup label="Branch Managers">
-                                      {users.filter(u => u.role === "Manager").map(u => (
-                                        <option key={u.id} value={u.name}>{u.name} (Mgr)</option>
-                                      ))}
-                                    </optgroup>
-                                  )}
+                                  <optgroup label="Corporate Managers">
+                                    {users.filter(u => u.role === "Manager").map(u => (
+                                      <option key={u.id} value={u.name}>{u.name} (Mgr)</option>
+                                    ))}
+                                  </optgroup>
                                   <optgroup label="Regional Roster Staff">
-                                    {visibleUsers.filter(u => ["Executive", "Telecaller"].includes(u.role)).map(u => (
+                                    {users.filter(u => ["Executive", "Telecaller"].includes(u.role)).map(u => (
                                       <option key={u.id} value={u.name}>{u.name} ({u.role})</option>
                                     ))}
                                   </optgroup>
@@ -741,7 +761,7 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 3: PROJECTS MASTER (FULLY INTEGRATED INTERACTIVE SYSTEM) */}
+          {/* VIEWPORT 3: PROJECTS MASTER */}
           {activeTab === "projects" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -765,7 +785,6 @@ export default function App() {
                         <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3 text-slate-600" /> {p.location} • <span className="font-bold text-orange-400">{p.branch}</span></p>
                       </div>
                       
-                      {/* DYNAMIC DROPDOWN FOR PROJECT ACTIONS MAP */}
                       {["Admin", "Manager"].includes(currentUser.role) ? (
                         <select 
                           value={p.status} 
@@ -807,10 +826,65 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 4: ADMIN / SYSTEM CONTROL HUB (RESTORED MASS SPREADSHEET SYSTEM) */}
+          {/* VIEWPORT 4: ADMIN HUB (USER MANAGEMENT + EXCEL INGESTION CARDS) */}
           {activeTab === "users" && currentUser.role === "Admin" && (
             <div className="space-y-8 animate-fadeIn">
-              <div className="bg-slate-950 border border-orange-500/20 rounded-2xl p-6 space-y-4 shadow-2xl">
+              
+              {/* RESTORED AND FULLY FUNCTIONAL DYNAMIC USER CREATION SUB-SYSTEM CARD */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-wider text-orange-400">
+                    <UserPlus className="h-4 w-4" /> Deploy New Corporate Profile
+                  </h3>
+                  <p className="text-xs text-slate-400">Build access credentials and assign tracking branch parameters into the localized memory store database.</p>
+                </div>
+
+                <form onSubmit={handleCreateUserSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs pt-1">
+                  <div className="space-y-1">
+                    <label className="text-slate-400 font-bold">Full Name *</label>
+                    <input type="text" required value={newUserForm.name} onChange={(e)=>setNewUserForm({...newUserForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="e.g. Anand R" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-slate-400 font-bold">Username Prefix *</label>
+                    <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl overflow-hidden focus-within:border-orange-500">
+                      <input type="text" required value={newUserForm.emailPrefix} onChange={(e)=>setNewUserForm({...newUserForm, emailPrefix: e.target.value})} className="w-full bg-transparent p-2.5 text-slate-200 focus:outline-none text-right pr-1" placeholder="anand" />
+                      <span className="text-slate-500 font-bold pr-3 pl-1 shrink-0 font-mono">@desam</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-slate-400 font-bold">Security Password *</label>
+                    <input type="password" required value={newUserForm.pass} onChange={(e)=>setNewUserForm({...newUserForm, pass: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none" placeholder="••••••••" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-slate-400 font-bold">System Privilege Level</label>
+                    <select value={newUserForm.role} onChange={(e)=>setNewUserForm({...newUserForm, role: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none">
+                      {INITIAL_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-slate-400 font-bold">Branch Roster Boundary</label>
+                    <select value={newUserForm.branch} disabled={newUserForm.role === "Admin"} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none disabled:opacity-40">
+                      {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-slate-400 font-bold">Contact Phone Number</label>
+                    <input type="text" value={newUserForm.phone} onChange={(e)=>setNewUserForm({...newUserForm, phone: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 font-mono" placeholder="9840001234" />
+                  </div>
+
+                  <button type="submit" className="md:col-span-3 bg-orange-600 hover:bg-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-md mt-1">
+                    Compile Profile Authorization
+                  </button>
+                </form>
+              </div>
+
+              {/* SPREADSHEET CARD ACCESSIBILITY BLOCK */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
                 <div className="space-y-0.5">
                   <h3 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-wider text-orange-400"><Upload className="h-4 w-4" /> SpreadSheet Excel/CSV Ingestion Engine</h3>
                   <p className="text-xs text-slate-400">Bulk map customer data streams. Paste matching rows directly using tabular block separations (`Name`, `Phone`, `Email`, `Project Name`).</p>
@@ -833,6 +907,7 @@ export default function App() {
                   </button>
                 </form>
               </div>
+
             </div>
           )}
 
@@ -933,7 +1008,7 @@ export default function App() {
               <p className="text-xs text-slate-400 leading-relaxed font-medium">{customPopup.message}</p>
             </div>
             <div className="grid grid-cols-2 gap-2.5 pt-2 text-xs uppercase font-black tracking-wider">
-              <button onClick={() => setCustomPopup({ isOpen: false, leadId: null, targetValue: "", type: "status", title: "", message: "" })} className="w-full bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-400 hover:text-white py-2.5 rounded-xl transition-all">✕ Discard</button>
+              <button onClick={() => setCustomPopup({ isOpen: false, leadId: null, targetValue: "", type: "status", title: "", message: "" })} className="w-full bg-slate-900 hover:bg-slate-855 border border-slate-800 text-slate-400 hover:text-white py-2.5 rounded-xl transition-all">✕ Discard</button>
               <button onClick={confirmCustomPopupAction} className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white py-2.5 rounded-xl transition-all shadow-md">✓ Confirm Action</button>
             </div>
           </div>
@@ -961,36 +1036,59 @@ export default function App() {
                 <p className="text-xs text-slate-500 tracking-wide font-mono">Reference ID: #{selectedLead.id} • Assigned Agent: <span className="text-slate-300 font-bold">{selectedLead.assignedTo}</span></p>
               </div>
               
-              {/* INLINE STATUS TRACK MODIFIER */}
-              <div className="space-y-1">
-                <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 block">Milestone Status Track</label>
-                <div className="flex items-center gap-2">
+              {/* REPOSITIONED CONTROLS WINDOW: MILESTONE TRACK AND MANAGER SELECTION DROPDOWNS PLACED SIDE-BY-SIDE */}
+              <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 block">Milestone Status Track</label>
                   <select 
                     value={selectedLead.status} 
                     onChange={(e) => handleInlineMilestoneStatusChange(selectedLead.id, e.target.value)}
-                    className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-black focus:outline-none focus:border-orange-500 cursor-pointer min-w-[160px]"
+                    className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-black focus:outline-none focus:border-orange-500 cursor-pointer min-w-[150px]"
                     style={{ color: SC[selectedLead.status]?.text || "#FFF" }}
                   >
                     {statuses.map(st => <option key={st} value={st}>{st}</option>)}
                   </select>
-                  <button onClick={() => setSelectedLead(null)} className="text-slate-500 hover:text-white font-bold text-sm bg-slate-900 border border-slate-850 p-2 rounded-xl">✕</button>
                 </div>
+
+                {["Admin", "Manager"].includes(currentUser.role) && (
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 block">Staff Assignment Router</label>
+                    <select 
+                      value={selectedLead.assignedTo} 
+                      onChange={(e) => requestOwnerAssignmentPopup(selectedLead.id, e.target.value)} 
+                      className="bg-slate-900 border border-slate-800 text-slate-100 rounded-xl px-3 py-1.5 text-xs font-black focus:outline-none focus:border-orange-500 cursor-pointer min-w-[180px]"
+                    >
+                      <option value="Unassigned">⚠️ Route Allocation Entity</option>
+                      <optgroup label="Corporate Managers">
+                        {users.filter(u => u.role === "Manager").map(u => (
+                          <option key={u.id} value={u.name}>{u.name} (Mgr)</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Regional Roster Staff">
+                        {users.filter(u => ["Executive", "Telecaller"].includes(u.role)).map(u => (
+                          <option key={u.id} value={u.name}>{u.name} ({u.role})</option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
+                )}
+                <button onClick={() => setSelectedLead(null)} className="text-slate-500 hover:text-white font-bold text-sm bg-slate-900 border border-slate-855 p-2 rounded-xl mt-4 self-end">✕</button>
               </div>
             </div>
 
             {/* DIRECT CONTACT CHANNELS ACCESSIBILITY BAR */}
-            <div className="bg-slate-900/80 p-4 border border-slate-850 rounded-xl space-y-2 text-xs">
+            <div className="bg-slate-900/80 p-4 border border-slate-855 rounded-xl space-y-2 text-xs">
               <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Client Communication Channels</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-200">
-                <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-lg border border-slate-850">
+                <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-lg border border-slate-855">
                   <span className="text-slate-500 font-mono font-bold text-[9px] uppercase">Primary:</span>
                   <span className="font-mono font-bold text-orange-400">{selectedLead.phone}</span>
                 </div>
-                <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-lg border border-slate-850">
+                <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-lg border border-slate-855">
                   <span className="text-slate-500 font-mono font-bold text-[9px] uppercase">Alternate:</span>
                   <span className="font-mono text-slate-300">{selectedLead.altPhone || "Not Logged"}</span>
                 </div>
-                <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-lg border border-slate-850 col-span-1 sm:col-span-2">
+                <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-lg border border-slate-855 col-span-1 sm:col-span-2">
                   <span className="text-slate-500 font-mono font-bold text-[9px] uppercase">Email Address:</span>
                   <span className="font-medium text-slate-300 truncate">{selectedLead.email || "No digital address recorded"}</span>
                 </div>
@@ -1043,32 +1141,16 @@ export default function App() {
               </div>
             </div>
 
-            {/* PRIVILEGE ACTIONS */}
-            {["Admin", "Manager"].includes(currentUser.role) ? (
-              <div className="space-y-4 text-xs pt-1">
-                <div className="bg-slate-900 p-3.5 border border-slate-850 rounded-xl text-slate-400">
-                  <p className="font-bold text-slate-300">Project Target Context: <span className="text-white">{selectedLead.project}</span></p>
-                  <p className="mt-1 font-medium">Source Acquisition: <span className="text-slate-300 font-mono">{selectedLead.source}</span></p>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-slate-400 font-bold uppercase tracking-wide">Select Roster Target to Route Lead</label>
-                  <select value={selectedLead.assignedTo} onChange={(e) => requestOwnerAssignmentPopup(selectedLead.id, e.target.value)} className="w-full bg-slate-900 border border-slate-800 text-slate-100 rounded-xl p-3 text-xs font-bold focus:outline-none focus:border-orange-500 cursor-pointer">
-                    <option value="Unassigned">⚠️ Choose Active Target Entity</option>
-                    {visibleUsers.filter(u => ["Executive", "Telecaller"].includes(u.role)).map(u => (
-                      <option key={u.id} value={u.name}>{u.name} ({u.role})</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            ) : (
+            {/* PRIVILEGE ACTIONS DETAILED OVERVIEWS */}
+            {!["Admin", "Manager"].includes(currentUser.role) && (
               <div className="space-y-5 text-xs">
-                <div className="bg-slate-900 p-4 border border-slate-850 rounded-xl grid grid-cols-2 gap-4 font-semibold text-slate-300">
+                <div className="bg-slate-900 p-4 border border-slate-855 rounded-xl grid grid-cols-2 gap-4 font-semibold text-slate-300">
                   <div><p className="text-slate-500 text-[10px] font-bold uppercase">Project Context</p><p className="text-white mt-0.5 font-bold">{selectedLead.project}</p></div>
                   <div><p className="text-slate-500 text-[10px] font-bold uppercase">Financial Intent</p><p className="text-emerald-400 mt-0.5 font-bold font-mono">₹{selectedLead.budget}L Base</p></div>
                   <div className="col-span-2"><p className="text-slate-500 text-[10px] font-bold uppercase">Initial Requirements Notes</p><p className="text-slate-300 font-normal mt-0.5 italic">"{selectedLead.notes || 'No custom details logged.'}"</p></div>
                 </div>
 
-                <form onSubmit={commitManualFollowUpReport} className="bg-slate-900/50 p-4 border border-slate-850 rounded-xl space-y-3">
+                <form onSubmit={commitManualFollowUpReport} className="bg-slate-900/50 p-4 border border-slate-855 rounded-xl space-y-3">
                   <p className="text-[11px] font-black uppercase text-orange-400 tracking-wider">Log Conversation Timeline History</p>
                   <div className="space-y-1">
                     <label className="text-slate-400 font-medium text-[10px]">Follow-up Summary Notes *</label>
@@ -1081,7 +1163,7 @@ export default function App() {
                   <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-2 rounded-xl text-xs uppercase tracking-wider transition-all">Write Follow-up Entry</button>
                 </form>
 
-                <div className="bg-slate-900/50 p-4 border border-slate-850 rounded-xl space-y-3">
+                <div className="bg-slate-900/50 p-4 border border-slate-855 rounded-xl space-y-3">
                   <p className="text-[11px] font-black uppercase text-amber-400 tracking-wider">Verify Physical Site Walkthrough</p>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1"><label className="text-slate-400 text-[10px]">Tour Date</label><input type="date" value={svDate} onChange={(e)=>setSvDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-slate-200 font-mono" /></div>
@@ -1094,7 +1176,7 @@ export default function App() {
                   <button type="button" onClick={commitSiteWalkthroughLog} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 rounded-xl uppercase tracking-wider">Commit Walkthrough Verification</button>
                 </div>
 
-                <div className="bg-slate-900/50 p-4 border border-slate-850 rounded-xl space-y-3">
+                <div className="bg-slate-900/50 p-4 border border-slate-855 rounded-xl space-y-3">
                   <p className="text-[11px] font-black uppercase text-emerald-400 tracking-wider">Secure Advance Token Booking Ingestion</p>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1"><label className="text-slate-400 text-[10px]">Unit Designation *</label><input type="text" value={bkUnit} onChange={(e)=>setBkUnit(e.target.value)} placeholder="e.g. Plot 42" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-slate-200" /></div>
@@ -1112,13 +1194,11 @@ export default function App() {
       {isLeadModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl relative">
-            
             <div className="flex justify-between items-center border-b border-slate-900 pb-3">
               <h2 className="text-base font-black text-white tracking-wide uppercase">Capture Customer Profile Ingestion</h2>
               <button onClick={() => { setIsLeadModalOpen(false); setDuplicateConflictRecord(null); }} className="text-slate-500 hover:text-white">✕</button>
             </div>
 
-            {/* DUCELLATION BLOCKS */}
             {duplicateConflictRecord && (
               <div className="absolute inset-x-6 top-16 bottom-6 bg-slate-950/95 border border-rose-500/40 rounded-xl p-5 z-20 flex flex-col justify-between space-y-3 backdrop-blur-md animate-scaleUp">
                 <div className="space-y-3">

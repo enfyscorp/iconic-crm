@@ -134,7 +134,6 @@ export default function App() {
   const [bkUnit, setBkUnit] = useState("");
   const [bkAmount, setBkAmount] = useState("");
 
-  // Tentative walkthrough scheduler data placeholder state hook
   const [tentativeWalkthroughDateInput, setTentativeWalkthroughDateInput] = useState("");
 
   // ─── UTILITY NORMALIZATION FUNCTION ───────────────────────────────────────
@@ -190,11 +189,16 @@ export default function App() {
     return result;
   }, [leads, currentUser, globalSearch, filterSource, filterStatus, filterProject, filterExecutive, startDate, endDate]);
 
+  // Updated Dashboard router engine logic mapping "Site Visit Planned" directly to Manager views
   const dashboardActionQueueLeads = useMemo(() => {
     if (!currentUser) return [];
-    if (currentUser.role === "Admin") return leads.filter(l => l.assignedTo === "Unassigned");
+    if (currentUser.role === "Admin") return leads.filter(l => l.assignedTo === "Unassigned" || l.status === "Site Visit Planned");
+    
     if (currentUser.role === "Manager") {
-      return leads.filter(l => l.branch === currentUser.branch && (l.assignedTo === "Unassigned" || l.assignedTo === currentUser.name));
+      return leads.filter(l => 
+        l.branch === currentUser.branch && 
+        (l.assignedTo === "Unassigned" || l.assignedTo === currentUser.name || l.status === "Site Visit Planned")
+      );
     }
     if (currentUser.role === "Executive" || currentUser.role === "Telecaller") {
       return leads.filter(l => l.assignedTo === currentUser.name);
@@ -250,7 +254,6 @@ export default function App() {
     triggerToastAlert(`Project track shifted to ${targetStatus}`);
   };
 
-  // ─── COMMIT SITE VISIT TENTATIVE DATE LOGICAL DISPATCHER ──────────────────
   const commitTentativeWalkthroughPlan = (e) => {
     e.preventDefault();
     if (!tentativeWalkthroughDateInput) return;
@@ -279,7 +282,7 @@ export default function App() {
     triggerToastAlert("Tentative date saved and metrics broadcasted.");
   };
 
-  // ─── DATA EXPORT TRIGGER METHODS ──────────────────────────────────────────
+  // ─── DATA EXPORT TRIGGER METHODS (Fixed Document Generation Paths) ────────────────
   const executeDataExportSequence = (formatType) => {
     if (processedLeads.length === 0) {
       triggerToastAlert("No scoped logs available to compile.");
@@ -293,7 +296,7 @@ export default function App() {
     ]);
 
     let rawOutputBuffer = "";
-    let fileMimeType = "text/plain";
+    let fileMimeType = "text/plain;charset=utf-8;";
     let calculatedExtension = "txt";
 
     if (formatType === "csv" || formatType === "excel") {
@@ -314,6 +317,7 @@ export default function App() {
       calculatedExtension = formatType === "excel" ? "xlsx" : "csv"; 
     } 
     else if (formatType === "pdf") {
+      // Formatted as print-ready text snapshot document layout to prevent browser format corruption crashes
       let pdfLayoutText = `========================================================================\n`;
       pdfLayoutText += `                  DESAM DEVELOPERS - PERFORMANCE LEDGER AUDIT\n`;
       pdfLayoutText += `                  Report Compiled On: ${TODAY_STR} By: ${currentUser.name}\n`;
@@ -332,8 +336,8 @@ export default function App() {
       pdfLayoutText += `               End of Compiled Parameters Ledger — Desam Core Systems\n`;
       
       rawOutputBuffer = pdfLayoutText;
-      fileMimeType = "application/pdf";
-      calculatedExtension = "pdf";
+      fileMimeType = "text/plain;charset=utf-8;";
+      calculatedExtension = "txt"; // Safely downloaded as text document file representation
     }
 
     try {
@@ -726,7 +730,7 @@ export default function App() {
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 space-y-4">
                 <h2 className="text-xs font-black text-orange-400 uppercase tracking-widest flex items-center gap-2">
                   <Bell className="h-4 w-4" /> 
-                  {currentUser.role === "Executive" || currentUser.role === "Telecaller" ? "MY ACTIVE PIPELINE TASKS" : "DIRECT INBOUND DEPLOYMENT QUEUE"}
+                  {currentUser.role === "Executive" || currentUser.role === "Telecaller" ? "MY ACTIVE PIPELINE TASKS" : "DIRECT INBOUND DEPLOYMENT QUEUE / SITE VISITS"}
                 </h2>
                 
                 {dashboardActionQueueLeads.length > 0 ? (
@@ -740,9 +744,8 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* HIGH VISIBILITY CONDITIONAL SITE VISIT DATE REMINDER INSIDE WORKSPACE TILES */}
                         {l.status === "Site Visit Planned" && l.siteVisitTentativeDate && (
-                          <div className="absolute top-0 right-0 bg-purple-600 text-[9px] font-mono font-black tracking-wider uppercase px-2.5 py-0.5 rounded-bl text-white animate-pulse flex items-center gap-1">
+                          <div className="absolute top-0 right-0 bg-purple-600 text-[9px] font-mono font-black tracking-wider uppercase px-2.5 py-0.5 rounded-bl text-white flex items-center gap-1">
                             <Calendar className="h-3 w-3" /> SV DATE: {l.siteVisitTentativeDate}
                           </div>
                         )}
@@ -750,7 +753,7 @@ export default function App() {
                         <div>
                           <div className="flex justify-between items-start pr-16">
                             <h4 className="font-bold text-white text-sm cursor-pointer hover:text-orange-400 transition-all" onClick={() => setSelectedLead(l)}>{l.name}</h4>
-                            <span className="text-[9px] bg-slate-950 border border-slate-850 text-slate-400 px-2 py-0.5 rounded font-mono font-bold">{l.source}</span>
+                            <span className="text-[9px] bg-slate-950 border border-slate-855 text-slate-400 px-2 py-0.5 rounded font-mono font-bold">{l.source}</span>
                           </div>
                           <p className="text-xs text-slate-400 font-mono mt-1">{l.phone}</p>
                           <p className="text-[11px] font-semibold text-orange-400 mt-0.5">{l.project}</p>
@@ -837,7 +840,7 @@ export default function App() {
                               <p className="text-[11px] text-slate-500 mt-0.5 font-mono">Captured: {l.dateCreated}</p>
                             </td>
                             <td className="p-4">
-                              <span className="bg-slate-900 border border-slate-850 text-slate-400 px-2 py-0.5 rounded text-[10px] font-bold font-mono">{l.source}</span>
+                              <span className="bg-slate-900 border border-slate-855 text-slate-400 px-2 py-0.5 rounded text-[10px] font-bold font-mono">{l.source}</span>
                             </td>
                             
                             <td className="p-4">
@@ -1055,7 +1058,7 @@ export default function App() {
                     onClick={() => executeDataExportSequence("pdf")}
                     className="flex items-center gap-1.5 bg-rose-600/10 hover:bg-rose-600 border border-rose-500/20 text-rose-400 hover:text-white px-3 py-2 rounded-xl transition-all"
                   >
-                    <FileText className="h-3.5 w-3.5" /> PDF DOCUMENT
+                    <FileText className="h-3.5 w-3.5" /> PRINT-TEXT REPORT
                   </button>
                 </div>
               </div>
@@ -1219,7 +1222,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* CONDITIONAL SUB-FORM: TENTATIVE DATE SELECTOR CAPTURED LIVE ON STATUS EQUAL PLANNED */}
             {selectedLead.status === "Site Visit Planned" && (
               <form onSubmit={commitTentativeWalkthroughPlan} className="bg-purple-950/40 p-4 border border-purple-500/30 rounded-xl space-y-3 animate-slideDown text-xs">
                 <div className="flex items-center gap-2 text-purple-400 font-black tracking-wide uppercase">

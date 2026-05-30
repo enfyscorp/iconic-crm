@@ -38,6 +38,7 @@ const TEAMS_REGISTRY = {
 
 const INITIAL_USERS = [
   { id: 101, name: "Shaj", email: "admin@desam", pass: "saamrat@123", role: "Admin", branch: "All Branches", phone: "9840000001", active: true, avatar: "S" },
+  { id: 101, name: "Digital Marketing", email: "dm@desam", pass: "m@rketing", role: "Admin", branch: "All Branches", phone: "9840000001", active: true, avatar: "S" },
   { id: 102, name: "Jibril", email: "jibril@desam", pass: "angel@26", role: "Manager", branch: "Madurai Desk", phone: "9840000002", active: true, avatar: "J" },
   { id: 103, name: "AryaLakshmi", email: "arya@lakshmi", pass: "manager123", role: "Manager", branch: "Madurai Desk", phone: "9840000003", active: true, avatar: "A" },
   { id: 104, name: "Rohini", email: "rohini@desam", pass: "rohu@desam", role: "Executive", branch: "Madurai Desk", phone: "9840000004", active: true, avatar: "R" },

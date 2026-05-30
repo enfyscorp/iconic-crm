@@ -5,7 +5,7 @@ import {
   DollarSign, MapPin, Shield, Clock, LogOut, Lock, 
   Mail, CheckCircle2, UserPlus, Trash2, Edit2, X, Bell, 
   AlertTriangle, Download, Upload, Info, FileSpreadsheet, Check,
-  Menu, ArrowRight
+  Menu
 } from "lucide-react";
 
 // ─── CONSTANT STATIC REGISTRIES ───────────────────────────────────────────
@@ -52,7 +52,7 @@ const INITIAL_PROJECTS = [
 ];
 
 const INITIAL_LEADS = [
-  { id: 1001, name: "Suresh Kumar", phone: "9840011234", altPhone: "9840011235", email: "suresh@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Vishal Virinchi", budget: 65, source: "Website", assignedTo: "Rohini", assignedByRole: "Manager", status: "Interested", notes: "Prefers higher floors.", dateCreated: "2026-05-10", lastFollowUp: "2026-05-25", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-25", by: "Rohini", action: "Follow-up conversation done. Discussing financing pathways and bank loan eligibility matrices." }, { date: "2026-05-15", by: "Sumathi", action: "Called client. Expressed keen interest in structural layouts. Requested site layout blueprints via WhatsApp." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
+  { id: 1001, name: "Suresh Kumar", phone: "9840011234", altPhone: "9840011235", email: "suresh@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Vishal Virinchi", budget: 65, source: "Website", assignedTo: "Rohini", assignedByRole: "Manager", status: "Interested", notes: "Prefers higher floors.", dateCreated: "2026-05-10", lastFollowUp: "2026-05-25", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-15", by: "Sumathi", action: "Called client. Expressed keen interest in structural layouts. Requested site layout blueprints via WhatsApp." }, { date: "2026-05-25", by: "Rohini", action: "Follow-up conversation done. Discussing financing pathways and bank loan eligibility matrices." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
   { id: 1002, name: "Lakshmi Rao", phone: "9940022345", altPhone: "", email: "lakshmi@yahoo.com", location: "Chennai", branch: "Chennai South", project: "GK Apartments", budget: 85, source: "Meta Ads", assignedTo: "Unassigned", assignedByRole: "", status: "New", notes: "Arranging transportation for family walkthrough.", dateCreated: "2026-05-12", lastFollowUp: "2026-05-28", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-28", by: "System Master", action: "Initial lead automated validation complete." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
   { id: 1003, name: "Vijay Anand", phone: "9740033456", altPhone: "", email: "vijay@outlook.com", location: "Madurai", branch: "Madurai Desk", project: "Desam Garden", budget: 30, source: "Google Ads", assignedTo: "Jibril", assignedByRole: "Admin", status: "New", notes: "Premium corner plot structural interest.", dateCreated: "2026-05-29", lastFollowUp: "None", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-29", by: "Arjun Sharma", action: "Admin deployed tracking parameters directly to Manager Jibril view queue." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
   { id: 1004, name: "Meena Selvam", phone: "9640044567", altPhone: "9640044568", email: "meena@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Fairland", budget: 95, source: "Walk-In", assignedTo: "Unassigned", assignedByRole: "", status: "New", notes: "Token collected cleanly.", dateCreated: "2026-04-20", lastFollowUp: "2026-05-20", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-20", by: "Priyadarshini", action: "Initial walkthrough context established." }], bookingUnit: "Villa 12", bookingAmount: 500000, bookingMode: "Cheque", bookingDate: "2026-05-20", regPending: true, regCompleted: false },
@@ -104,8 +104,9 @@ export default function App() {
 
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
 
+  // ─── STATED INGEST CAPTURE VARIABLES ──────────────────────────────────────
   const [newLeadForm, setNewLeadForm] = useState({ name: "", phone: "", altPhone: "", email: "", location: "", project: "Desam Garden", budget: 25, source: "Website", assignedTo: "Unassigned", notes: "" });
-  const [duplicateConflictRecord, setDuplicateConflictRecord] = useState(null); 
+  const [duplicateConflictRecord, setDuplicateConflictRecord] = useState(null); // Real-time state holder for validation blocks
 
   const [followUpNotes, setFollowUpNotes] = useState("");
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
@@ -192,6 +193,7 @@ export default function App() {
       setNewLeadForm({ ...newLeadForm, phone: fullyCleanDigits });
       
       if (fullyCleanDigits.length >= 10) {
+        // Cross-checks clean entry against normalized phone logs in state storage
         const matchedDuplicate = leads.find(l => stripAndNormalizeContactDigits(l.phone) === fullyCleanDigits);
         if (matchedDuplicate) {
           setDuplicateConflictRecord(matchedDuplicate);
@@ -225,7 +227,7 @@ export default function App() {
     triggerToastAlert(`Milestone set to ${targetStatus}`);
   };
 
-  // ─── GENERAL OPERATIONS HANDLERS ──────────────────────────────────────────
+  // ─── GENERAL LOGIC CORE HANDLERS ──────────────────────────────────────────
   const triggerToastAlert = (msg) => {
     setToastNotification({ isVisible: true, message: msg });
     setTimeout(() => setToastNotification({ isVisible: false, message: "" }), 3500);
@@ -239,7 +241,7 @@ export default function App() {
       setLoginError("");
       triggerToastAlert(`Welcome back, ${account.name}!`);
     } else {
-      setLoginError("Invalid profile matching credential set.");
+      setLoginError("Invalid corporate credentials.");
     }
   };
 
@@ -331,7 +333,7 @@ export default function App() {
             dateCreated: TODAY_STR,
             lastFollowUp: "None",
             nextFollowUp: TODAY_STR,
-            history: [{ date: TODAY_STR, by: currentUser.name, action: "Ingested via Excel copy-paste system matrix." }]
+            history: [{ date: TODAY_STR, by: currentUser.name, action: "Ingested via copy-paste system matrix. Cleansed non-digit space padding automatically." }]
           });
         }
       });
@@ -369,6 +371,7 @@ export default function App() {
 
   const handleCreateLead = (e) => {
     e.preventDefault();
+    // Final check for identical number entries right before allowing database array insert steps
     const finalizedCleanPhone = stripAndNormalizeContactDigits(newLeadForm.phone);
     const databaseDoubleCheck = leads.find(l => stripAndNormalizeContactDigits(l.phone) === finalizedCleanPhone);
     
@@ -409,19 +412,18 @@ export default function App() {
   const SidebarContent = () => (
     <>
       <div>
-        <div className="h-16 flex items-center px-4 border-b border-slate-800 bg-slate-950">
+        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-800">
           <div className="flex items-center gap-2">
-            <div className="relative flex items-center justify-center h-10 w-11 bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shrink-0">
-              <span className="absolute left-1 top-0.5 font-black text-lg text-orange-500 leading-none">D</span>
-              <span className="absolute right-1 bottom-0.5 font-black text-lg text-emerald-500 leading-none">D</span>
-            </div>
+            <div className="h-9 w-9 bg-gradient-to-tr from-orange-600 to-orange-500 flex items-center justify-center rounded-xl text-sm font-black text-white shadow-md">DD</div>
             <div className="leading-tight">
-              <span className="font-black text-sm tracking-wider text-orange-500 block font-sans">DESAM</span>
-              <span className="text-[8px] font-black text-emerald-500 tracking-widest block font-sans uppercase">DEVELOPERS PVT LTD</span>
+              <span className="font-black text-xs tracking-wider text-white block">DESAM</span>
+              <span className="text-[9px] font-bold text-slate-400 tracking-widest block uppercase">DEVELOPERS</span>
             </div>
           </div>
+          <button onClick={() => setIsMobileMenuOpen(false)} className="lg:hidden text-slate-400 hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
         </div>
-        
         <nav className="p-4 space-y-1">
           <button onClick={() => { setActiveTab("dashboard"); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "dashboard" ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
             <Layers className="h-4 w-4" /> VISUAL DASHBOARD
@@ -460,54 +462,31 @@ export default function App() {
     </>
   );
 
-  // ─── OVERHAULED LOGIN WORKSPACE (RENAMED TO USERNAME & PASSWORD) ─────────
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
         <div className="sm:mx-auto w-full max-w-md text-center space-y-3">
-          <div className="relative flex items-center justify-center h-14 w-16 bg-slate-950 border border-slate-800 rounded-2xl mx-auto shadow-xl">
-            <span className="absolute left-2 top-1 font-black text-2xl text-orange-500 leading-none">D</span>
-            <span className="absolute right-2 bottom-1 font-black text-2xl text-emerald-500 leading-none">D</span>
-          </div>
-          <h2 className="text-2xl font-black text-orange-500 tracking-wide uppercase">DESAM DEVELOPERS</h2>
+          <div className="h-12 w-12 bg-gradient-to-tr from-orange-600 to-orange-500 flex items-center justify-center rounded-2xl text-base font-black text-white shadow-xl mx-auto">DD</div>
+          <h2 className="text-2xl font-black text-white tracking-wide uppercase">DESAM DEVELOPERS PVT LTD</h2>
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Control Platform</p>
         </div>
         <div className="mt-6 sm:mx-auto w-full max-w-md px-4">
           <div className="bg-slate-950 py-8 px-6 border border-slate-800 rounded-2xl shadow-2xl space-y-6">
             <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
-              
-              {/* FIXED INPUT INTERFACE */}
               <div className="space-y-1.5">
-                <label className="text-slate-400 font-bold uppercase tracking-wide">Username</label>
+                <label className="text-slate-400 font-bold uppercase tracking-wide">Corporate Clearance Email</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                  <input 
-                    type="text" 
-                    required 
-                    value={loginEmail} 
-                    onChange={(e) => setLoginEmail(e.target.value)} 
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" 
-                    placeholder="jibril@desam.in" 
-                  />
+                  <input type="email" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="jibril@desam.in" />
                 </div>
               </div>
-
-              {/* FIXED INPUT INTERFACE */}
               <div className="space-y-1.5">
-                <label className="text-slate-400 font-bold uppercase tracking-wide">Password</label>
+                <label className="text-slate-400 font-bold uppercase tracking-wide">Passcode Clearance Key</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                  <input 
-                    type="password" 
-                    required 
-                    value={loginPassword} 
-                    onChange={(e) => setLoginPassword(e.target.value)} 
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" 
-                    placeholder="••••••••" 
-                  />
+                  <input type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="••••••••" />
                 </div>
               </div>
-
               {loginError && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded border border-rose-500/20">{loginError}</p>}
               <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg">Authorize Access</button>
             </form>
@@ -586,8 +565,7 @@ export default function App() {
                             <h4 className="font-bold text-white text-sm cursor-pointer hover:text-orange-400 transition-all" onClick={() => setSelectedLead(l)}>{l.name}</h4>
                             <span className="text-[9px] bg-slate-950 border border-slate-850 text-slate-400 px-2 py-0.5 rounded font-mono font-bold">{l.source}</span>
                           </div>
-                          <p className="text-xs text-slate-400 font-mono mt-1">{l.phone}</p>
-                          <p className="text-[11px] font-semibold text-orange-400 mt-0.5">{l.project}</p>
+                          <p className="text-xs text-slate-400 font-mono mt-1">{l.phone} • {l.project}</p>
                           <div className="mt-2 flex gap-1.5 items-center">
                             <span className="text-[9px] px-2 py-0.5 font-bold uppercase rounded" style={{ backgroundColor: SC[l.status]?.bg || "rgba(255,255,255,0.05)", color: SC[l.status]?.text || "#FFF" }}>
                               {l.status}
@@ -681,7 +659,7 @@ export default function App() {
                                   {currentUser.role === "Admin" && (
                                     <optgroup label="Branch Managers">
                                       {users.filter(u => u.role === "Manager").map(u => (
-                                        <option key={u.id} value={u.name}>{u.name} (Mgr)</option>
+                                        <option key={u.id} value={u.name}>{u.name} (Mgr - {u.branch})</option>
                                       ))}
                                     </optgroup>
                                   )}
@@ -875,7 +853,7 @@ export default function App() {
         </div>
       )}
 
-      {/* DUAL ROLE WORKSPACE MODAL CONTAINER */}
+      {/* DUAL ROLE WORKSPACE MODAL OVERLAY */}
       {selectedLead && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn" onClick={() => setSelectedLead(null)}>
           <div className="bg-slate-950 border border-slate-800 w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl p-6 space-y-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -889,7 +867,6 @@ export default function App() {
                 <p className="text-xs text-slate-500 tracking-wide font-mono">Reference ID: #{selectedLead.id} • Assigned Agent: <span className="text-slate-300 font-bold">{selectedLead.assignedTo}</span></p>
               </div>
               
-              {/* INLINE STATUS TRACK MODIFIER */}
               <div className="space-y-1">
                 <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 block">Milestone Status Track</label>
                 <div className="flex items-center gap-2">
@@ -925,68 +902,33 @@ export default function App() {
               </div>
             </div>
 
-            {/* ─── INFOGRAPHIC TREE GRAPH TIMELINE DESIGN (LAST UPDATE FIRST) ─── */}
-            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-6">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-orange-500" /> INTERACTION TIMELINE tracking JOURNAL
-                </h4>
-                <span className="text-[10px] bg-slate-900 text-slate-400 px-2.5 py-0.5 rounded-full border border-slate-800 font-mono">
-                  {selectedLead.history?.length || 0} Total Footprints
-                </span>
-              </div>
+            {/* RESTRUCTURED VISUAL TREE TIMELINE */}
+            <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-xl space-y-4">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Clock className="h-4 w-4 text-orange-500" /> Chronological Communication & Interaction Branch Trace
+              </h4>
               
-              <div className="relative max-h-[260px] overflow-y-auto pr-2 scrollbar-thin space-y-0 pt-2">
-                {/* Visual Backbone Thread Core Line */}
-                <div className="absolute left-[23px] top-0 bottom-4 w-1 bg-gradient-to-b from-orange-600 via-amber-500 to-emerald-500 rounded-full"></div>
-                
+              <div className="relative pl-4 border-l-2 border-slate-800 space-y-4 max-h-[160px] overflow-y-auto pr-2 scrollbar-thin">
                 {selectedLead.history && selectedLead.history.length > 0 ? (
-                  selectedLead.history.map((log, index) => {
-                    const stepNumber = selectedLead.history.length - index;
-                    
-                    const stepBadgeColors = [
-                      "bg-orange-600 ring-orange-500/20 text-white",
-                      "bg-amber-500 ring-amber-500/20 text-slate-950",
-                      "bg-yellow-500 ring-yellow-500/20 text-slate-950",
-                      "bg-emerald-500 ring-emerald-500/20 text-white"
-                    ][index % 4];
-
-                    return (
-                      <div key={index} className="flex gap-6 items-start pb-6 last:pb-2 group animate-fadeIn">
-                        
-                        {/* Blueprint Step Circle Node */}
-                        <div className={`h-12 w-12 rounded-full flex-shrink-0 flex items-center justify-center font-black text-sm ring-8 shadow-md transition-transform group-hover:scale-105 ${stepBadgeColors} z-10 font-mono`}>
-                          {stepNumber < 10 ? `0${stepNumber}` : stepNumber}
+                  selectedLead.history.map((log, index) => (
+                    <div key={index} className="relative group animate-fadeIn">
+                      <div className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-orange-500 border border-slate-950 ring-4 ring-orange-500/10"></div>
+                      <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 space-y-1">
+                        <div className="flex justify-between items-center text-[10px] text-slate-400 font-semibold font-mono border-b border-slate-900 pb-1">
+                          <span className="text-orange-400 font-black">Agent Seat: {log.by}</span>
+                          <span>{log.date}</span>
                         </div>
-                        
-                        {/* Blueprint Right Node Body Text block */}
-                        <div className="flex-1 bg-slate-900/60 border border-slate-850 p-4 rounded-2xl relative hover:bg-slate-900 hover:border-slate-700 transition-all space-y-1.5 shadow-inner">
-                          {/* Triangle pointer indicator */}
-                          <div className="absolute left-[-6px] top-4 h-3 w-3 bg-slate-900 border-l border-b border-slate-850 transform rotate-45 group-hover:bg-slate-900 group-hover:border-slate-700"></div>
-                          
-                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
-                            <h5 className="font-black text-white text-xs uppercase tracking-wide flex items-center gap-1.5">
-                              <span className="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
-                              Agent Action Desk: <span className="text-orange-400 font-mono ml-0.5">{log.by}</span>
-                            </h5>
-                            <span className="text-[10px] font-bold text-slate-500 font-mono bg-slate-950/80 px-2 py-0.5 rounded border border-slate-900">{log.date}</span>
-                          </div>
-                          
-                          <p className="text-slate-300 text-[11px] leading-relaxed font-sans font-medium pl-3 border-l-2 border-slate-800 mt-1">
-                            {log.action}
-                          </p>
-                        </div>
-                        
+                        <p className="text-slate-200 font-medium leading-relaxed pt-1 text-[11px]">{log.action}</p>
                       </div>
-                    );
-                  })
+                    </div>
+                  ))
                 ) : (
-                  <p className="text-xs text-slate-500 italic text-center py-6">No workflow trail tracked inside state storage parameters yet.</p>
+                  <p className="text-xs text-slate-500 italic pl-2">No historical interaction timeline pathways logged yet.</p>
                 )}
               </div>
             </div>
 
-            {/* PRIVILEGE ACTIONS */}
+            {/* PRIVILEGE BASED ACTION PANELS */}
             {["Admin", "Manager"].includes(currentUser.role) ? (
               <div className="space-y-4 text-xs pt-1">
                 <div className="bg-slate-900 p-3.5 border border-slate-850 rounded-xl text-slate-400">
@@ -1051,17 +993,17 @@ export default function App() {
         </div>
       )}
 
-      {/* DIALOG NEW LEAD RECORDS INGEST CARDS */}
+      {/* DIALOG NEW LEAD CAPTURE FORM WITH REAL-TIME DUPLICATION PROTECTION */}
       {isLeadModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl relative">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-xl space-y-4 shadow-2xl relative">
             
             <div className="flex justify-between items-center border-b border-slate-900 pb-3">
               <h2 className="text-base font-black text-white tracking-wide uppercase">Capture Customer Profile Ingestion</h2>
               <button onClick={() => { setIsLeadModalOpen(false); setDuplicateConflictRecord(null); }} className="text-slate-500 hover:text-white">✕</button>
             </div>
 
-            {/* DUCELLATION BLOCKS */}
+            {/* ─── REAL-TIME CRITICAL DUPLICATION ALERT DOSSIER POP-UP OVERLAY CARD ─── */}
             {duplicateConflictRecord && (
               <div className="absolute inset-x-6 top-16 bottom-6 bg-slate-950/95 border border-rose-500/40 rounded-xl p-5 z-20 flex flex-col justify-between space-y-3 backdrop-blur-md animate-scaleUp">
                 <div className="space-y-3">
@@ -1077,6 +1019,7 @@ export default function App() {
                     <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Target Scheme</span><span className="text-orange-400 font-bold">{duplicateConflictRecord.project}</span></div>
                     <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Current Milestone</span><span className="text-blue-400 font-bold">{duplicateConflictRecord.status}</span></div>
                     <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Assigned Staff Seat</span><span className="text-white font-bold">{duplicateConflictRecord.assignedTo}</span></div>
+                    <div className="col-span-2 border-t border-slate-850 pt-2"><span className="text-slate-500 block text-[9px] uppercase font-bold">Latest History Footprint</span><span className="text-slate-400 font-normal italic">"{duplicateConflictRecord.history[0]?.action || 'No logs registered.'}"</span></div>
                   </div>
                 </div>
 

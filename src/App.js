@@ -206,6 +206,20 @@ export default function App() {
     return [];
   }, [leads, currentUser]);
 
+  const unattendedManagerAlerts = useMemo(() => {
+    if (!currentUser || currentUser.role !== "Manager") return [];
+    
+    return leads.filter(l => {
+      if (l.branch !== currentUser.branch) return false;
+      if (l.status !== "New") return false;
+      const createdDate = new Date(l.dateCreated);
+      const today = new Date(TODAY_STR);
+      const diffTime = today - createdDate;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+      return diffDays >= 2;
+    });
+  }, [leads, currentUser]);
+
   // ─── LIVE DUPLICATION VALIDATION LISTENER HOOK ────────────────────────────
   const handlePhoneInputChange = (inputRawValue, isAlternateField = false) => {
     const fullyCleanDigits = stripAndNormalizeContactDigits(inputRawValue);
@@ -725,6 +739,21 @@ export default function App() {
                 </div>
               </div>
 
+              {/* MANAGER ALERT: UNATTENDED LEADS */}
+              {unattendedManagerAlerts.length > 0 && (
+                <div className="bg-rose-950/40 border border-rose-500/30 p-4 lg:p-5 rounded-2xl flex items-start gap-4 shadow-xl">
+                  <div className="bg-rose-500/20 p-2 rounded-full border border-rose-500/30 mt-0.5">
+                    <AlertTriangle className="h-5 w-5 text-rose-500 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-rose-400 font-black text-xs uppercase tracking-wider">Unattended Leads Alert</h3>
+                    <p className="text-rose-200/70 text-xs mt-1.5 leading-relaxed font-medium">
+                      You have <span className="text-rose-400 font-bold">{unattendedManagerAlerts.length}</span> leads in "New" status that have been unattended for over 48 hours. Please review and route them to available executives immediately to maintain pipeline velocity.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* DYNAMIC ACTION DESK */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 space-y-4">
                 <h2 className="text-xs font-black text-orange-400 uppercase tracking-widest flex items-center gap-2">
@@ -891,7 +920,6 @@ export default function App() {
                   <h1 className="text-2xl font-black text-white tracking-tight">Corporate Asset Registry</h1>
                   <p className="text-xs text-slate-400 mt-0.5">Track property inventory capacities, sales volume, and structural workflows.</p>
                 </div>
-                {/* Condition updated so that ONLY Admin role renders the Add Project button */}
                 {currentUser.role === "Admin" && (
                   <button onClick={() => setIsProjectModalOpen(true)} className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md w-fit">
                     <Plus className="h-4 w-4" /> Add Project
@@ -1064,6 +1092,20 @@ export default function App() {
               </div>
 
               <div className="bg-slate-950 border border-slate-800 p-4 lg:p-5 rounded-xl space-y-4 text-xs w-full">
+                
+                {/* DATE RANGE REPORTING OPTION */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pb-4 border-b border-slate-800/60">
+                  <div className="space-y-1">
+                    <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-orange-500" /> Report Start Date</label>
+                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono cursor-pointer" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-orange-500" /> Report End Date</label>
+                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono cursor-pointer" />
+                  </div>
+                </div>
+
+                {/* EXISTING FILTERS */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                   <div className="space-y-1">
                     <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Source Channel Hub</label>

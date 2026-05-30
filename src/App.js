@@ -52,16 +52,17 @@ const INITIAL_PROJECTS = [
 ];
 
 const INITIAL_LEADS = [
-  { id: 1001, name: "Suresh Kumar", phone: "98400 11234", altPhone: "98400 11235", email: "suresh@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Vishal Virinchi", budget: 65, source: "Website", assignedTo: "Rohini", status: "Interested", notes: "Prefers higher floors.", dateCreated: "2026-05-10", lastFollowUp: "2026-05-25", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-15", by: "Sumathi", action: "Initial entry Ingestion completed." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
-  { id: 1002, name: "Lakshmi Rao", phone: "99400 22345", altPhone: "", email: "lakshmi@yahoo.com", location: "Chennai", branch: "Chennai South", project: "GK Apartments", budget: 85, source: "Meta Ads", assignedTo: "Unassigned", status: "New", notes: "Arranging transportation for family walkthrough.", dateCreated: "2026-05-12", lastFollowUp: "2026-05-28", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-28", by: "System Master", action: "Site visit tour routing planned." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
-  { id: 1003, name: "Vijay Anand", phone: "97400 33456", altPhone: "", email: "vijay@outlook.com", location: "Madurai", branch: "Madurai Desk", project: "Desam Garden", budget: 30, source: "Google Ads", assignedTo: "Unassigned", status: "New", notes: "Premium corner plot structural interest.", dateCreated: "2026-05-29", lastFollowUp: "None", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-29", by: "Auto Capture", action: "Landing page conversion captured." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
-  { id: 1004, name: "Meena Selvam", phone: "96400 44567", altPhone: "96400 44568", email: "meena@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Fairland", budget: 95, source: "Walk-In", assignedTo: "Unassigned", status: "New", notes: "Token collected cleanly.", dateCreated: "2026-04-20", lastFollowUp: "2026-05-20", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-20", by: "Priyadarshini", action: "Booking validated." }], bookingUnit: "Villa 12", bookingAmount: 500000, bookingMode: "Cheque", bookingDate: "2026-05-20", regPending: true, regCompleted: false },
+  { id: 1001, name: "Suresh Kumar", phone: "98400 11234", altPhone: "98400 11235", email: "suresh@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Vishal Virinchi", budget: 65, source: "Website", assignedTo: "Rohini", assignedByRole: "Manager", status: "Interested", notes: "Prefers higher floors.", dateCreated: "2026-05-10", lastFollowUp: "2026-05-25", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-15", by: "Sumathi", action: "Called client. Expressed keen interest in structural layouts. Requested site layout blueprints via WhatsApp." }, { date: "2026-05-25", by: "Rohini", action: "Follow-up conversation done. Discussing financing pathways and bank loan eligibility matrices." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
+  { id: 1002, name: "Lakshmi Rao", phone: "99400 22345", altPhone: "", email: "lakshmi@yahoo.com", location: "Chennai", branch: "Chennai South", project: "GK Apartments", budget: 85, source: "Meta Ads", assignedTo: "Unassigned", assignedByRole: "", status: "New", notes: "Arranging transportation for family walkthrough.", dateCreated: "2026-05-12", lastFollowUp: "2026-05-28", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-28", by: "System Master", action: "Initial lead automated validation complete." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
+  { id: 1003, name: "Vijay Anand", phone: "97400 33456", altPhone: "", email: "vijay@outlook.com", location: "Madurai", branch: "Madurai Desk", project: "Desam Garden", budget: 30, source: "Google Ads", assignedTo: "Jibril", assignedByRole: "Admin", status: "New", notes: "Premium corner plot structural interest.", dateCreated: "2026-05-29", lastFollowUp: "None", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-29", by: "Arjun Sharma", action: "Admin deployed tracking parameters directly to Manager Jibril view queue." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
+  { id: 1004, name: "Meena Selvam", phone: "96400 44567", altPhone: "96400 44568", email: "meena@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Fairland", budget: 95, source: "Walk-In", assignedTo: "Unassigned", assignedByRole: "", status: "New", notes: "Token collected cleanly.", dateCreated: "2026-04-20", lastFollowUp: "2026-05-20", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-20", by: "Priyadarshini", action: "Initial walkthrough context established." }], bookingUnit: "Villa 12", bookingAmount: 500000, bookingMode: "Cheque", bookingDate: "2026-05-20", regPending: true, regCompleted: false },
 ];
 
 const SC = {
   New:                    { bg: "rgba(59,130,246,0.1)", text: "#60a5fa", border: "rgba(59,130,246,0.2)" },
   Assigned:               { bg: "rgba(16,185,129,0.1)", text: "#34d399", border: "rgba(16,185,129,0.2)" },
   Contacted:              { bg: "rgba(245,158,11,0.1)", text: "#fbbf24", border: "rgba(245,158,11,0.2)" },
+  "Follow-Up":            { bg: "rgba(236,72,153,0.1)", text: "#f472b6", border: "rgba(236,72,153,0.2)" },
   "Site Visit Planned":   { bg: "rgba(139,92,246,0.1)", text: "#a78bfa", border: "rgba(139,92,246,0.2)" },
   "Booking Confirmed":    { bg: "rgba(52,211,153,0.15)", text: "#34d399", border: "rgba(52,211,153,0.3)" },
   Closed:                 { bg: "rgba(107,114,128,0.1)", text: "#9ca3af", border: "rgba(107,114,128,0.2)" },
@@ -108,7 +109,7 @@ export default function App() {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
-  const [newLeadForm, setNewLeadForm] = useState({ name: "", phone: "", altPhone: "", email: "", location: "", project: "Vishal Virinchi", budget: 65, source: "Website", assignedTo: "Unassigned", notes: "" });
+  const [newLeadForm, setNewLeadForm] = useState({ name: "", phone: "", altPhone: "", email: "", location: "", project: "Desam Garden", budget: 25, source: "Website", assignedTo: "Unassigned", notes: "" });
   const [newUserForm, setNewUserForm] = useState({ name: "", email: "", pass: "desam123", role: "Executive", branch: "Madurai Desk", phone: "" });
   const [newProjectForm, setNewProjectForm] = useState({ name: "", location: "", type: "Apartment", price: 50, units: 10 });
 
@@ -141,6 +142,7 @@ export default function App() {
     if (!currentUser) return [];
     let result = leads;
 
+    // Master Table Viewport Data Scoping Tiers
     if (currentUser.role === "Manager") {
       result = leads.filter(l => l.branch === currentUser.branch);
     } else if (currentUser.role === "Executive" || currentUser.role === "Telecaller") {
@@ -168,9 +170,30 @@ export default function App() {
     return result;
   }, [leads, currentUser, globalSearch, filterSource, filterStatus, filterProject, filterExecutive, startDate, endDate]);
 
-  const dailyFollowUpLeads = useMemo(() => {
-    return processedLeads.filter(l => l.nextFollowUp === TODAY_STR && l.assignedTo === "Unassigned");
-  }, [processedLeads, TODAY_STR]);
+  // ─── STAGE COMPUTE ENGINE FOR DIRECT VISUAL DASHBOARD QUEUES ───────────────
+  const dashboardActionQueueLeads = useMemo(() => {
+    if (!currentUser) return [];
+    
+    if (currentUser.role === "Admin") {
+      // Admin tracks unassigned root leads
+      return leads.filter(l => l.assignedTo === "Unassigned");
+    }
+    
+    if (currentUser.role === "Manager") {
+      // Managers see unassigned branch leads OR priority leads pushed directly to them by Admins
+      return leads.filter(l => 
+        l.branch === currentUser.branch && 
+        (l.assignedTo === "Unassigned" || l.assignedTo === currentUser.name)
+      );
+    }
+    
+    if (currentUser.role === "Executive" || currentUser.role === "Telecaller") {
+      // Team members see accounts explicitly assigned to them by Managers or Admins
+      return leads.filter(l => l.assignedTo === currentUser.name);
+    }
+    
+    return [];
+  }, [leads, currentUser]);
 
   // ─── HANDLERS ─────────────────────────────────────────────────────────────
   const triggerToastAlert = (msg) => {
@@ -186,7 +209,7 @@ export default function App() {
       setLoginError("");
       triggerToastAlert(`Welcome back, ${account.name}!`);
     } else {
-      setLoginError("Invalid corporate credential pairing.");
+      setLoginError("Invalid corporate credentials.");
     }
   };
 
@@ -208,7 +231,7 @@ export default function App() {
       targetValue: nextStatus,
       type: "status",
       title: "Confirm Status Shift",
-      message: `Are you sure you want to transition "${target.name}" to the "${nextStatus}" track?`
+      message: `Are you sure you want to transition "${target.name}" to the "${nextStatus}" tracking tier?`
     });
   };
 
@@ -230,22 +253,22 @@ export default function App() {
     if (type === "status") {
       setLeads(leads.map(l => l.id === leadId ? {
         ...l, status: targetValue,
-        history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `Milestone updated to: ${targetValue}` }]
+        history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `Status milestone transitioned to: ${targetValue}` }]
       } : l));
       if (selectedLead && selectedLead.id === leadId) {
-        setSelectedLead({ ...selectedLead, status: targetValue });
+        setSelectedLead({ ...selectedLead, status: targetValue, history: [...selectedLead.history, { date: TODAY_STR, by: currentUser.name, action: `Status milestone transitioned to: ${targetValue}` }] });
       }
       triggerToastAlert("Pipeline status successfully updated.");
     } else if (type === "assign") {
       setLeads(leads.map(l => l.id === leadId ? {
         ...l, 
         assignedTo: targetValue, 
+        assignedByRole: currentUser.role, // Logs whether Admin or Manager initiated the assignment pass
         status: targetValue === "Unassigned" ? "New" : "Assigned",
-        nextFollowUp: targetValue === "Unassigned" ? TODAY_STR : "Assigned out to Executive",
-        history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `Routed lead to team desk: ${targetValue}` }]
+        history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `Lead deployment token written to: ${targetValue} (${currentUser.role})` }]
       } : l));
       setSelectedLead(null);
-      triggerToastAlert(`Lead assigned to ${targetValue}`);
+      triggerToastAlert(`Lead successfully assigned to ${targetValue}`);
     }
     setCustomPopup({ isOpen: false, leadId: null, targetValue: "", type: "status", title: "", message: "" });
   };
@@ -271,12 +294,13 @@ export default function App() {
             budget: parseInt(columns[5]) || 65,
             source: columns[6] || "Website",
             assignedTo: "Unassigned",
+            assignedByRole: "",
             status: "New",
             branch: branchHome, 
             dateCreated: TODAY_STR,
             lastFollowUp: "None",
             nextFollowUp: TODAY_STR,
-            history: [{ date: TODAY_STR, by: currentUser.name, action: "Ingested via excel copy-paste tool." }]
+            history: [{ date: TODAY_STR, by: currentUser.name, action: "Ingested via excel block processing matrix tool." }]
           });
         }
       });
@@ -301,7 +325,7 @@ export default function App() {
           status: "Contacted", 
           lastFollowUp: TODAY_STR, 
           nextFollowUp: nextFollowUpDate,
-          history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `LOG: ${followUpNotes.trim()} (Next: ${nextFollowUpDate})` }]
+          history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `FOLLOW-UP NOTE: ${followUpNotes.trim()} (Next Scheduled: ${nextFollowUpDate})` }]
         };
         setSelectedLead(obj);
         return obj;
@@ -309,7 +333,7 @@ export default function App() {
       return l;
     });
     setLeads(updated); setFollowUpNotes(""); setNextFollowUpDate("");
-    triggerToastAlert("Follow-up successfully logged.");
+    triggerToastAlert("Follow-up logs written successfully.");
   };
 
   const handleAddSource = (e) => {
@@ -332,45 +356,23 @@ export default function App() {
     e.preventDefault();
     const created = {
       ...newLeadForm, id: Date.now(), branch: currentUser.role === "Admin" ? "Madurai Desk" : currentUser.branch,
-      dateCreated: TODAY_STR, lastFollowUp: "None", nextFollowUp: TODAY_STR,
+      dateCreated: TODAY_STR, lastFollowUp: "None", nextFollowUp: TODAY_STR, assignedByRole: "",
       bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false,
-      history: [{ date: TODAY_STR, by: currentUser.name, action: "Lead Ingested." }]
+      history: [{ date: TODAY_STR, by: currentUser.name, action: "Lead Record Created." }]
     };
     setLeads([created, ...leads]); setIsLeadModalOpen(false);
-    setNewLeadForm({ name: "", phone: "", altPhone: "", email: "", location: "", project: "Vishal Virinchi", budget: 65, source: "Website", assignedTo: "Unassigned", notes: "" });
+    setNewLeadForm({ name: "", phone: "", altPhone: "", email: "", location: "", project: "Desam Garden", budget: 25, source: "Website", assignedTo: "Unassigned", notes: "" });
     triggerToastAlert("New lead captured cleanly.");
   };
 
-  const handleCreateUser = (e) => {
-    e.preventDefault();
-    const created = { ...newUserForm, id: Date.now(), avatar: newUserForm.name[0], active: true };
-    setUsers([...users, created]); setIsUserModalOpen(false);
-  };
-
-  const handleUpdateUser = (e) => {
-    e.preventDefault();
-    setUsers(users.map(u => u.id === editingUser.id ? editingUser : u)); setEditingUser(null);
-  };
-
-  const handleDeleteUser = (id) => {
-    if (id === currentUser.id) return;
-    if (window.confirm("Delete account seat?")) setUsers(users.filter(u => u.id !== id));
-  };
-
-  const handleCreateProject = (e) => {
-    e.preventDefault();
-    const created = { ...newProjectForm, id: Date.now(), branch: "Madurai Desk", sold: 0, status: "Active" };
-    setProjects([...projects, created]); setIsProjectModalOpen(false);
-  };
-
   const commitSiteWalkthroughLog = () => {
-    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Site Visit Completed", history: [...l.history, { date: svDate, by: currentUser.name, action: `Visit Done. Notes: ${svFeedback}` }] } : l));
+    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Site Visit Completed", history: [...l.history, { date: svDate, by: currentUser.name, action: `SITE VISIT DONE: Verified layout walkthrough notes: ${svFeedback}` }] } : l));
     setSelectedLead(null);
     triggerToastAlert("Site walkthrough registered successfully.");
   };
 
   const commitFinancialBookingLog = () => {
-    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Booking Confirmed", bookingUnit: bkUnit } : l));
+    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Booking Confirmed", bookingUnit: bkUnit, history: [...l.history, { date: bkDate || TODAY_STR, by: currentUser.name, action: `BOOKING SECURED: Allocated block item ID code [${bkUnit}].` }] } : l));
     setSelectedLead(null);
     triggerToastAlert("Advance token payment captured.");
   };
@@ -454,7 +456,7 @@ export default function App() {
                 </div>
               </div>
               {loginError && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded border border-rose-500/20">{loginError}</p>}
-              <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg">Authorize Clearance</button>
+              <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg">Authorize Access</button>
             </form>
           </div>
         </div>
@@ -471,7 +473,7 @@ export default function App() {
 
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 flex lg:hidden bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between h-full animate-slideRight">
+          <aside className="w-64 bg-slate-950 border-r border-slate-800 flex-col justify-between h-full animate-slideRight flex">
             <SidebarContent />
           </aside>
           <div className="flex-1" onClick={() => setIsMobileMenuOpen(false)}></div>
@@ -487,7 +489,7 @@ export default function App() {
             </button>
             <div className="relative w-48 sm:w-80 hidden sm:block">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-              <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live context query filtering search..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />
+              <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live context search query filter..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />
             </div>
           </div>
           
@@ -504,46 +506,57 @@ export default function App() {
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-950 p-6 border border-slate-800 rounded-2xl">
                 <div>
                   <h1 className="text-xl lg:text-2xl font-black text-white tracking-tight">Team Operations Center</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Real-time analytical graphs mapping team conversions across your allocated team branch.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Real-time action desk processing incoming routed customer requests.</p>
                 </div>
-                
-                {dailyFollowUpLeads.length > 0 && (
-                  <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 px-4 py-3 rounded-xl">
-                    <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0" />
-                    <div>
-                      <p className="text-xs font-black text-amber-400 uppercase tracking-wide">New Inbound Leads Pending</p>
-                      <p className="text-[11px] text-slate-300 font-mono font-bold">{dailyFollowUpLeads.length} items require delegation steps.</p>
-                    </div>
-                  </div>
-                )}
               </div>
 
-              {/* UNASSIGNED DIRECT DEPLOYMENT DESK */}
-              {dailyFollowUpLeads.length > 0 && (
-                <div className="bg-slate-950 border border-amber-500/20 rounded-2xl p-4 lg:p-6 space-y-4">
-                  <h2 className="text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-2"><Bell className="h-4 w-4" /> DIRECT DEPLOYMENT DESK</h2>
+              {/* HIERARCHICAL DYNAMIC ACTION QUEUE DESK */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 space-y-4">
+                <h2 className="text-xs font-black text-orange-400 uppercase tracking-widest flex items-center gap-2">
+                  <Bell className="h-4 w-4" /> 
+                  {currentUser.role === "Executive" || currentUser.role === "Telecaller" ? "MY ACTIVE PIPELINE TASKS" : "DIRECT INBOUND DEPLOYMENT QUEUE"}
+                </h2>
+                
+                {dashboardActionQueueLeads.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {dailyFollowUpLeads.map(l => (
-                      <div key={l.id} className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl flex flex-col justify-between space-y-3">
+                    {dashboardActionQueueLeads.map(l => (
+                      <div key={l.id} className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl flex flex-col justify-between space-y-3 relative overflow-hidden">
+                        
+                        {/* High-priority marker if explicitly deployed down by an Admin */}
+                        {l.assignedByRole === "Admin" && currentUser.role === "Manager" && (
+                          <div className="absolute top-0 right-0 bg-rose-600 text-[8px] font-black tracking-wider uppercase px-2 py-0.5 rounded-bl text-white animate-pulse">
+                            ⭐ Admin Priority
+                          </div>
+                        )}
+
                         <div>
-                          <div className="flex justify-between items-start">
+                          <div className="flex justify-between items-start pr-16">
                             <h4 className="font-bold text-white text-sm cursor-pointer hover:text-orange-400 transition-all" onClick={() => setSelectedLead(l)}>{l.name}</h4>
-                            <span className="text-[9px] bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2 py-0.5 rounded font-mono font-bold">{l.source}</span>
+                            <span className="text-[9px] bg-slate-950 border border-slate-850 text-slate-400 px-2 py-0.5 rounded font-mono font-bold">{l.source}</span>
                           </div>
                           <p className="text-xs text-slate-400 font-mono mt-1">{l.phone} • {l.project}</p>
+                          <div className="mt-2 flex gap-1.5 items-center">
+                            <span className="text-[9px] px-2 py-0.5 font-bold uppercase rounded" style={{ backgroundColor: SC[l.status]?.bg || "rgba(255,255,255,0.05)", color: SC[l.status]?.text || "#FFF" }}>
+                              {l.status}
+                            </span>
+                          </div>
                         </div>
+                        
                         <button onClick={() => setSelectedLead(l)} className="w-full bg-orange-600/10 hover:bg-orange-600 border border-orange-500/20 text-[10px] text-orange-400 hover:text-white font-black py-1.5 rounded-lg tracking-wide uppercase transition-all">
-                          ⚡ Assign to Executive
+                          {currentUser.role === "Manager" || currentUser.role === "Admin" ? "⚡ Delegate Out" : "📝 Log Follow-up Activity"}
                         </button>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="text-xs text-slate-500 italic p-4 bg-slate-900/40 rounded-xl border border-slate-900">Your dashboard deployment work list is clean.</p>
+                )}
+              </div>
 
+              {/* CORE METRIC TILES */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Total Pipeline Count <Briefcase className="h-4 w-4 text-orange-400" /></p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Total Scoped Pipelines <Briefcase className="h-4 w-4 text-orange-400" /></p>
                   <p className="text-3xl font-black text-white mt-1">{processedLeads.length}</p>
                 </div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
@@ -551,70 +564,12 @@ export default function App() {
                   <p className="text-3xl font-black text-emerald-400 mt-1">{processedLeads.filter(l => ["Booking Confirmed","Closed"].includes(l.status)).length}</p>
                 </div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Pipeline Capital Value <DollarSign className="h-4 w-4 text-orange-400" /></p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Capitalized Volume <DollarSign className="h-4 w-4 text-orange-400" /></p>
                   <p className="text-3xl font-black text-white mt-1">₹{processedLeads.reduce((a,c)=>a+c.budget, 0)}L</p>
                 </div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Visits Completed <Calendar className="h-4 w-4 text-amber-400" /></p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Site Visits Planned <Calendar className="h-4 w-4 text-amber-400" /></p>
                   <p className="text-3xl font-black text-amber-400 mt-1">{processedLeads.filter(l => l.status === "Site Visit Planned").length}</p>
-                </div>
-              </div>
-
-              {/* GRAPHS CHARTS SUBGRID PLOTS */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6">
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><BarChart3 className="h-4 w-4 text-orange-500" /> Milestone Weight (Bar Chart)</h3>
-                  <div className="space-y-4">
-                    {["New", "Assigned", "Contacted", "Booking Confirmed"].map(st => {
-                      const shareCount = processedLeads.filter(l => l.status === st).length;
-                      const pct = Math.min((shareCount / Math.max(processedLeads.length, 1)) * 100, 100);
-                      return (
-                        <div key={st} className="space-y-1">
-                          <div className="flex justify-between text-[11px] font-bold text-slate-400"><span>{st}</span><span className="font-mono">{shareCount} accounts</span></div>
-                          <div className="w-full bg-slate-900 h-6 border border-slate-850 rounded-lg overflow-hidden relative flex items-center">
-                            <div className="bg-gradient-to-r from-orange-600 to-orange-500 h-full" style={{ width: `${pct || 3}%` }}></div>
-                            <span className="absolute left-2 text-[10px] font-mono font-black text-white">{Math.round(pct)}%</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
-                  <div>
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2"><TrendingUp className="h-4 w-4 text-emerald-400" /> Attribution Share (Pie Chart)</h3>
-                    <div className="flex justify-center items-center py-4">
-                      <div className="h-28 w-28 rounded-full border border-slate-800 shadow-xl relative" style={{ background: "conic-gradient(#ea580c 0% 45%, #10b981 45% 75%, #3b82f6 75% 100%)" }}>
-                        <div className="absolute inset-7 bg-slate-950 rounded-full border border-slate-900 flex items-center justify-center text-[10px] font-mono font-black text-slate-400">CHANNELS</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-slate-400 border-t border-slate-900 pt-3">
-                    <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-orange-600"></div> Website (45%)</div>
-                    <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-emerald-500"></div> Meta Ads (30%)</div>
-                    <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-blue-500"></div> Google Ads (25%)</div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
-                  <div>
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><Clock className="h-4 w-4 text-orange-400" /> Progress Curve (Line Chart)</h3>
-                    <div className="h-28 flex items-end justify-between gap-2 border-b border-l border-slate-850 px-2 pb-1 font-mono">
-                      <div className="w-full flex flex-col items-center gap-1">
-                        <div className="w-1.5 bg-orange-500 h-14 rounded-t relative group"></div>
-                        <span className="text-[8px] text-slate-500 font-bold uppercase">Mar</span>
-                      </div>
-                      <div className="w-full flex flex-col items-center gap-1">
-                        <div className="w-1.5 bg-orange-500 h-20 rounded-t relative group"></div>
-                        <span className="text-[8px] text-slate-500 font-bold uppercase">Apr</span>
-                      </div>
-                      <div className="w-full flex flex-col items-center gap-1">
-                        <div className="w-1.5 bg-gradient-to-t from-orange-600 to-orange-500 h-24 rounded-t relative group"></div>
-                        <span className="text-[8px] text-orange-400 font-black uppercase">May</span>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -626,7 +581,7 @@ export default function App() {
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                 <div>
                   <h1 className="text-2xl font-black text-white tracking-tight">Active Team Lead Channels</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Managers assign inbound project requests directly to their specialized field executive agents here.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Track and manage property interaction vectors inside your regional territory parameters.</p>
                 </div>
                 <button onClick={() => setIsLeadModalOpen(true)} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors shadow-md w-fit">
                   <Plus className="h-4 w-4" /> INGEST RECORD
@@ -641,8 +596,8 @@ export default function App() {
                         <th className="p-4 min-w-[150px]">Customer Contact Info</th>
                         <th className="p-4 min-w-[150px]">Project Context Scope</th>
                         <th className="p-4">Source</th>
-                        <th className="p-4 min-w-[160px]">Team Executive Assignment Gate</th>
-                        <th className="p-4">Pipeline Phase Milestone</th>
+                        <th className="p-4 min-w-[160px]">Team Assignment Destination</th>
+                        <th className="p-4">Milestone Track Status</th>
                         <th className="p-4 text-right">Target Budget</th>
                       </tr>
                     </thead>
@@ -668,11 +623,20 @@ export default function App() {
                             
                             <td className="p-4">
                               {["Admin", "Manager"].includes(currentUser.role) ? (
-                                <select value={l.assignedTo} onChange={(e) => requestOwnerAssignmentPopup(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 text-slate-200 rounded px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:border-orange-500 cursor-pointer max-w-[150px]">
-                                  <option value="Unassigned">⚠️ Select Executive</option>
-                                  {visibleUsers.filter(u => ["Executive", "Telecaller"].includes(u.role)).map(u => (
-                                    <option key={u.id} value={u.name}>{u.name} ({u.role})</option>
-                                  ))}
+                                <select value={l.assignedTo} onChange={(e) => requestOwnerAssignmentPopup(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 text-slate-200 rounded px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:border-orange-500 cursor-pointer max-w-[170px]">
+                                  <option value="Unassigned">⚠️ Select Staff Member</option>
+                                  {currentUser.role === "Admin" && (
+                                    <optgroup label="Branch Managers">
+                                      {users.filter(u => u.role === "Manager").map(u => (
+                                        <option key={u.id} value={u.name}>{u.name} (Mgr - {u.branch})</option>
+                                      ))}
+                                    </optgroup>
+                                  )}
+                                  <optgroup label="Regional Roster Staff">
+                                    {visibleUsers.filter(u => ["Executive", "Telecaller"].includes(u.role)).map(u => (
+                                      <option key={u.id} value={u.name}>{u.name} ({u.role})</option>
+                                    ))}
+                                  </optgroup>
                                 </select>
                               ) : (
                                 <span className="font-semibold text-slate-400 flex items-center gap-1"><Shield className="h-3.5 w-3.5 text-slate-600" /> {l.assignedTo}</span>
@@ -848,7 +812,7 @@ export default function App() {
         </div>
       )}
 
-      {/* DUAL ROLE INTERACTION WORKSPACE MODAL */}
+      {/* DUAL ROLE ADAPTIVE WORKSPACE FORM OVERLAY MODAL */}
       {selectedLead && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn" onClick={() => setSelectedLead(null)}>
           <div className="bg-slate-950 border border-slate-800 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl p-6 space-y-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -856,7 +820,7 @@ export default function App() {
             <div className="border-b border-slate-900 pb-3 flex justify-between items-start">
               <div className="space-y-0.5">
                 <span className="text-[10px] bg-orange-600 font-mono font-black px-2 py-0.5 rounded text-white uppercase tracking-wider">
-                  {currentUser.role === "Manager" ? "Direct Assignment Hub" : "Executive Workspace Portfolio"}
+                  {["Admin", "Manager"].includes(currentUser.role) ? "Direct Assignment Hub" : "Executive Workspace Portfolio"}
                 </span>
                 <h3 className="text-base font-black text-white">{selectedLead.name}</h3>
                 <p className="text-xs text-slate-500 tracking-wide font-mono">Reference Parameter: #{selectedLead.id}</p>
@@ -864,7 +828,7 @@ export default function App() {
               <button onClick={() => setSelectedLead(null)} className="text-slate-500 hover:text-white font-bold text-sm">✕</button>
             </div>
 
-            {/* DIRECT CONTACT CHANNELS */}
+            {/* DIRECT CONTACT CHANNELS ACCESSIBILITY INFOBAR */}
             <div className="bg-slate-900/80 p-4 border border-slate-850 rounded-xl space-y-2 text-xs">
               <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Client Communication Channels</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-200">
@@ -878,39 +842,70 @@ export default function App() {
                 </div>
                 <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-lg border border-slate-850 col-span-1 sm:col-span-2">
                   <span className="text-slate-500 font-mono font-bold text-[9px] uppercase">Email Account:</span>
-                  <span className="font-medium text-slate-300 truncate">{selectedLead.email || "No email provided"}</span>
+                  <span className="font-medium text-slate-300 truncate">{selectedLead.email || "No digital address recorded"}</span>
                 </div>
               </div>
             </div>
 
-            {/* CASE A: LOGGED PRIVILEGE IS A MANAGER ➔ DISPLAY ONLY ASSIGNMENT GATES */}
-            {currentUser.role === "Manager" ? (
+            {/* CHRONOLOGICAL INTERACTION TRACE TIMELINE MATRIX WINDOW */}
+            <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-xl space-y-3">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Clock className="h-4 w-4 text-orange-500" /> Interaction Logs & History Trace
+              </h4>
+              <div className="space-y-2.5 max-h-[140px] overflow-y-auto pr-1">
+                {selectedLead.history && selectedLead.history.length > 0 ? (
+                  selectedLead.history.map((log, index) => (
+                    <div key={index} className="bg-slate-950 p-2.5 rounded-lg border border-slate-900 text-xs space-y-1">
+                      <div className="flex justify-between items-center text-[10px] border-b border-slate-900 pb-1">
+                        <span className="text-orange-400 font-black font-mono">By: {log.by}</span>
+                        <span className="text-slate-500 font-bold font-mono">{log.date}</span>
+                      </div>
+                      <p className="text-slate-300 leading-relaxed pt-0.5 text-[11px]">{log.action}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-500 italic">No communication logs recorded yet.</p>
+                )}
+              </div>
+            </div>
+
+            {/* CASE A: USER LOGGED IN IS AN ADMIN OR MANAGER ➔ ONLY SHOW THE DIRECT ROUTING STRIP FORM */}
+            {["Admin", "Manager"].includes(currentUser.role) ? (
               <div className="space-y-4 text-xs pt-1">
                 <div className="bg-slate-900 p-3.5 border border-slate-850 rounded-xl text-slate-400">
-                  <p className="font-bold text-slate-300">Project Context: <span className="text-white">{selectedLead.project}</span></p>
-                  <p className="mt-1 font-medium">Source Attribution: <span className="text-slate-300 font-mono">{selectedLead.source}</span></p>
+                  <p className="font-bold text-slate-300">Project Target Context: <span className="text-white">{selectedLead.project}</span></p>
+                  <p className="mt-1 font-medium">Source Acquisition: <span className="text-slate-300 font-mono">{selectedLead.source}</span></p>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-slate-400 font-bold uppercase tracking-wide">Select Team Member to Delegate Ownership</label>
+                  <label className="text-slate-400 font-bold uppercase tracking-wide">Select Roster Target to Route Lead</label>
                   <select value={selectedLead.assignedTo} onChange={(e) => requestOwnerAssignmentPopup(selectedLead.id, e.target.value)} className="w-full bg-slate-900 border border-slate-800 text-slate-100 rounded-xl p-3 text-xs font-bold focus:outline-none focus:border-orange-500 cursor-pointer">
-                    <option value="Unassigned">⚠️ Choose Active Field Executive</option>
-                    {visibleUsers.filter(u => ["Executive", "Telecaller"].includes(u.role)).map(u => (
-                      <option key={u.id} value={u.name}>{u.name} ({u.role})</option>
-                    ))}
+                    <option value="Unassigned">⚠️ Choose Active Target Entity</option>
+                    {currentUser.role === "Admin" && (
+                      <optgroup label="Corporate Branch Managers">
+                        {users.filter(u => u.role === "Manager").map(u => (
+                          <option key={u.id} value={u.name}>{u.name} (Mgr - {u.branch})</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    <optgroup label="Regional Team Roster Staff">
+                      {visibleUsers.filter(u => ["Executive", "Telecaller"].includes(u.role)).map(u => (
+                        <option key={u.id} value={u.name}>{u.name} ({u.role})</option>
+                      ))}
+                    </optgroup>
                   </select>
                 </div>
               </div>
             ) : (
               
-              /* CASE B: LOGGED PRIVILEGE IS AN EXECUTIVE/TELECALLER ➔ DISPLAY DETAILED CHECKLIST UPDATE */
+              /* CASE B: LOGGED PRIVILEGE IS AN EXECUTIVE/TELECALLER ➔ SHOW EXTENSIVE UPDATE CONTROLS */
               <div className="space-y-5 text-xs">
                 <div className="bg-slate-900 p-4 border border-slate-850 rounded-xl grid grid-cols-2 gap-4 font-semibold text-slate-300">
                   <div><p className="text-slate-500 text-[10px] font-bold uppercase">Project Context</p><p className="text-white mt-0.5 font-bold">{selectedLead.project}</p></div>
                   <div><p className="text-slate-500 text-[10px] font-bold uppercase">Current Track Status</p><p className="text-orange-400 mt-0.5 font-bold">{selectedLead.status}</p></div>
-                  <div className="col-span-2"><p className="text-slate-500 text-[10px] font-bold uppercase">Assigned Inbound Client Notes</p><p className="text-slate-300 font-normal mt-0.5 italic">"{selectedLead.notes || 'No notes added yet.'}"</p></div>
+                  <div className="col-span-2"><p className="text-slate-500 text-[10px] font-bold uppercase">Inbound Client Notes</p><p className="text-slate-300 font-normal mt-0.5 italic">"{selectedLead.notes || 'No custom notes logged yet.'}"</p></div>
                 </div>
 
-                {/* INTERACTION FOLLOWUP LOGGER */}
+                {/* HISTORICAL WORK LOGGER */}
                 <form onSubmit={commitManualFollowUpReport} className="bg-slate-900/50 p-4 border border-slate-850 rounded-xl space-y-3">
                   <p className="text-[11px] font-black uppercase text-orange-400 tracking-wider">Log Conversation Timeline History</p>
                   <div className="space-y-1">
@@ -921,10 +916,10 @@ export default function App() {
                     <label className="text-slate-400 font-medium text-[10px]">Slated Next Interaction Date *</label>
                     <input type="date" required min={TODAY_STR} value={nextFollowUpDate} onChange={(e)=>setNextFollowUpDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-slate-200 focus:outline-none font-mono cursor-pointer" />
                   </div>
-                  <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-2 rounded-xl text-xs uppercase tracking-wider transition-all">Write Workflow Entry</button>
+                  <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-2 rounded-xl text-xs uppercase tracking-wider transition-all">Write Follow-up Entry</button>
                 </form>
 
-                {/* TOUR MARKERS */}
+                {/* PHYSICAL SITE VISITS Planned Tiers */}
                 <div className="bg-slate-900/50 p-4 border border-slate-850 rounded-xl space-y-3">
                   <p className="text-[11px] font-black uppercase text-amber-400 tracking-wider">Verify Physical Site Walkthrough</p>
                   <div className="grid grid-cols-2 gap-2">
@@ -933,12 +928,12 @@ export default function App() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-slate-400 text-[10px]">Site Walkthrough Feedback Notes *</label>
-                    <textarea rows={1} value={svFeedback} onChange={(e)=>setSvFeedback(e.target.value)} placeholder="Enter design layout likes/dislikes parameters..." className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200 focus:outline-none" />
+                    <textarea rows={1} value={svFeedback} onChange={(e)=>setSvFeedback(e.target.value)} placeholder="Enter design layout parameters..." className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200 focus:outline-none" />
                   </div>
                   <button type="button" onClick={commitSiteWalkthroughLog} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 rounded-xl uppercase tracking-wider">Commit Walkthrough Verification</button>
                 </div>
 
-                {/* ADVANCE BOOKING TOKEN */}
+                {/* UNIT TOKEN ALLOCATION SETTLEMENT PANEL */}
                 <div className="bg-slate-900/50 p-4 border border-slate-850 rounded-xl space-y-3">
                   <p className="text-[11px] font-black uppercase text-emerald-400 tracking-wider">Secure Advance Token Booking Ingestion</p>
                   <div className="grid grid-cols-2 gap-2">
@@ -953,7 +948,7 @@ export default function App() {
         </div>
       )}
 
-      {/* DIALOG NEW INGEST CAPTURE PORTALS */}
+      {/* DIALOG NEW LEAD RECORDS INGEST CARDS */}
       {isLeadModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
@@ -986,7 +981,7 @@ export default function App() {
               </div>
               
               <div className="space-y-1">
-                <label className="text-slate-400 font-semibold">Email Contact Parameters <span className="text-slate-500 text-[10px] italic">(Optional)</span></label>
+                <label className="text-slate-400 font-semibold">Email Contact Parameters <span className="text-slate-500 text-[10px] italic">(Optional Row)</span></label>
                 <input type="email" value={newLeadForm.email} onChange={(e)=>setNewLeadForm({...newLeadForm, email: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none" placeholder="client@domain.com" />
               </div>
 

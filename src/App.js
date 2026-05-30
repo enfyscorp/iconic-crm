@@ -146,6 +146,10 @@ export default function App() {
 
   const [tentativeWalkthroughDateInput, setTentativeWalkthroughDateInput] = useState("");
 
+  // ─── NEW STATES FOR EDITING USERS ─────────────────────────────────────────
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
+  const [editUserForm, setEditUserForm] = useState(null);
+
   // ─── UTILITY NORMALIZATION FUNCTION ───────────────────────────────────────
   const stripAndNormalizeContactDigits = (val) => {
     if (!val) return "";
@@ -523,6 +527,7 @@ export default function App() {
     }
   };
 
+  // ─── NEW USER MANAGEMENT HANDLERS ──────────────────────────────────────────
   const handleCreateUserSubmit = (e) => {
     e.preventDefault();
     const cleanPrefix = newUserForm.emailPrefix.trim().toLowerCase();
@@ -540,6 +545,37 @@ export default function App() {
     setUsers([...users, createdUser]);
     setNewUserForm({ name: "", emailPrefix: "", pass: "", role: "Executive", branch: "Madurai Desk", phone: "" });
     triggerToastAlert(`Profile for ${createdUser.name} built cleanly.`);
+  };
+
+  const handleDeleteUser = (userId) => {
+    if (userId === currentUser.id) {
+      triggerToastAlert("Cannot delete your own active session account.");
+      return;
+    }
+    setUsers(users.filter(u => u.id !== userId));
+    triggerToastAlert("Corporate profile permanently removed.");
+  };
+
+  const openEditUserModal = (user) => {
+    setEditUserForm({ ...user });
+    setIsEditUserModalOpen(true);
+  };
+
+  const handleUpdateUserSubmit = (e) => {
+    e.preventDefault();
+    const cleanPrefix = editUserForm.email.split('@')[0].trim().toLowerCase();
+    const updatedUser = {
+      ...editUserForm,
+      name: editUserForm.name.trim(),
+      email: `${cleanPrefix}@desam`,
+      branch: editUserForm.role === "Admin" ? "All Branches" : editUserForm.branch,
+      phone: stripAndNormalizeContactDigits(editUserForm.phone) || "9840000000",
+      avatar: editUserForm.name.charAt(0).toUpperCase()
+    };
+    setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
+    setIsEditUserModalOpen(false);
+    setEditUserForm(null);
+    triggerToastAlert(`Profile for ${updatedUser.name} updated successfully.`);
   };
 
   const commitManualFollowUpReport = (e) => {
@@ -1067,80 +1103,135 @@ export default function App() {
           {activeTab === "users" && currentUser.role === "Admin" && (
             <div className="space-y-8 animate-fadeIn">
               
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
+              {/* NEW SYSTEM ROSTER TABLE */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl col-span-1 md:col-span-3">
                 <div className="space-y-0.5">
                   <h3 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-wider text-orange-400">
-                    <UserPlus className="h-4 w-4" /> Deploy New Corporate Profile
+                    <Users className="h-4 w-4" /> Active Corporate Roster
                   </h3>
-                  <p className="text-xs text-slate-400">Build access credentials and assign tracking branch parameters into the localized memory store database.</p>
+                  <p className="text-xs text-slate-400">Manage, modify, or revoke access for deployed team members.</p>
                 </div>
-
-                <form onSubmit={handleCreateUserSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs pt-1">
-                  <div className="space-y-1">
-                    <label className="text-slate-400 font-bold">Full Name *</label>
-                    <input type="text" required value={newUserForm.name} onChange={(e)=>setNewUserForm({...newUserForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="e.g. Anand R" />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-slate-400 font-bold">Username Prefix *</label>
-                    <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl overflow-hidden focus-within:border-orange-500">
-                      <input type="text" required value={newUserForm.emailPrefix} onChange={(e)=>setNewUserForm({...newUserForm, emailPrefix: e.target.value})} className="w-full bg-transparent p-2.5 text-slate-200 focus:outline-none text-right pr-1" placeholder="anand" />
-                      <span className="text-slate-500 font-bold pr-3 pl-1 shrink-0 font-mono">@desam</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-slate-400 font-bold">Security Password *</label>
-                    <input type="password" required value={newUserForm.pass} onChange={(e)=>setNewUserForm({...newUserForm, pass: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none" placeholder="••••••••" />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-slate-400 font-bold">System Privilege Level</label>
-                    <select value={newUserForm.role} onChange={(e)=>setNewUserForm({...newUserForm, role: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none">
-                      {INITIAL_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-slate-400 font-bold">Branch Roster Boundary</label>
-                    <select value={newUserForm.branch} disabled={newUserForm.role === "Admin"} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none disabled:opacity-40">
-                      {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-slate-400 font-bold">Contact Phone Number</label>
-                    <input type="text" value={newUserForm.phone} onChange={(e)=>setNewUserForm({...newUserForm, phone: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 font-mono" placeholder="9840001234" />
-                  </div>
-
-                  <button type="submit" className="md:col-span-3 bg-orange-600 hover:bg-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-md mt-1">
-                    Compile Profile Authorization
-                  </button>
-                </form>
+                <div className="overflow-x-auto w-full pt-2">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="text-slate-500 font-bold border-b border-slate-900 uppercase">
+                        <th className="pb-2">Personnel</th>
+                        <th className="pb-2">Role & Branch</th>
+                        <th className="pb-2">Contact Context</th>
+                        <th className="pb-2 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-900 text-slate-300">
+                      {users.map(u => (
+                        <tr key={u.id} className="hover:bg-slate-900/20 transition-all">
+                          <td className="py-3 font-bold text-white flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-black text-orange-400">{u.avatar}</div>
+                            <div>
+                              <p>{u.name}</p>
+                              <p className="text-[10px] text-slate-500 font-mono font-normal">ID: {u.id}</p>
+                            </div>
+                          </td>
+                          <td className="py-3">
+                            <p className="font-semibold text-orange-400">{u.role}</p>
+                            <p className="text-[10px] text-slate-400 font-mono">{u.branch}</p>
+                          </td>
+                          <td className="py-3 font-mono text-slate-400">
+                            <p>{u.phone}</p>
+                            <p className="text-[10px]">{u.email}</p>
+                          </td>
+                          <td className="py-3 text-right space-x-2">
+                            <button onClick={() => openEditUserModal(u)} className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded border border-slate-800 transition-colors" title="Edit Profile">
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                            <button onClick={() => handleDeleteUser(u.id)} className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded border border-rose-500/20 transition-colors" title="Revoke Access">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
-                <div className="space-y-0.5">
-                  <h3 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-wider text-orange-400"><Upload className="h-4 w-4" /> SpreadSheet Excel/CSV Ingestion Engine</h3>
-                  <p className="text-xs text-slate-400">Bulk map customer data streams. Paste matching rows directly using tabular block separations (`Name`, `Phone`, `Email`, `Project Name`).</p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl h-fit">
+                  <div className="space-y-0.5">
+                    <h3 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-wider text-orange-400">
+                      <UserPlus className="h-4 w-4" /> Deploy New Corporate Profile
+                    </h3>
+                    <p className="text-xs text-slate-400">Build access credentials and assign tracking branch parameters into the localized memory store database.</p>
+                  </div>
+
+                  <form onSubmit={handleCreateUserSubmit} className="space-y-4 text-xs pt-1">
+                    <div className="space-y-1">
+                      <label className="text-slate-400 font-bold">Full Name *</label>
+                      <input type="text" required value={newUserForm.name} onChange={(e)=>setNewUserForm({...newUserForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="e.g. Anand R" />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-slate-400 font-bold">Username Prefix *</label>
+                      <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl overflow-hidden focus-within:border-orange-500">
+                        <input type="text" required value={newUserForm.emailPrefix} onChange={(e)=>setNewUserForm({...newUserForm, emailPrefix: e.target.value})} className="w-full bg-transparent p-2.5 text-slate-200 focus:outline-none text-right pr-1" placeholder="anand" />
+                        <span className="text-slate-500 font-bold pr-3 pl-1 shrink-0 font-mono">@desam</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-slate-400 font-bold">Security Password *</label>
+                      <input type="password" required value={newUserForm.pass} onChange={(e)=>setNewUserForm({...newUserForm, pass: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none" placeholder="••••••••" />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-slate-400 font-bold">System Privilege Level</label>
+                        <select value={newUserForm.role} onChange={(e)=>setNewUserForm({...newUserForm, role: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none">
+                          {INITIAL_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-slate-400 font-bold">Branch Roster Boundary</label>
+                        <select value={newUserForm.branch} disabled={newUserForm.role === "Admin"} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none disabled:opacity-40">
+                          {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-slate-400 font-bold">Contact Phone Number</label>
+                      <input type="text" value={newUserForm.phone} onChange={(e)=>setNewUserForm({...newUserForm, phone: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 font-mono" placeholder="9840001234" />
+                    </div>
+
+                    <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-md mt-1">
+                      Compile Profile Authorization
+                    </button>
+                  </form>
                 </div>
 
-                <form onSubmit={handleDataImportSubmit} className="space-y-4 pt-1">
-                  <textarea 
-                    rows={5} 
-                    value={importText} 
-                    onChange={(e)=>setImportText(e.target.value)} 
-                    placeholder="Suresh Kumar&#9;9840011234&#9;suresh@gmail.com&#9;Vishal Virinchi&#9;Madurai&#9;65&#10;Lakshmi Rao&#9;9940022345&#9;lakshmi@yahoo.com&#9;GK Apartments&#9;Chennai&#9;85" 
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-orange-500 font-mono leading-relaxed" 
-                  />
-                  <div className="bg-slate-900/40 border border-slate-855 rounded-xl p-3 flex gap-3 items-start text-xs text-slate-400">
-                    <Info className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
-                    <p className="leading-relaxed">Verify that the spelling of your values under the **Project Name** column accurately maps into your static system project catalogs to prevent automatic routing warnings.</p>
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl h-fit">
+                  <div className="space-y-0.5">
+                    <h3 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-wider text-orange-400"><Upload className="h-4 w-4" /> SpreadSheet Excel/CSV Ingestion Engine</h3>
+                    <p className="text-xs text-slate-400">Bulk map customer data streams. Paste matching rows directly using tabular block separations (`Name`, `Phone`, `Email`, `Project Name`).</p>
                   </div>
-                  <button type="submit" className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-lg w-fit">
-                    <FileSpreadsheet className="h-4 w-4" /> Deploy Mass Ingestion Engine
-                  </button>
-                </form>
+
+                  <form onSubmit={handleDataImportSubmit} className="space-y-4 pt-1">
+                    <textarea 
+                      rows={5} 
+                      value={importText} 
+                      onChange={(e)=>setImportText(e.target.value)} 
+                      placeholder="Suresh Kumar&#9;9840011234&#9;suresh@gmail.com&#9;Vishal Virinchi&#9;Madurai&#9;65&#10;Lakshmi Rao&#9;9940022345&#9;lakshmi@yahoo.com&#9;GK Apartments&#9;Chennai&#9;85" 
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-orange-500 font-mono leading-relaxed" 
+                    />
+                    <div className="bg-slate-900/40 border border-slate-855 rounded-xl p-3 flex gap-3 items-start text-xs text-slate-400">
+                      <Info className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
+                      <p className="leading-relaxed">Verify that the spelling of your values under the **Project Name** column accurately maps into your static system project catalogs to prevent automatic routing warnings.</p>
+                    </div>
+                    <button type="submit" className="w-full flex justify-center items-center gap-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-lg">
+                      <FileSpreadsheet className="h-4 w-4" /> Deploy Mass Ingestion Engine
+                    </button>
+                  </form>
+                </div>
               </div>
 
             </div>
@@ -1289,6 +1380,62 @@ export default function App() {
         <div className="fixed bottom-6 right-6 bg-slate-950 border border-emerald-500/40 text-emerald-400 font-bold px-4 py-3 rounded-xl shadow-2xl z-[110] flex items-center gap-2 text-xs animate-fadeIn uppercase tracking-wide">
           <div className="h-5 w-5 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center"><Check className="h-3 w-3" /></div>
           {toastNotification.message}
+        </div>
+      )}
+
+      {/* DIALOG EDIT USER RECORD */}
+      {isEditUserModalOpen && editUserForm && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl relative">
+            <div className="flex justify-between items-center border-b border-slate-900 pb-3">
+              <h2 className="text-base font-black text-white tracking-wide uppercase">Modify Corporate Profile</h2>
+              <button onClick={() => { setIsEditUserModalOpen(false); setEditUserForm(null); }} className="text-slate-500 hover:text-white">✕</button>
+            </div>
+
+            <form onSubmit={handleUpdateUserSubmit} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-slate-400 font-bold">Full Name *</label>
+                <input type="text" required value={editUserForm.name} onChange={(e)=>setEditUserForm({...editUserForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-orange-500" />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-400 font-bold">Username / Email Prefix *</label>
+                <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl overflow-hidden focus-within:border-orange-500">
+                  <input type="text" required value={editUserForm.email.split('@')[0]} onChange={(e)=>setEditUserForm({...editUserForm, email: `${e.target.value}@desam`})} className="w-full bg-transparent p-2.5 text-slate-200 focus:outline-none text-right pr-1" />
+                  <span className="text-slate-500 font-bold pr-3 pl-1 shrink-0 font-mono">@desam</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-400 font-bold">Security Password *</label>
+                <input type="password" required value={editUserForm.pass} onChange={(e)=>setEditUserForm({...editUserForm, pass: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-bold">System Privilege Level</label>
+                  <select value={editUserForm.role} onChange={(e)=>setEditUserForm({...editUserForm, role: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none">
+                    {INITIAL_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-bold">Branch Roster Boundary</label>
+                  <select value={editUserForm.branch} disabled={editUserForm.role === "Admin"} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none disabled:opacity-40">
+                    {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-400 font-bold">Contact Phone Number</label>
+                <input type="text" value={editUserForm.phone} onChange={(e)=>setEditUserForm({...editUserForm, phone: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 font-mono" />
+              </div>
+
+              <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-3 rounded-xl uppercase tracking-wider transition-all shadow-md mt-2">
+                Update Profile Authorization
+              </button>
+            </form>
+          </div>
         </div>
       )}
 

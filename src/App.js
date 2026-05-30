@@ -7,6 +7,10 @@ import {
   AlertTriangle, Download, Upload, Info, FileSpreadsheet, Check,
   Menu, ArrowRight, Home, FileText
 } from "lucide-react";
+import { 
+  BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, 
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
+} from "recharts";
 
 // ─── STATIC BRAND LOGO ROUTING DIRECTORY ──────────────────────────────────
 const DESAM_LOGO_ASSET = "/DESAM-NEW-LOGO.png";
@@ -82,6 +86,9 @@ const PSC = {
   "Sold-Out":             { bg: "rgba(239,68,68,0.15)",   text: "#ef4444" },
 };
 
+// Colors for Pie Chart
+const PIE_COLORS = ['#ea580c', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#f59e0b', '#64748b', '#14b8a6'];
+
 export default function App() {
   const TODAY_STR = "2026-05-29";
 
@@ -102,6 +109,8 @@ export default function App() {
   const [filterStatus, setFilterStatus] = useState("All");
   const [filterProject, setFilterProject] = useState("All");
   const [filterExecutive, setFilterExecutive] = useState("All");
+  
+  // Custom Date Reporting States
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -206,6 +215,7 @@ export default function App() {
     return [];
   }, [leads, currentUser]);
 
+  // UNATTENDED LEADS MANAGER ALERT
   const unattendedManagerAlerts = useMemo(() => {
     if (!currentUser || currentUser.role !== "Manager") return [];
     
@@ -219,6 +229,25 @@ export default function App() {
       return diffDays >= 2;
     });
   }, [leads, currentUser]);
+
+  // ─── ANALYTICS CHARTS DATA COMPUTATION ────────────────────────────────────
+  const chartDataSource = useMemo(() => {
+    const counts = {};
+    processedLeads.forEach(l => { counts[l.source] = (counts[l.source] || 0) + 1; });
+    return Object.keys(counts).map(key => ({ name: key, count: counts[key] })).sort((a, b) => b.count - a.count);
+  }, [processedLeads]);
+
+  const chartDataStatus = useMemo(() => {
+    const counts = {};
+    processedLeads.forEach(l => { counts[l.status] = (counts[l.status] || 0) + 1; });
+    return Object.keys(counts).map(key => ({ name: key, value: counts[key] }));
+  }, [processedLeads]);
+
+  const chartDataTrend = useMemo(() => {
+    const counts = {};
+    processedLeads.forEach(l => { counts[l.dateCreated] = (counts[l.dateCreated] || 0) + 1; });
+    return Object.keys(counts).sort().map(date => ({ date, leads: counts[date] }));
+  }, [processedLeads]);
 
   // ─── LIVE DUPLICATION VALIDATION LISTENER HOOK ────────────────────────────
   const handlePhoneInputChange = (inputRawValue, isAlternateField = false) => {
@@ -754,6 +783,83 @@ export default function App() {
                 </div>
               )}
 
+              {/* CORE METRIC TILES */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Scoped Pipelines <Briefcase className="h-4 w-4 text-orange-400" /></p>
+                  <p className="text-3xl font-black text-white mt-1">{processedLeads.length}</p>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Confirmed Conversions <CheckCircle2 className="h-4 w-4 text-emerald-400" /></p>
+                  <p className="text-3xl font-black text-emerald-400 mt-1">{processedLeads.filter(l => ["Booking Confirmed","Closed"].includes(l.status)).length}</p>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Capitalized Volume <DollarSign className="h-4 w-4 text-orange-400" /></p>
+                  <p className="text-3xl font-black text-white mt-1">₹{processedLeads.reduce((a,c)=>a+c.budget, 0)}L</p>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Site Visits Done <Calendar className="h-4 w-4 text-amber-400" /></p>
+                  <p className="text-3xl font-black text-amber-400 mt-1">{processedLeads.filter(l => l.status === "Site Visit Completed").length}</p>
+                </div>
+              </div>
+
+              {/* ANALYTICS CHARTS INTEGRATION */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                
+                {/* Bar Chart: Leads by Source */}
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl col-span-1 lg:col-span-2 shadow-xl">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Lead Acquisition by Source</h3>
+                  <div className="h-[280px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartDataSource} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                        <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} angle={-35} textAnchor="end" />
+                        <YAxis tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '8px', fontSize: '11px', color: '#f8fafc' }} itemStyle={{ color: '#ea580c', fontWeight: 'bold' }} cursor={{ fill: '#1e293b' }} />
+                        <Bar dataKey="count" fill="#ea580c" radius={[4, 4, 0, 0]} barSize={28} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Pie Chart: Pipeline Status */}
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl shadow-xl flex flex-col">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Pipeline Distribution</h3>
+                  <div className="h-[280px] w-full relative flex-1">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={chartDataStatus} cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={4} dataKey="value" stroke="none">
+                          {chartDataStatus.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '8px', fontSize: '11px', color: '#f8fafc' }} itemStyle={{ fontWeight: 'bold' }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-3xl font-black text-white">{processedLeads.length}</span>
+                      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Total Leads</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Line Chart: Acquisition Trend */}
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl col-span-1 lg:col-span-3 shadow-xl">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Lead Generation Timeline Trend</h3>
+                  <div className="h-[240px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartDataTrend} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '8px', fontSize: '11px', color: '#f8fafc' }} itemStyle={{ color: '#10b981', fontWeight: 'bold' }} />
+                        <Line type="monotone" dataKey="leads" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981', strokeWidth: 0 }} activeDot={{ r: 6, stroke: '#0f172a', strokeWidth: 2 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
               {/* DYNAMIC ACTION DESK */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 space-y-4">
                 <h2 className="text-xs font-black text-orange-400 uppercase tracking-widest flex items-center gap-2">
@@ -801,26 +907,6 @@ export default function App() {
                 ) : (
                   <p className="text-xs text-slate-500 italic p-4 bg-slate-900/40 rounded-xl border border-slate-900">Your visual dashboard deployment list is clean.</p>
                 )}
-              </div>
-
-              {/* CORE METRIC TILES */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Scoped Pipelines <Briefcase className="h-4 w-4 text-orange-400" /></p>
-                  <p className="text-3xl font-black text-white mt-1">{processedLeads.length}</p>
-                </div>
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Confirmed Conversions <CheckCircle2 className="h-4 w-4 text-emerald-400" /></p>
-                  <p className="text-3xl font-black text-emerald-400 mt-1">{processedLeads.filter(l => ["Booking Confirmed","Closed"].includes(l.status)).length}</p>
-                </div>
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Capitalized Volume <DollarSign className="h-4 w-4 text-orange-400" /></p>
-                  <p className="text-3xl font-black text-white mt-1">₹{processedLeads.reduce((a,c)=>a+c.budget, 0)}L</p>
-                </div>
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Site Visits Done <Calendar className="h-4 w-4 text-amber-400" /></p>
-                  <p className="text-3xl font-black text-amber-400 mt-1">{processedLeads.filter(l => l.status === "Site Visit Completed").length}</p>
-                </div>
               </div>
             </div>
           )}

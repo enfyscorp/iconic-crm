@@ -239,7 +239,7 @@ export default function App() {
       setLoginError("");
       triggerToastAlert(`Welcome back, ${account.name}!`);
     } else {
-      setLoginError("Invalid corporate credentials.");
+      setLoginError("Invalid profile matching credential set.");
     }
   };
 
@@ -409,17 +409,21 @@ export default function App() {
   const SidebarContent = () => (
     <>
       <div>
-        {/* ─── OFFICIAL CORPORATE LOGO RE-ENGINEERING ─── */}
+        {/* ─── REAL BRAND LOGO MATRIX INTEGRATION ─── */}
         <div className="h-16 flex items-center px-4 border-b border-slate-800 bg-slate-950">
-          <div className="flex items-center gap-2">
-            <div className="relative flex items-center justify-center h-10 w-11 bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shrink-0">
-              <span className="absolute left-1 top-0.5 font-black text-lg text-orange-500 leading-none">D</span>
-              <span className="absolute right-1 bottom-0.5 font-black text-lg text-emerald-500 leading-none">D</span>
-            </div>
-            <div className="leading-tight">
-              <span className="font-black text-sm tracking-wider text-orange-500 block font-sans">DESAM</span>
-              <span className="text-[8px] font-black text-emerald-500 tracking-widest block font-sans uppercase">DEVELOPERS PVT LTD</span>
-            </div>
+          <img 
+            src="/DESAM-NEW-LOGO.png" 
+            alt="Desam Developers Pvt Ltd" 
+            className="h-10 w-auto object-contain max-w-[210px]" 
+            onError={(e) => {
+              // Graceful fallback to avoid blank space if image stream routes aren't mapped on root level yet
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'flex';
+            }}
+          />
+          <div className="hidden items-center gap-2" style={{ display: 'none' }}>
+            <div className="h-8 w-8 bg-orange-600 rounded-lg flex items-center justify-center font-black text-white text-xs">DD</div>
+            <div className="text-xs font-black text-slate-100 leading-tight">DESAM DEVELOPERS</div>
           </div>
         </div>
         
@@ -461,34 +465,59 @@ export default function App() {
     </>
   );
 
+  // ─── LOGIN SCREEN WITH BRAND LOGO IMAGE ──────────────────────────────────
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
-        <div className="sm:mx-auto w-full max-w-md text-center space-y-3">
-          <div className="relative flex items-center justify-center h-14 w-16 bg-slate-950 border border-slate-800 rounded-2xl mx-auto shadow-xl">
-            <span className="absolute left-2 top-1 font-black text-2xl text-orange-500 leading-none">D</span>
-            <span className="absolute right-2 bottom-1 font-black text-2xl text-emerald-500 leading-none">D</span>
+        <div className="sm:mx-auto w-full max-w-md text-center space-y-4">
+          <div className="flex justify-center mb-2">
+            <img 
+              src="/DESAM-NEW-LOGO.png" 
+              alt="Desam Developers Logo" 
+              className="h-16 w-auto object-contain drop-shadow-lg" 
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'block';
+              }}
+            />
+            <h1 className="text-2xl font-black text-orange-500 hidden">DESAM DEVELOPERS</h1>
           </div>
-          <h2 className="text-2xl font-black text-orange-500 tracking-wide uppercase">DESAM DEVELOPERS</h2>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Control Platform</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Operational Control Platform</p>
         </div>
         <div className="mt-6 sm:mx-auto w-full max-w-md px-4">
           <div className="bg-slate-950 py-8 px-6 border border-slate-800 rounded-2xl shadow-2xl space-y-6">
             <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
+              
               <div className="space-y-1.5">
-                <label className="text-slate-400 font-bold uppercase tracking-wide">Corporate Clearance Email</label>
+                <label className="text-slate-400 font-bold uppercase tracking-wide">Username</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                  <input type="email" required value={loginEmail} onChange={(e) => loginEmail(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="jibril@desam.in" />
+                  <input 
+                    type="text" 
+                    required 
+                    value={loginEmail} 
+                    onChange={(e) => setLoginEmail(e.target.value)} 
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" 
+                    placeholder="Username or Corporate Email Address" 
+                  />
                 </div>
               </div>
+
               <div className="space-y-1.5">
-                <label className="text-slate-400 font-bold uppercase tracking-wide">Passcode Clearance Key</label>
+                <label className="text-slate-400 font-bold uppercase tracking-wide">Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                  <input type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="••••••••" />
+                  <input 
+                    type="password" 
+                    required 
+                    value={loginPassword} 
+                    onChange={(e) => setLoginPassword(e.target.value)} 
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" 
+                    placeholder="••••••••" 
+                  />
                 </div>
               </div>
+
               {loginError && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded border border-rose-500/20">{loginError}</p>}
               <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg">Authorize Access</button>
             </form>
@@ -523,7 +552,7 @@ export default function App() {
             </button>
             <div className="relative w-48 sm:w-80 hidden sm:block">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-              <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live filtering search context..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />
+              <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live context query filtering search..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />
             </div>
           </div>
           
@@ -534,7 +563,7 @@ export default function App() {
 
         <main className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-8 w-full">
           
-          {/* VIEWPORT 1: VISUAL DASHBOARD SUMMARY STATS */}
+          {/* VIEWPORT 1: DASHBOARD */}
           {activeTab === "dashboard" && (
             <div className="space-y-8 animate-fadeIn">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-950 p-6 border border-slate-800 rounded-2xl">
@@ -609,7 +638,7 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 2: LEAD TRACKING ROWS CHANNEL MASTER */}
+          {/* VIEWPORT 2: LEAD TRACKING ROWS */}
           {activeTab === "leads" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -693,7 +722,7 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 3: PROJECTS MASTER INVENTORIES */}
+          {/* VIEWPORT 3: PROJECTS MASTER */}
           {activeTab === "projects" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex justify-between items-center">
@@ -906,11 +935,11 @@ export default function App() {
               </div>
             </div>
 
-            {/* ─── INFOGRAPHIC ACCORDION TREE GRAPH TIMELINE DESIGN (LAST UPDATE FIRST) ─── */}
+            {/* ─── INFOGRAPHIC TREE GRAPH TIMELINE DESIGN (LAST UPDATE FIRST) ─── */}
             <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-6">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-orange-500" /> INTERACTION TIMELINE TRACKING JOURNAL
+                  <Clock className="h-4 w-4 text-orange-500" /> INTERACTION TIMELINE tracking JOURNAL
                 </h4>
                 <span className="text-[10px] bg-slate-900 text-slate-400 px-2.5 py-0.5 rounded-full border border-slate-800 font-mono">
                   {selectedLead.history?.length || 0} Total Footprints
@@ -925,7 +954,6 @@ export default function App() {
                   selectedLead.history.map((log, index) => {
                     const stepNumber = selectedLead.history.length - index;
                     
-                    // Colors step badges down the line gracefully matching template
                     const stepBadgeColors = [
                       "bg-orange-600 ring-orange-500/20 text-white",
                       "bg-amber-500 ring-amber-500/20 text-slate-950",
@@ -1036,14 +1064,14 @@ export default function App() {
       {/* DIALOG NEW LEAD RECORDS INGEST CARDS */}
       {isLeadModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-xl space-y-4 shadow-2xl relative">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl relative">
             
             <div className="flex justify-between items-center border-b border-slate-900 pb-3">
               <h2 className="text-base font-black text-white tracking-wide uppercase">Capture Customer Profile Ingestion</h2>
               <button onClick={() => { setIsLeadModalOpen(false); setDuplicateConflictRecord(null); }} className="text-slate-500 hover:text-white">✕</button>
             </div>
 
-            {/* DUCELLATION BLOCKS */}
+            {/* DUPLICATION BLOCKS */}
             {duplicateConflictRecord && (
               <div className="absolute inset-x-6 top-16 bottom-6 bg-slate-950/95 border border-rose-500/40 rounded-xl p-5 z-20 flex flex-col justify-between space-y-3 backdrop-blur-md animate-scaleUp">
                 <div className="space-y-3">

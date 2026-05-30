@@ -31,10 +31,10 @@ const TEAMS_REGISTRY = {
 };
 
 const INITIAL_USERS = [
-  { id: 101, name: "Arjun Sharma", email: "admin@iconic.in", pass: "admin123", role: "Admin", branch: "All Branches", phone: "98400 00001", active: true },
-  { id: 102, name: "Priya Nair", email: "manager@iconic.in", pass: "manager123", role: "Manager", branch: "Madurai Desk", phone: "98400 00002", active: true },
-  { id: 103, name: "Rohan Das", email: "executive@iconic.in", pass: "agent123", role: "Executive", branch: "Madurai Desk", phone: "98400 00003", active: true },
-  { id: 104, name: "Divya Menon", email: "caller@iconic.in", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "98400 00004", active: true },
+  { id: 101, name: "Arjun Sharma", email: "admin@desam", pass: "admin123", role: "Admin", branch: "All Branches", phone: "98400 00001", active: true },
+  { id: 102, name: "Priya Nair", email: "manager@desam", pass: "manager123", role: "Manager", branch: "Madurai Desk", phone: "98400 00002", active: true },
+  { id: 103, name: "Rohan Das", email: "executive@desam", pass: "agent123", role: "Executive", branch: "Madurai Desk", phone: "98400 00003", active: true },
+  { id: 104, name: "Divya Menon", email: "caller@desam", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "98400 00004", active: true },
 ];
 
 const INITIAL_PROJECTS = [

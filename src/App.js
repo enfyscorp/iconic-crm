@@ -71,8 +71,6 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState("dashboard"); 
   const [globalSearch, setGlobalSearch] = useState("");
-  
-  // Mobile Left Rail Navigation State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [sources, setSources] = useState(INITIAL_SOURCES);
@@ -119,7 +117,7 @@ export default function App() {
   const [bkMode, setBkMode] = useState("Cheque");
   const [bkDate, setBkDate] = useState("");
 
-  // ─── MEMOIZED SYSTEM COMPUTE TIERS ────────────────────────────────────────
+  // ─── MEMOIZED DATA COMPUTATIONS ───────────────────────────────────────────
   const visibleProjects = useMemo(() => {
     if (!currentUser) return [];
     if (currentUser.role === "Admin") return projects;
@@ -167,7 +165,7 @@ export default function App() {
     return processedLeads.filter(l => l.nextFollowUp === TODAY_STR && l.assignedTo === "Unassigned");
   }, [processedLeads, TODAY_STR]);
 
-  // ─── OPERATION COHORT HANDLERS ────────────────────────────────────────────
+  // ─── HANDLERS ─────────────────────────────────────────────────────────────
   const triggerToastAlert = (msg) => {
     setToastNotification({ isVisible: true, message: msg });
     setTimeout(() => setToastNotification({ isVisible: false, message: "" }), 3500);
@@ -181,7 +179,7 @@ export default function App() {
       setLoginError("");
       triggerToastAlert(`Welcome back, ${account.name}!`);
     } else {
-      setLoginError("Invalid clearance email or passcode credentials.");
+      setLoginError("Invalid clearance email or passcode authentication pairing.");
     }
   };
 
@@ -203,7 +201,7 @@ export default function App() {
       targetValue: nextStatus,
       type: "status",
       title: "Confirm Status Shift",
-      message: `Are you sure you want to transition "${target.name}" to the "${nextStatus}" tracking track?`
+      message: `Are you sure you want to transition "${target.name}" to the "${nextStatus}" milestone tracker?`
     });
   };
 
@@ -216,7 +214,7 @@ export default function App() {
       targetValue: personnelName,
       type: "assign",
       title: "Confirm Lead Allocation",
-      message: `Delegate active follow-up parameters for client "${target.name}" to team member "${personnelName}"?`
+      message: `Delegate tracking and active follow-up parameters for client "${target.name}" to team member "${personnelName}"?`
     });
   };
 
@@ -260,7 +258,7 @@ export default function App() {
             id: Date.now() + Math.floor(Math.random() * 10000),
             name: columns[0] || "Spreadsheet Lead",
             phone: columns[1] || "00000",
-            email: columns[2] || "imported@desam.in",
+            email: columns[2] || "",
             project: columns[3] || "Vishal Virinchi Apartments",
             location: columns[4] || "Inbound",
             budget: parseInt(columns[5]) || 65,
@@ -311,8 +309,11 @@ export default function App() {
     const updated = leads.map(l => {
       if (l.id === selectedLead.id) {
         const obj = {
-          ...l, lastFollowUp: TODAY_STR, nextFollowUp: nextFollowUpDate,
-          history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `LOG: ${followUpNotes.trim()} (Next: ${nextFollowUpDate})` }]
+          ...l, 
+          status: "Contacted", // Upgrade status marker cleanly out of new/assigned gate upon log entry submission
+          lastFollowUp: TODAY_STR, 
+          nextFollowUp: nextFollowUpDate,
+          history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `LOG: ${followUpNotes.trim()} (Next Scheduled Check: ${nextFollowUpDate})` }]
         };
         setSelectedLead(obj);
         return obj;
@@ -320,7 +321,7 @@ export default function App() {
       return l;
     });
     setLeads(updated); setFollowUpNotes(""); setNextFollowUpDate("");
-    triggerToastAlert("Follow-up successfully logged.");
+    triggerToastAlert("Follow-up successfully logged into client file dossier.");
   };
 
   const handleAddSource = (e) => {
@@ -348,7 +349,8 @@ export default function App() {
       history: [{ date: TODAY_STR, by: currentUser.name, action: "Lead Ingested." }]
     };
     setLeads([created, ...leads]); setIsLeadModalOpen(false);
-    triggerToastAlert("New lead captured cleanly.");
+    setNewLeadForm({ name: "", phone: "", altPhone: "", email: "", location: "", project: "Vishal Virinchi Apartments", budget: 65, source: "Website", assignedTo: "Unassigned", notes: "" });
+    triggerToastAlert("New customer workflow profile captured cleanly.");
   };
 
   const handleCreateUser = (e) => {
@@ -376,49 +378,16 @@ export default function App() {
   const commitSiteWalkthroughLog = () => {
     setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Site Visit Completed", history: [...l.history, { date: svDate, by: currentUser.name, action: `Visit Done. Notes: ${svFeedback}` }] } : l));
     setSelectedLead(null);
+    triggerToastAlert("Site walkthrough registered successfully.");
   };
 
   const commitFinancialBookingLog = () => {
     setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Booking Confirmed", bookingUnit: bkUnit } : l));
     setSelectedLead(null);
+    triggerToastAlert("Advance token payment captured.");
   };
 
-  // ─── SYSTEM SECURITY ACCESS PORTAL GATE ────────────────────────────────────
-  if (!currentUser) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
-        <div className="sm:mx-auto w-full max-w-md text-center space-y-3">
-          <div className="h-12 w-12 bg-gradient-to-tr from-orange-600 to-orange-500 flex items-center justify-center rounded-2xl text-base font-black text-white shadow-xl mx-auto">DD</div>
-          <h2 className="text-2xl font-black text-white tracking-wide uppercase">DESAM DEVELOPERS PVT LTD</h2>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Management Suite</p>
-        </div>
-        <div className="mt-6 sm:mx-auto w-full max-w-md px-4">
-          <div className="bg-slate-950 py-8 px-6 border border-slate-800 rounded-2xl shadow-2xl space-y-6">
-            <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
-              <div className="space-y-1.5">
-                <label className="text-slate-400 font-bold uppercase tracking-wide">Corporate Clearance Email</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                  <input type="email" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="manager@iconic.in" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-slate-400 font-bold uppercase tracking-wide">Passcode Clearance Key</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                  <input type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="••••••••" />
-                </div>
-              </div>
-              {loginError && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded border border-rose-500/20">{loginError}</p>}
-              <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg">Authorize System Access</button>
-            </form>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // REUSABLE SIDEBAR COMPONENT STRUCT TO AVOID DRY COMPILING CONFLICTS
+  // REUSABLE SIDEBAR COMPONENT STRUCT
   const SidebarContent = () => (
     <>
       <div>
@@ -430,7 +399,6 @@ export default function App() {
               <span className="text-[9px] font-bold text-slate-400 tracking-widest block uppercase">DEVELOPERS</span>
             </div>
           </div>
-          {/* Mobile Overlay close button */}
           <button onClick={() => setIsMobileMenuOpen(false)} className="lg:hidden text-slate-400 hover:text-white">
             <X className="h-5 w-5" />
           </button>
@@ -473,37 +441,66 @@ export default function App() {
     </>
   );
 
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
+        <div className="sm:mx-auto w-full max-w-md text-center space-y-3">
+          <div className="h-12 w-12 bg-gradient-to-tr from-orange-600 to-orange-500 flex items-center justify-center rounded-2xl text-base font-black text-white shadow-xl mx-auto">DD</div>
+          <h2 className="text-2xl font-black text-white tracking-wide uppercase">DESAM DEVELOPERS PVT LTD</h2>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Control Platform</p>
+        </div>
+        <div className="mt-6 sm:mx-auto w-full max-w-md px-4">
+          <div className="bg-slate-950 py-8 px-6 border border-slate-800 rounded-2xl shadow-2xl space-y-6">
+            <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
+              <div className="space-y-1.5">
+                <label className="text-slate-400 font-bold uppercase tracking-wide">Corporate Clearance Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                  <input type="email" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="manager@iconic.in" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-slate-400 font-bold uppercase tracking-wide">Passcode Clearance Key</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                  <input type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="••••••••" />
+                </div>
+              </div>
+              {loginError && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded border border-rose-500/20">{loginError}</p>}
+              <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg">Authorize Clearance</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-slate-900 text-slate-100 font-sans antialiased overflow-hidden relative">
       
-      {/* ─── DESKTOP SIDEBAR VIEW RAIL (HIDDEN ON MOBILE SCREEN BREAKPOINTS) ─── */}
       <aside className="hidden lg:flex w-64 bg-slate-950 border-r border-slate-800 flex-col justify-between h-full flex-shrink-0">
         <SidebarContent />
       </aside>
 
-      {/* ─── MOBILE DRAWER SIDEBAR SLIDE OVERLAY (TRIGGERED BY 3-LINES MENU) ─── */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 flex lg:hidden bg-black/60 backdrop-blur-sm animate-fadeIn">
           <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between h-full animate-slideRight">
             <SidebarContent />
           </aside>
-          {/* Clicking remaining screen space shuts mobile slide menu */}
           <div className="flex-1" onClick={() => setIsMobileMenuOpen(false)}></div>
         </div>
       )}
 
       <div className="flex-1 flex flex-col overflow-hidden w-full">
         
-        {/* INTERFACE TOP NAVIGATION HEADER */}
         <header className="h-16 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-4 lg:px-8 z-10 gap-4 flex-shrink-0">
           <div className="flex items-center gap-3">
-            {/* ─── RESPONSIVE 3-LINES HAMBURGER TOGGLE MENU BUTTON ─── */}
             <button onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden p-2 bg-slate-900 hover:bg-slate-850 rounded-xl border border-slate-800 text-slate-200 transition-colors">
               <Menu className="h-5 w-5" />
             </button>
             <div className="relative w-48 sm:w-80 hidden sm:block">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-              <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live context analytics query filtering search..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />
+              <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live context query filtering search..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />
             </div>
           </div>
           
@@ -520,7 +517,7 @@ export default function App() {
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-950 p-6 border border-slate-800 rounded-2xl">
                 <div>
                   <h1 className="text-xl lg:text-2xl font-black text-white tracking-tight">Team Operations Center</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Real-time analytical graphs mapping team conversions across core property lines.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Real-time analytical graphs mapping team conversions across your allocated team branch.</p>
                 </div>
                 
                 {dailyFollowUpLeads.length > 0 && (
@@ -534,7 +531,7 @@ export default function App() {
                 )}
               </div>
 
-              {/* UNASSIGNED DASHBOARD ACTION ENGINE DIRECT DEPLOYMENT DESK */}
+              {/* UNASSIGNED DIRECT DEPLOYMENT DESK */}
               {dailyFollowUpLeads.length > 0 && (
                 <div className="bg-slate-950 border border-amber-500/20 rounded-2xl p-4 lg:p-6 space-y-4">
                   <h2 className="text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-2"><Bell className="h-4 w-4" /> DIRECT DEPLOYMENT DESK</h2>
@@ -557,7 +554,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* KPI CARD SCORE TILES GRID */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Total Pipeline Count <Briefcase className="h-4 w-4 text-orange-400" /></p>
@@ -577,7 +573,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* RESPONSIBLY EMBEDDED ANALYTICAL CHARTS GRAPHS */}
+              {/* GRAPHS CHARTS SUBGRID PLOTS */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6">
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><BarChart3 className="h-4 w-4 text-orange-500" /> Milestone Weight (Bar Chart)</h3>
@@ -637,13 +633,13 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 2: LEAD TRACKING DATA LIST ENGINES */}
+          {/* VIEWPORT 2: LEAD TRACKING ROWS CHANNEL MASTER */}
           {activeTab === "leads" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                 <div>
                   <h1 className="text-2xl font-black text-white tracking-tight">Active Team Lead Channels</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Managers assign inbound property requests directly to their specialized field executive agents here.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Managers assign inbound project requests directly to their specialized field executive agents here.</p>
                 </div>
                 <button onClick={() => setIsLeadModalOpen(true)} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors shadow-md w-fit">
                   <Plus className="h-4 w-4" /> INGEST RECORD
@@ -652,7 +648,7 @@ export default function App() {
 
               <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl w-full">
                 <div className="overflow-x-auto w-full">
-                  <table className="w-full text-left text-xs border-collapse data-table">
+                  <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-slate-900 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
                         <th className="p-4 min-w-[150px]">Customer Contact Info</th>
@@ -685,7 +681,7 @@ export default function App() {
                             
                             <td className="p-4">
                               {["Admin", "Manager"].includes(currentUser.role) ? (
-                                <select value={l.assignedTo} onChange={(e) => requestOwnerAssignmentPopup(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 text-slate-200 rounded px-2 py-1.5 text-xs font-semibold focus:outline-none focus:border-orange-500 cursor-pointer max-w-[150px]">
+                                <select value={l.assignedTo} onChange={(e) => requestOwnerAssignmentPopup(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 text-slate-200 rounded px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:border-orange-500 cursor-pointer max-w-[150px]">
                                   <option value="Unassigned">⚠️ Select Executive</option>
                                   {visibleUsers.filter(u => ["Executive", "Telecaller"].includes(u.role)).map(u => (
                                     <option key={u.id} value={u.name}>{u.name} ({u.role})</option>
@@ -697,7 +693,7 @@ export default function App() {
                             </td>
 
                             <td className="p-4">
-                              <select value={l.status} onChange={(e) => requestStatusTransitionPopup(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 rounded px-2 py-1 font-bold text-xs focus:outline-none cursor-pointer" style={{ color: SC[l.status]?.text || "#FFF" }}>
+                              <select value={l.status} onChange={(e) => requestStatusTransitionPopup(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 rounded px-2 py-1 font-bold text-xs text-slate-300 focus:outline-none cursor-pointer" style={{ color: SC[l.status]?.text || "#FFF" }}>
                                 {statuses.map(st => <option key={st} value={st}>{st}</option>)}
                               </select>
                             </td>
@@ -712,7 +708,7 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 3: PROJECTS PORTFOLIO MASTER */}
+          {/* VIEWPORT 3: PROJECTS MASTER INVENTORIES */}
           {activeTab === "projects" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex justify-between items-center">
@@ -732,17 +728,13 @@ export default function App() {
                       </div>
                       <span className="text-[10px] font-black bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2 py-0.5 rounded uppercase tracking-wider">{p.status}</span>
                     </div>
-                    <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-850 grid grid-cols-2 gap-2 text-xs font-semibold text-slate-300">
-                      <div><p className="text-slate-500 text-[10px] font-bold uppercase">Avg Valuation</p><p className="text-white font-mono font-black mt-0.5">₹{p.price}L Base</p></div>
-                      <div><p className="text-slate-500 text-[10px] font-bold uppercase">Inventory Sold</p><p className="text-emerald-400 font-bold mt-0.5">{p.sold} / {p.units} Units</p></div>
-                    </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* VIEWPORT 4: ADMIN CONSOLE SHEET INGESTIONS */}
+          {/* VIEWPORT 4: ADMIN SPREADSHEET IMPORTERS CONSOLE */}
           {activeTab === "users" && currentUser.role === "Admin" && (
             <div className="space-y-8 animate-fadeIn">
               <div className="bg-slate-950 border border-orange-500/20 rounded-2xl p-4 lg:p-6 space-y-4">
@@ -766,40 +758,22 @@ export default function App() {
                 )}
 
                 <form onSubmit={handleDataImportSubmit} className="space-y-3">
-                  <textarea rows={3} value={importText} onChange={(e)=>setImportText(e.target.value)} placeholder="Paste Excel/CSV rows directly in here..." className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-orange-500 font-mono" />
+                  <textarea rows={3} value={importText} onChange={(e)=>setImportText(e.target.value)} placeholder="Paste Excel/CSV table content grid in here..." className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-orange-500 font-mono" />
                   <button type="submit" className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md w-fit">
                     <Upload className="h-4 w-4" /> Deploy Spreadsheet Ingestion
                   </button>
                 </form>
               </div>
-
-              {/* CORE ATTRIBUTE METADATA MODIFIERS */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-slate-950 border border-slate-800 p-6 rounded-2xl space-y-4">
-                  <h3 className="text-xs font-black uppercase text-orange-400 tracking-wider">Inject New Lead Source</h3>
-                  <form onSubmit={handleAddSource} className="flex gap-2">
-                    <input type="text" value={newSourceInput} onChange={(e)=>setNewSourceInput(e.target.value)} placeholder="e.g. Magazine, Ad Board..." className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none" />
-                    <button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-1.5 rounded-xl text-xs uppercase tracking-wider transition-all">Inject</button>
-                  </form>
-                </div>
-                <div className="bg-slate-950 border border-slate-800 p-6 rounded-2xl space-y-4">
-                  <h3 className="text-xs font-black uppercase text-orange-400 tracking-wider">Inject New Milestone Status</h3>
-                  <form onSubmit={handleAddStatus} className="flex gap-2">
-                    <input type="text" value={newStatusInput} onChange={(e)=>setNewStatusInput(e.target.value)} placeholder="e.g. Verified Inbound..." className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none" />
-                    <button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-1.5 rounded-xl text-xs uppercase tracking-wider transition-all">Inject</button>
-                  </form>
-                </div>
-              </div>
             </div>
           )}
 
-          {/* VIEWPORT 5: MATRIX TIMELINE ENGINE COMPREHENSIVE REPORTS */}
+          {/* VIEWPORT 5: CALENDAR REPORT ENGINES MATRIX */}
           {activeTab === "reports" && (
             <div className="space-y-6 animate-fadeIn w-full">
               <div className="flex flex-col xl:flex-row xl:justify-between xl:items-center gap-4 w-full">
                 <div>
                   <h1 className="text-2xl font-black text-white tracking-tight">Performance Matrix Engine</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Isolate historical metrics, clear calendar constraints, and export downstream files instantly.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Isolate historical metrics and execute clean downstream file downloads instantly.</p>
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 border border-slate-800 rounded-xl shadow-lg w-fit">
@@ -842,7 +816,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* POP-UP BROWSER NATIVE CUSTOM CALENDARS SELECTORS WITH INLINE CLEAR ACTIONS */}
                 <div className="border-t border-slate-900 pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px] flex justify-between items-center">
@@ -861,7 +834,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* REPORT SELECTIONS DISPLAY CARD GRID BLOCK */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl w-full">
                 <div className="overflow-x-auto w-full">
                   <table className="w-full text-left text-xs border-collapse">
@@ -899,9 +871,9 @@ export default function App() {
         </main>
       </div>
 
-      {/* ─── TOAST NOTIFICATION POPUPS (REPLACES DEFAULT NATIVE DIALOGS) ─── */}
+      {/* TOAST SYSTEM POPUPS MODALS */}
       {customPopup.isOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fadeIn">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 w-full max-w-md rounded-2xl p-6 space-y-4 shadow-2xl text-center">
             <div className="h-12 w-12 bg-orange-500/10 text-orange-500 border border-orange-500/20 rounded-full flex items-center justify-center mx-auto shadow-inner">
               <ShieldAlert className="h-6 w-6" />
@@ -925,20 +897,24 @@ export default function App() {
         </div>
       )}
 
-      {/* ─── STREAMLINED EXCLUSIVE OVERLAY CARD FOR MANAGERS: INSTANT ASSIGNMENT GATES ─── */}
+      {/* ─── ROLE ACCESS ADAPTIVE INTERACTION SWITCH CONTAINER GATEWAY ─── */}
       {selectedLead && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn" onClick={() => setSelectedLead(null)}>
-          <div className="bg-slate-950 border border-slate-800 w-full max-w-md rounded-2xl p-6 space-y-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-slate-950 border border-slate-800 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl p-6 space-y-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            
             <div className="border-b border-slate-900 pb-3 flex justify-between items-start">
               <div className="space-y-0.5">
-                <span className="text-[10px] bg-orange-600 font-mono font-black px-2 py-0.5 rounded text-white uppercase tracking-wider">Direct Assignment Hub</span>
+                <span className="text-[10px] bg-orange-600 font-mono font-black px-2 py-0.5 rounded text-white uppercase tracking-wider">
+                  {currentUser.role === "Manager" ? "Direct Assignment Hub" : "Executive Workspace Portfolio"}
+                </span>
                 <h3 className="text-base font-black text-white">{selectedLead.name}</h3>
-                <p className="text-xs text-slate-500 font-mono">{selectedLead.phone} • {selectedLead.project}</p>
+                <p className="text-xs text-slate-400 font-mono">{selectedLead.phone} • {selectedLead.email || "No email logged"}</p>
               </div>
               <button onClick={() => setSelectedLead(null)} className="text-slate-500 hover:text-white font-bold text-sm">✕</button>
             </div>
 
-            {["Admin", "Manager"].includes(currentUser.role) ? (
+            {/* CASE A: LOGGED PRIVILEGE IS A MANAGER ➔ DISPLAY ONLY ASSIGNMENT GATES */}
+            {currentUser.role === "Manager" ? (
               <div className="space-y-2 text-xs">
                 <label className="text-slate-400 font-bold uppercase tracking-wide">Select Team Member to Delegate Ownership</label>
                 <select value={selectedLead.assignedTo} onChange={(e) => requestOwnerAssignmentPopup(selectedLead.id, e.target.value)} className="w-full bg-slate-900 border border-slate-800 text-slate-100 rounded-xl p-3 text-xs font-bold focus:outline-none focus:border-orange-500 cursor-pointer">
@@ -950,25 +926,68 @@ export default function App() {
                 <p className="text-[11px] text-slate-500 italic pt-1">Assigning a team member immediately removes this lead from your dashboard queue list.</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                <form onSubmit={commitManualFollowUpReport} className="space-y-3 text-xs">
+              
+              /* CASE B: LOGGED PRIVILEGE IS AN EXECUTIVE/TELECALLER ➔ DISPLAY THE DETAILED UPDATE DOSSIER PANEL */
+              <div className="space-y-5 text-xs">
+                <div className="bg-slate-900 p-4 border border-slate-850 rounded-xl grid grid-cols-2 gap-4 font-semibold text-slate-300">
+                  <div><p className="text-slate-500 text-[10px] font-bold uppercase">Project Context</p><p className="text-white mt-0.5 font-bold">{selectedLead.project}</p></div>
+                  <div><p className="text-slate-500 text-[10px] font-bold uppercase">Current Track Status</p><p className="text-orange-400 mt-0.5 font-bold">{selectedLead.status}</p></div>
+                  <div className="col-span-2"><p className="text-slate-500 text-[10px] font-bold uppercase">Assigned Inbound Client Notes</p><p className="text-slate-300 font-normal mt-0.5 italic">"{selectedLead.notes || 'No standard entry logs added yet.'}"</p></div>
+                </div>
+
+                {/* INTERACTION FOLLOWUP REPORT LOGGER */}
+                <form onSubmit={commitManualFollowUpReport} className="bg-slate-900/50 p-4 border border-slate-850 rounded-xl space-y-3">
+                  <p className="text-[11px] font-black uppercase text-orange-400 tracking-wider">Log Conversation Timeline History</p>
                   <div className="space-y-1">
-                    <label className="text-slate-400 font-bold">Interaction Log Summary *</label>
-                    <textarea rows={2} required value={followUpNotes} onChange={(e)=>setFollowUpNotes(e.target.value)} placeholder="Enter conversation notes completamente..." className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none" />
+                    <label className="text-slate-400 font-medium text-[10px]">Follow-up Summary Notes *</label>
+                    <textarea rows={2} required value={followUpNotes} onChange={(e)=>setFollowUpNotes(e.target.value)} placeholder="Type conversation outcomes completely..." className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-slate-200 focus:outline-none" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-slate-400 font-bold">Next Follow-up Date *</label>
-                    <input type="date" required min={TODAY_STR} value={nextFollowUpDate} onChange={(e)=>setNextFollowUpDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-200 focus:outline-none font-mono cursor-pointer" />
+                    <label className="text-slate-400 font-medium text-[10px]">Slated Next Interaction Date *</label>
+                    <input type="date" required min={TODAY_STR} value={nextFollowUpDate} onChange={(e)=>setNextFollowUpDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-slate-200 focus:outline-none font-mono cursor-pointer" />
                   </div>
-                  <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md">Commit Log Activity</button>
+                  <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-2 rounded-xl text-xs uppercase tracking-wider transition-all">Write Workflow Entry</button>
                 </form>
+
+                {/* SITE VISIT TIMELINE MARKERS */}
+                <div className="bg-slate-900/50 p-4 border border-slate-850 rounded-xl space-y-3">
+                  <p className="text-[11px] font-black uppercase text-amber-400 tracking-wider">Verify Physical Site Walkthrough</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1"><label className="text-slate-400 text-[10px]">Tour Date</label><input type="date" value={svDate} onChange={(e)=>setSvDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-slate-200 font-mono" /></div>
+                    <div className="space-y-1"><label className="text-slate-400 text-[10px]">Attended Family Co-Buyers</label><input type="text" value={svFamily} onChange={(e)=>setSvFamily(e.target.value)} placeholder=" Spouse" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-slate-200" /></div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-slate-400 text-[10px]">Site Walkthrough Feedback Notes *</label>
+                    <textarea rows={1} value={svFeedback} onChange={(e)=>setSvFeedback(e.target.value)} placeholder="Enter design layout likes/dislikes parameters..." className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200 focus:outline-none" />
+                  </div>
+                  <button type="button" onClick={commitSiteWalkthroughLog} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 rounded-xl uppercase tracking-wider">Commit Walkthrough Verification</button>
+                </div>
+
+                {/* ADVANCE BOOKING TOKEN CAPTURE INGESTIONS */}
+                <div className="bg-slate-900/50 p-4 border border-slate-850 rounded-xl space-y-3">
+                  <p className="text-[11px] font-black uppercase text-emerald-400 tracking-wider">Secure Advance Token Booking Ingestion</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1"><label className="text-slate-400 text-[10px]">Unit Code Designation *</label><input type="text" value={bkUnit} onChange={(e)=>setBkUnit(e.target.value)} placeholder="e.g. Apartment A-402" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-slate-200" /></div>
+                    <div className="space-y-1"><label className="text-slate-400 text-[10px]">Token Amount Cleared (₹) *</label><input type="number" value={bkAmount} onChange={(e)=>setBkAmount(e.target.value)} placeholder="INR Value" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-emerald-400 font-bold focus:outline-none" /></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-slate-400 text-[10px]">Settlement Method</label>
+                      <select value={bkMode} onChange={(e)=>setBkMode(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-slate-300 focus:outline-none">
+                        <option value="Cheque">Bank Cheque</option><option value="Wire Transfer">NEFT / RTGS Wire</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1"><label className="text-slate-400 text-[10px]">Payment Date</label><input type="date" value={bkDate} onChange={(e)=>setBkDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-slate-200 font-mono" /></div>
+                  </div>
+                  <button type="button" onClick={commitFinancialBookingLog} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-1.5 rounded-xl uppercase tracking-wider">Secure Unit Allocation Ledger</button>
+                </div>
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* DIALOG NEW LEAD RECORDS CAPTURE OVERLAYS */}
+      {/* DIALOG NEW INGEST CAPTURE PORTALS */}
       {isLeadModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
@@ -999,14 +1018,17 @@ export default function App() {
                   <input type="text" value={newLeadForm.altPhone} onChange={(e)=>setNewLeadForm({...newLeadForm, altPhone: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none" />
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              
+              {/* OPTIONAL EMAIL LOG MATRIX FIELD */}
+              <div className="space-y-1">
+                <label className="text-slate-400 font-semibold">Email Contact Parameters <span className="text-slate-500 text-[10px] italic">(Optional Entry Row)</span></label>
+                <input type="email" value={newLeadForm.email} onChange={(e)=>setNewLeadForm({...newLeadForm, email: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none" placeholder="client@domain.com" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-slate-400 font-semibold">Location Zone</label>
                   <input type="text" value={newLeadForm.location} onChange={(e)=>setNewLeadForm({...newLeadForm, location: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-slate-400 font-semibold">Financial Intent (Lakhs)</label>
-                  <input type="number" value={newLeadForm.budget} onChange={(e)=>setNewLeadForm({...newLeadForm, budget: parseInt(e.target.value)||0})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-slate-400 font-semibold">Target Project</label>
@@ -1015,7 +1037,7 @@ export default function App() {
                   </select>
                 </div>
               </div>
-              <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-3 rounded-xl uppercase tracking-wider shadow-lg transition-all">Commit Lead Block Data</button>
+              <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-3 rounded-xl uppercase tracking-wider shadow-lg transition-all">Commit Ingest Record</button>
             </form>
           </div>
         </div>

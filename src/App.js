@@ -4,7 +4,8 @@ import {
   Layers, PhoneCall, Calendar, Search, Plus, TrendingUp, 
   DollarSign, MapPin, Shield, Clock, LogOut, Lock, 
   Mail, CheckCircle2, UserPlus, Trash2, Edit2, X, Bell, 
-  AlertTriangle, Download, Upload, Info, FileSpreadsheet, Check
+  AlertTriangle, Download, Upload, Info, FileSpreadsheet, Check,
+  Menu
 } from "lucide-react";
 
 // ─── CONSTANT STATIC REGISTRIES ───────────────────────────────────────────
@@ -31,10 +32,10 @@ const TEAMS_REGISTRY = {
 };
 
 const INITIAL_USERS = [
-  { id: 101, name: "Arjun Sharma", email: "admin@desam", pass: "admin123", role: "Admin", branch: "All Branches", phone: "98400 00001", active: true },
-  { id: 102, name: "Priya Nair", email: "manager@desam", pass: "manager123", role: "Manager", branch: "Madurai Desk", phone: "98400 00002", active: true },
-  { id: 103, name: "Rohan Das", email: "executive@desam", pass: "agent123", role: "Executive", branch: "Madurai Desk", phone: "98400 00003", active: true },
-  { id: 104, name: "Divya Menon", email: "caller@desam", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "98400 00004", active: true },
+  { id: 101, name: "Arjun Sharma", email: "admin@iconic.in", pass: "admin123", role: "Admin", branch: "All Branches", phone: "98400 00001", active: true },
+  { id: 102, name: "Priya Nair", email: "manager@iconic.in", pass: "manager123", role: "Manager", branch: "Madurai Desk", phone: "98400 00002", active: true },
+  { id: 103, name: "Rohan Das", email: "executive@iconic.in", pass: "agent123", role: "Executive", branch: "Madurai Desk", phone: "98400 00003", active: true },
+  { id: 104, name: "Divya Menon", email: "caller@iconic.in", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "98400 00004", active: true },
 ];
 
 const INITIAL_PROJECTS = [
@@ -70,6 +71,9 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState("dashboard"); 
   const [globalSearch, setGlobalSearch] = useState("");
+  
+  // Mobile Left Rail Navigation State
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [sources, setSources] = useState(INITIAL_SOURCES);
   const [statuses, setStatuses] = useState(INITIAL_STATUSES);
@@ -115,7 +119,7 @@ export default function App() {
   const [bkMode, setBkMode] = useState("Cheque");
   const [bkDate, setBkDate] = useState("");
 
-  // ─── MEMOIZED MEMORY DATA SCOPES ──────────────────────────────────────────
+  // ─── MEMOIZED SYSTEM COMPUTE TIERS ────────────────────────────────────────
   const visibleProjects = useMemo(() => {
     if (!currentUser) return [];
     if (currentUser.role === "Admin") return projects;
@@ -159,12 +163,11 @@ export default function App() {
     return result;
   }, [leads, currentUser, globalSearch, filterSource, filterStatus, filterProject, filterExecutive, startDate, endDate]);
 
-  // CRITICAL: Ensure assigned leads vanish from the Manager's pending action metrics queue
   const dailyFollowUpLeads = useMemo(() => {
     return processedLeads.filter(l => l.nextFollowUp === TODAY_STR && l.assignedTo === "Unassigned");
   }, [processedLeads, TODAY_STR]);
 
-  // ─── CORE PLATFORM CONTROLLERS ────────────────────────────────────────────
+  // ─── OPERATION COHORT HANDLERS ────────────────────────────────────────────
   const triggerToastAlert = (msg) => {
     setToastNotification({ isVisible: true, message: msg });
     setTimeout(() => setToastNotification({ isVisible: false, message: "" }), 3500);
@@ -178,7 +181,7 @@ export default function App() {
       setLoginError("");
       triggerToastAlert(`Welcome back, ${account.name}!`);
     } else {
-      setLoginError("Invalid clearance email or passcode authentication parameters.");
+      setLoginError("Invalid clearance email or passcode credentials.");
     }
   };
 
@@ -188,6 +191,7 @@ export default function App() {
     setLoginPassword("");
     setGlobalSearch("");
     setActiveTab("dashboard");
+    setIsMobileMenuOpen(false);
   };
 
   const requestStatusTransitionPopup = (leadId, nextStatus) => {
@@ -199,7 +203,7 @@ export default function App() {
       targetValue: nextStatus,
       type: "status",
       title: "Confirm Status Shift",
-      message: `Are you sure you want to transition "${target.name}" to "${nextStatus}" milestone track?`
+      message: `Are you sure you want to transition "${target.name}" to the "${nextStatus}" tracking track?`
     });
   };
 
@@ -212,31 +216,30 @@ export default function App() {
       targetValue: personnelName,
       type: "assign",
       title: "Confirm Lead Allocation",
-      message: `Delegate tracking and active follow-up parameters for client "${target.name}" to team member "${personnelName}"?`
+      message: `Delegate active follow-up parameters for client "${target.name}" to team member "${personnelName}"?`
     });
   };
 
-  // ─── CRITICAL TASK REMOVAL LOGIC BOUNDARY ENGINE ──────────────────────────
   const confirmCustomPopupAction = () => {
     const { leadId, targetValue, type } = customPopup;
     if (type === "status") {
       setLeads(leads.map(l => l.id === leadId ? {
         ...l, status: targetValue,
-        history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `Milestone tracking updated to: ${targetValue}` }]
+        history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `Milestone updated to: ${targetValue}` }]
       } : l));
       if (selectedLead && selectedLead.id === leadId) {
         setSelectedLead({ ...selectedLead, status: targetValue });
       }
-      triggerToastAlert("Pipeline phase updated successfully.");
+      triggerToastAlert("Pipeline status successfully updated.");
     } else if (type === "assign") {
       setLeads(leads.map(l => l.id === leadId ? {
         ...l, 
         assignedTo: targetValue, 
         status: targetValue === "Unassigned" ? "New" : "Assigned",
-        nextFollowUp: targetValue === "Unassigned" ? TODAY_STR : "Assigned out to Executive", // Immediately removes from the dashboard action queue list
-        history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `Lead deployed to team member pass token: ${targetValue}` }]
+        nextFollowUp: targetValue === "Unassigned" ? TODAY_STR : "Assigned out to Executive",
+        history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `Routed lead to team desk: ${targetValue}` }]
       } : l));
-      setSelectedLead(null); // Instantly clears out the simplified modal action form overlay
+      setSelectedLead(null);
       triggerToastAlert(`Lead assigned to ${targetValue}`);
     }
     setCustomPopup({ isOpen: false, leadId: null, targetValue: "", type: "status", title: "", message: "" });
@@ -268,7 +271,7 @@ export default function App() {
             dateCreated: TODAY_STR,
             lastFollowUp: "None",
             nextFollowUp: TODAY_STR,
-            history: [{ date: TODAY_STR, by: currentUser.name, action: "Ingested via excel block copy paste terminal tool." }]
+            history: [{ date: TODAY_STR, by: currentUser.name, action: "Ingested via excel copy-paste tool." }]
           });
         }
       });
@@ -317,7 +320,7 @@ export default function App() {
       return l;
     });
     setLeads(updated); setFollowUpNotes(""); setNextFollowUpDate("");
-    triggerToastAlert("Follow-up successfully written.");
+    triggerToastAlert("Follow-up successfully logged.");
   };
 
   const handleAddSource = (e) => {
@@ -345,7 +348,7 @@ export default function App() {
       history: [{ date: TODAY_STR, by: currentUser.name, action: "Lead Ingested." }]
     };
     setLeads([created, ...leads]); setIsLeadModalOpen(false);
-    triggerToastAlert("New customer workflow profile captured cleanly.");
+    triggerToastAlert("New lead captured cleanly.");
   };
 
   const handleCreateUser = (e) => {
@@ -380,14 +383,14 @@ export default function App() {
     setSelectedLead(null);
   };
 
-  // ─── RUNTIME SYSTEM SECURITY PORTAL GATES ─────────────────────────────────
+  // ─── SYSTEM SECURITY ACCESS PORTAL GATE ────────────────────────────────────
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
         <div className="sm:mx-auto w-full max-w-md text-center space-y-3">
           <div className="h-12 w-12 bg-gradient-to-tr from-orange-600 to-orange-500 flex items-center justify-center rounded-2xl text-base font-black text-white shadow-xl mx-auto">DD</div>
           <h2 className="text-2xl font-black text-white tracking-wide uppercase">DESAM DEVELOPERS PVT LTD</h2>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Team Management Suite</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Management Suite</p>
         </div>
         <div className="mt-6 sm:mx-auto w-full max-w-md px-4">
           <div className="bg-slate-950 py-8 px-6 border border-slate-800 rounded-2xl shadow-2xl space-y-6">
@@ -407,7 +410,7 @@ export default function App() {
                 </div>
               </div>
               {loginError && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded border border-rose-500/20">{loginError}</p>}
-              <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg">Authorize Core Access Pass</button>
+              <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg">Authorize System Access</button>
             </form>
           </div>
         </div>
@@ -415,79 +418,109 @@ export default function App() {
     );
   }
 
-  return (
-    <div className="flex h-screen bg-slate-900 text-slate-100 font-sans antialiased overflow-hidden">
-      
-      {/* SIDEBAR NAVIGATION RAIL */}
-      <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between">
-        <div>
-          <div className="h-16 flex items-center px-4 border-b border-slate-800 gap-2">
+  // REUSABLE SIDEBAR COMPONENT STRUCT TO AVOID DRY COMPILING CONFLICTS
+  const SidebarContent = () => (
+    <>
+      <div>
+        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-800">
+          <div className="flex items-center gap-2">
             <div className="h-9 w-9 bg-gradient-to-tr from-orange-600 to-orange-500 flex items-center justify-center rounded-xl text-sm font-black text-white shadow-md">DD</div>
             <div className="leading-tight">
               <span className="font-black text-xs tracking-wider text-white block">DESAM</span>
-              <span className="text-[9px] font-bold text-slate-400 tracking-widest block uppercase">DEVELOPERS PVT LTD</span>
+              <span className="text-[9px] font-bold text-slate-400 tracking-widest block uppercase">DEVELOPERS</span>
             </div>
           </div>
-          <nav className="p-4 space-y-1">
-            <button onClick={() => setActiveTab("dashboard")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "dashboard" ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
-              <Layers className="h-4 w-4" /> VISUAL DASHBOARD
-            </button>
-            <button onClick={() => setActiveTab("leads")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "leads" ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
-              <PhoneCall className="h-4 w-4" /> LEAD CHANNELS
-            </button>
-            <button onClick={() => setActiveTab("projects")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "projects" ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
-              <Building2 className="h-4 w-4" /> PROJECT MASTER
-            </button>
-            {currentUser.role === "Admin" && (
-              <button onClick={() => setActiveTab("users")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "users" ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
-                <Users className="h-4 w-4" /> SYSTEM CONTROL HUB
-              </button>
-            )}
-            <button onClick={() => setActiveTab("reports")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "reports" ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
-              <BarChart3 className="h-4 w-4" /> MATRIX REPORTS
-            </button>
-          </nav>
+          {/* Mobile Overlay close button */}
+          <button onClick={() => setIsMobileMenuOpen(false)} className="lg:hidden text-slate-400 hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
         </div>
+        <nav className="p-4 space-y-1">
+          <button onClick={() => { setActiveTab("dashboard"); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "dashboard" ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
+            <Layers className="h-4 w-4" /> VISUAL DASHBOARD
+          </button>
+          <button onClick={() => { setActiveTab("leads"); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "leads" ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
+            <PhoneCall className="h-4 w-4" /> LEAD CHANNELS
+          </button>
+          <button onClick={() => { setActiveTab("projects"); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "projects" ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
+            <Building2 className="h-4 w-4" /> PROJECT MASTER
+          </button>
+          {currentUser.role === "Admin" && (
+            <button onClick={() => { setActiveTab("users"); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "users" ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
+              <Users className="h-4 w-4" /> SYSTEM CONTROL HUB
+            </button>
+          )}
+          <button onClick={() => { setActiveTab("reports"); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "reports" ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
+            <BarChart3 className="h-4 w-4" /> MATRIX REPORTS
+          </button>
+        </nav>
+      </div>
 
-        <div className="p-4 border-t border-slate-800 bg-slate-950/40">
-          <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-850">
-            <div className="flex items-center gap-2 overflow-hidden">
-              <div className="h-7 w-7 rounded-lg bg-orange-600 font-black text-xs flex items-center justify-center text-white flex-shrink-0">{currentUser.avatar}</div>
-              <div className="truncate w-24">
-                <p className="text-xs font-bold text-slate-200 truncate">{currentUser.name}</p>
-                <p className="text-[9px] text-orange-400 font-black tracking-wider uppercase truncate">{currentUser.role}</p>
-              </div>
+      <div className="p-4 border-t border-slate-800 bg-slate-950/40">
+        <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-850">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <div className="h-7 w-7 rounded-lg bg-orange-600 font-black text-xs flex items-center justify-center text-white flex-shrink-0">{currentUser.avatar}</div>
+            <div className="truncate w-24">
+              <p className="text-xs font-bold text-slate-200 truncate">{currentUser.name}</p>
+              <p className="text-[9px] text-orange-400 font-black tracking-wider uppercase truncate">{currentUser.role}</p>
             </div>
-            <button onClick={handleLogout} className="text-slate-500 hover:text-rose-400 transition-colors ml-1">
-              <LogOut className="h-4 w-4" />
-            </button>
           </div>
+          <button onClick={handleLogout} className="text-slate-500 hover:text-rose-400 transition-colors ml-1">
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex h-screen bg-slate-900 text-slate-100 font-sans antialiased overflow-hidden relative">
+      
+      {/* ─── DESKTOP SIDEBAR VIEW RAIL (HIDDEN ON MOBILE SCREEN BREAKPOINTS) ─── */}
+      <aside className="hidden lg:flex w-64 bg-slate-950 border-r border-slate-800 flex-col justify-between h-full flex-shrink-0">
+        <SidebarContent />
       </aside>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      {/* ─── MOBILE DRAWER SIDEBAR SLIDE OVERLAY (TRIGGERED BY 3-LINES MENU) ─── */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 flex lg:hidden bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between h-full animate-slideRight">
+            <SidebarContent />
+          </aside>
+          {/* Clicking remaining screen space shuts mobile slide menu */}
+          <div className="flex-1" onClick={() => setIsMobileMenuOpen(false)}></div>
+        </div>
+      )}
+
+      <div className="flex-1 flex flex-col overflow-hidden w-full">
         
-        <header className="h-16 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-8 z-10">
-          <div className="relative w-96">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-            <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live pipeline search query filtering controls..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />
+        {/* INTERFACE TOP NAVIGATION HEADER */}
+        <header className="h-16 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-4 lg:px-8 z-10 gap-4 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            {/* ─── RESPONSIVE 3-LINES HAMBURGER TOGGLE MENU BUTTON ─── */}
+            <button onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden p-2 bg-slate-900 hover:bg-slate-850 rounded-xl border border-slate-800 text-slate-200 transition-colors">
+              <Menu className="h-5 w-5" />
+            </button>
+            <div className="relative w-48 sm:w-80 hidden sm:block">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+              <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live context analytics query filtering search..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />
+            </div>
           </div>
           
-          <div className="text-xs text-slate-300 font-bold bg-slate-900 px-4 py-2 border border-slate-800 rounded-xl shadow-inner">
-            Welcome, <span className="text-orange-400 font-black">{currentUser.name}</span> 
-            {currentUser.role === "Manager" && <span className="text-slate-500 font-medium"> • Head of {TEAMS_REGISTRY[currentUser.branch] || "Team Hub"}</span>}
+          <div className="text-xs text-slate-300 font-bold bg-slate-900 px-3 sm:px-4 py-2 border border-slate-800 rounded-xl shadow-inner truncate max-w-[200px] sm:max-w-none">
+            Welcome, <span className="text-orange-400 font-black">{currentUser.name}</span>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-8">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-8 w-full">
           
           {/* VIEWPORT 1: VISUAL DASHBOARD SUMMARY STATS */}
           {activeTab === "dashboard" && (
             <div className="space-y-8 animate-fadeIn">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-950 p-6 border border-slate-800 rounded-2xl">
                 <div>
-                  <h1 className="text-2xl font-black text-white tracking-tight">Team Operations Overview</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Real-time charts mapping active property inquiry conversions across your allocated team branch.</p>
+                  <h1 className="text-xl lg:text-2xl font-black text-white tracking-tight">Team Operations Center</h1>
+                  <p className="text-xs text-slate-400 mt-0.5">Real-time analytical graphs mapping team conversions across core property lines.</p>
                 </div>
                 
                 {dailyFollowUpLeads.length > 0 && (
@@ -495,15 +528,15 @@ export default function App() {
                     <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0" />
                     <div>
                       <p className="text-xs font-black text-amber-400 uppercase tracking-wide">New Inbound Leads Pending</p>
-                      <p className="text-[11px] text-slate-300 font-mono font-bold">{dailyFollowUpLeads.length} items require team deployment actions.</p>
+                      <p className="text-[11px] text-slate-300 font-mono font-bold">{dailyFollowUpLeads.length} items require delegation steps.</p>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* UNASSIGNED TODAY LEADS PANEL - DASHBOARD LEVEL ACTION ENGINE */}
+              {/* UNASSIGNED DASHBOARD ACTION ENGINE DIRECT DEPLOYMENT DESK */}
               {dailyFollowUpLeads.length > 0 && (
-                <div className="bg-slate-950 border border-amber-500/20 rounded-2xl p-6 space-y-4">
+                <div className="bg-slate-950 border border-amber-500/20 rounded-2xl p-4 lg:p-6 space-y-4">
                   <h2 className="text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-2"><Bell className="h-4 w-4" /> DIRECT DEPLOYMENT DESK</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {dailyFollowUpLeads.map(l => (
@@ -524,7 +557,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* CORE KPIs DISPLAY BLOCKS GRID */}
+              {/* KPI CARD SCORE TILES GRID */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Total Pipeline Count <Briefcase className="h-4 w-4 text-orange-400" /></p>
@@ -539,12 +572,12 @@ export default function App() {
                   <p className="text-3xl font-black text-white mt-1">₹{processedLeads.reduce((a,c)=>a+c.budget, 0)}L</p>
                 </div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Visits Arranged <Calendar className="h-4 w-4 text-amber-400" /></p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Visits Completed <Calendar className="h-4 w-4 text-amber-400" /></p>
                   <p className="text-3xl font-black text-amber-400 mt-1">{processedLeads.filter(l => l.status === "Site Visit Planned").length}</p>
                 </div>
               </div>
 
-              {/* REALTIME VISUAL MATHS CHARTS PLOTS */}
+              {/* RESPONSIBLY EMBEDDED ANALYTICAL CHARTS GRAPHS */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6">
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><BarChart3 className="h-4 w-4 text-orange-500" /> Milestone Weight (Bar Chart)</h3>
@@ -556,7 +589,7 @@ export default function App() {
                         <div key={st} className="space-y-1">
                           <div className="flex justify-between text-[11px] font-bold text-slate-400"><span>{st}</span><span className="font-mono">{shareCount} accounts</span></div>
                           <div className="w-full bg-slate-900 h-6 border border-slate-850 rounded-lg overflow-hidden relative flex items-center">
-                            <div className="bg-gradient-to-r from-orange-600 to-orange-500 h-full animate-none" style={{ width: `${pct || 3}%` }}></div>
+                            <div className="bg-gradient-to-r from-orange-600 to-orange-500 h-full" style={{ width: `${pct || 3}%` }}></div>
                             <span className="absolute left-2 text-[10px] font-mono font-black text-white">{Math.round(pct)}%</span>
                           </div>
                         </div>
@@ -604,28 +637,28 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 2: LEAD TRACKING GRID CHANNELS */}
+          {/* VIEWPORT 2: LEAD TRACKING DATA LIST ENGINES */}
           {activeTab === "leads" && (
             <div className="space-y-6 animate-fadeIn">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                 <div>
                   <h1 className="text-2xl font-black text-white tracking-tight">Active Team Lead Channels</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Managers instantly assign inbound project requests to their active executive field rosters below.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Managers assign inbound property requests directly to their specialized field executive agents here.</p>
                 </div>
-                <button onClick={() => setIsLeadModalOpen(true)} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors shadow-md">
+                <button onClick={() => setIsLeadModalOpen(true)} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors shadow-md w-fit">
                   <Plus className="h-4 w-4" /> INGEST RECORD
                 </button>
               </div>
 
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl w-full">
+                <div className="overflow-x-auto w-full">
+                  <table className="w-full text-left text-xs border-collapse data-table">
                     <thead>
                       <tr className="bg-slate-900 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
-                        <th className="p-4">Customer Contact Info</th>
-                        <th className="p-4">Project Context Scope</th>
+                        <th className="p-4 min-w-[150px]">Customer Contact Info</th>
+                        <th className="p-4 min-w-[150px]">Project Context Scope</th>
                         <th className="p-4">Source</th>
-                        <th className="p-4">Team Executive Assignment Gate</th>
+                        <th className="p-4 min-w-[160px]">Team Executive Assignment Gate</th>
                         <th className="p-4">Pipeline Phase Milestone</th>
                         <th className="p-4 text-right">Target Budget</th>
                       </tr>
@@ -652,8 +685,8 @@ export default function App() {
                             
                             <td className="p-4">
                               {["Admin", "Manager"].includes(currentUser.role) ? (
-                                <select value={l.assignedTo} onChange={(e) => requestOwnerAssignmentPopup(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 text-slate-200 rounded px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:border-orange-500 cursor-pointer">
-                                  <option value="Unassigned">⚠️ Select Executive to Route</option>
+                                <select value={l.assignedTo} onChange={(e) => requestOwnerAssignmentPopup(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 text-slate-200 rounded px-2 py-1.5 text-xs font-semibold focus:outline-none focus:border-orange-500 cursor-pointer max-w-[150px]">
+                                  <option value="Unassigned">⚠️ Select Executive</option>
                                   {visibleUsers.filter(u => ["Executive", "Telecaller"].includes(u.role)).map(u => (
                                     <option key={u.id} value={u.name}>{u.name} ({u.role})</option>
                                   ))}
@@ -664,7 +697,7 @@ export default function App() {
                             </td>
 
                             <td className="p-4">
-                              <select value={l.status} onChange={(e) => requestStatusTransitionPopup(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 rounded px-2 py-1 font-bold text-xs text-slate-300 focus:outline-none cursor-pointer" style={{ color: SC[l.status]?.text || "#FFF" }}>
+                              <select value={l.status} onChange={(e) => requestStatusTransitionPopup(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 rounded px-2 py-1 font-bold text-xs focus:outline-none cursor-pointer" style={{ color: SC[l.status]?.text || "#FFF" }}>
                                 {statuses.map(st => <option key={st} value={st}>{st}</option>)}
                               </select>
                             </td>
@@ -679,7 +712,7 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 3: PROJECTS MASTER PORTFOLIOS */}
+          {/* VIEWPORT 3: PROJECTS PORTFOLIO MASTER */}
           {activeTab === "projects" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex justify-between items-center">
@@ -687,11 +720,6 @@ export default function App() {
                   <h1 className="text-2xl font-black text-white tracking-tight">Corporate Asset Master Registry</h1>
                   <p className="text-xs text-slate-400 mt-0.5">Track property inventory capacity volumes mapped across regional team scopes.</p>
                 </div>
-                {currentUser.role === "Admin" && (
-                  <button onClick={() => setIsProjectModalOpen(true)} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors">
-                    <Plus className="h-4 w-4" /> PROVISION ASSET SCHEME
-                  </button>
-                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -714,24 +742,24 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 4: ADMIN CONSOLE EXCLUSIVE SYSTEM CONTROL PANEL */}
+          {/* VIEWPORT 4: ADMIN CONSOLE SHEET INGESTIONS */}
           {activeTab === "users" && currentUser.role === "Admin" && (
             <div className="space-y-8 animate-fadeIn">
-              <div className="bg-slate-950 border border-orange-500/20 rounded-2xl p-6 space-y-4">
-                <div className="flex justify-between items-center">
+              <div className="bg-slate-950 border border-orange-500/20 rounded-2xl p-4 lg:p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                   <div className="space-y-0.5">
                     <h3 className="text-sm font-black text-white flex items-center gap-2"><Upload className="h-4 w-4 text-orange-500" /> SpreadSheet Data Ingestion Engine</h3>
                     <p className="text-xs text-slate-400">Import hundreds of leads directly via copying and pasting columns from Microsoft Excel/CSV.</p>
                   </div>
-                  <button onClick={() => setShowImportWizard(!showImportWizard)} className="flex items-center gap-1.5 border border-slate-800 hover:border-slate-700 bg-slate-900 px-3 py-1.5 rounded-xl text-xs font-bold font-mono text-slate-300 transition-all">
-                    <Info className="h-4 w-4" /> {showImportWizard ? "Hide Format Guide" : "Show Format Blueprint"}
+                  <button onClick={() => setShowImportWizard(!showImportWizard)} className="flex items-center gap-1.5 border border-slate-800 hover:border-slate-700 bg-slate-900 px-3 py-1.5 rounded-xl text-xs font-bold font-mono text-slate-300 transition-all w-fit">
+                    <Info className="h-4 w-4" /> {showImportWizard ? "Hide Guide" : "Show Blueprint"}
                   </button>
                 </div>
 
                 {showImportWizard && (
                   <div className="bg-slate-900 border border-slate-850 p-4 rounded-xl space-y-3 text-xs text-slate-300 animate-fadeIn">
                     <p className="font-bold text-orange-400 flex items-center gap-1"><FileSpreadsheet className="h-4 w-4" /> Mandatory Tab-Separated Spreadsheet Columns Layout Order:</p>
-                    <div className="bg-slate-950 p-3 rounded-lg font-mono text-[11px] text-slate-400 border border-slate-850 overflow-x-auto">
+                    <div className="bg-slate-950 p-3 rounded-lg font-mono text-[11px] text-slate-400 border border-slate-850 overflow-x-auto whitespace-nowrap">
                       Client Name [TAB] Mobile Phone [TAB] Corporate Email [TAB] Target Project [TAB] Location [TAB] Budget Number [TAB] Source Channel
                     </div>
                   </div>
@@ -739,42 +767,42 @@ export default function App() {
 
                 <form onSubmit={handleDataImportSubmit} className="space-y-3">
                   <textarea rows={3} value={importText} onChange={(e)=>setImportText(e.target.value)} placeholder="Paste Excel/CSV rows directly in here..." className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-orange-500 font-mono" />
-                  <button type="submit" className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md">
-                    <Upload className="h-4 w-4" /> Deploy Spreadsheet Block Ingestion
+                  <button type="submit" className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md w-fit">
+                    <Upload className="h-4 w-4" /> Deploy Spreadsheet Ingestion
                   </button>
                 </form>
               </div>
 
-              {/* CONTEXT ATTRIBUTES PANEL INJECTIONS */}
+              {/* CORE ATTRIBUTE METADATA MODIFIERS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-slate-950 border border-slate-800 p-6 rounded-2xl space-y-4">
                   <h3 className="text-xs font-black uppercase text-orange-400 tracking-wider">Inject New Lead Source</h3>
                   <form onSubmit={handleAddSource} className="flex gap-2">
                     <input type="text" value={newSourceInput} onChange={(e)=>setNewSourceInput(e.target.value)} placeholder="e.g. Magazine, Ad Board..." className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none" />
-                    <button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-1.5 rounded-xl text-xs uppercase tracking-wider transition-colors">Inject</button>
+                    <button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-1.5 rounded-xl text-xs uppercase tracking-wider transition-all">Inject</button>
                   </form>
                 </div>
                 <div className="bg-slate-950 border border-slate-800 p-6 rounded-2xl space-y-4">
                   <h3 className="text-xs font-black uppercase text-orange-400 tracking-wider">Inject New Milestone Status</h3>
                   <form onSubmit={handleAddStatus} className="flex gap-2">
-                    <input type="text" value={newStatusInput} onChange={(e)=>setNewStatusInput(e.target.value)} placeholder="e.g. Token Transferred..." className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none" />
-                    <button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-1.5 rounded-xl text-xs uppercase tracking-wider transition-colors">Inject</button>
+                    <input type="text" value={newStatusInput} onChange={(e)=>setNewStatusInput(e.target.value)} placeholder="e.g. Verified Inbound..." className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none" />
+                    <button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-1.5 rounded-xl text-xs uppercase tracking-wider transition-all">Inject</button>
                   </form>
                 </div>
               </div>
             </div>
           )}
 
-          {/* VIEWPORT 5: REPORTS MATRIX PLOTS TIMELINES */}
+          {/* VIEWPORT 5: MATRIX TIMELINE ENGINE COMPREHENSIVE REPORTS */}
           {activeTab === "reports" && (
-            <div className="space-y-6 animate-fadeIn">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="space-y-6 animate-fadeIn w-full">
+              <div className="flex flex-col xl:flex-row xl:justify-between xl:items-center gap-4 w-full">
                 <div>
                   <h1 className="text-2xl font-black text-white tracking-tight">Performance Matrix Engine</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Isolate historical metrics and execute clean downstream system data exports instantly.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Isolate historical metrics, clear calendar constraints, and export downstream files instantly.</p>
                 </div>
                 
-                <div className="flex items-center gap-2 bg-slate-950 p-2 border border-slate-800 rounded-xl shadow-lg">
+                <div className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 border border-slate-800 rounded-xl shadow-lg w-fit">
                   <span className="text-[9px] font-black tracking-wider text-slate-500 uppercase px-2">Export Scope:</span>
                   <button onClick={() => exportDataPipeline("excel")} className="flex items-center gap-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold px-2.5 py-1 rounded text-[11px] font-mono transition-all"><Download className="h-3.5 w-3.5 text-emerald-500" /> XLS</button>
                   <button onClick={() => exportDataPipeline("csv")} className="flex items-center gap-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold px-2.5 py-1 rounded text-[11px] font-mono transition-all"><Download className="h-3.5 w-3.5 text-sky-400" /> CSV</button>
@@ -782,8 +810,8 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl space-y-4 text-xs">
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
+              <div className="bg-slate-950 border border-slate-800 p-4 lg:p-5 rounded-xl space-y-4 text-xs w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                   <div className="space-y-1">
                     <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Source Channel Hub</label>
                     <select value={filterSource} onChange={(e) => setFilterSource(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
@@ -814,6 +842,7 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* POP-UP BROWSER NATIVE CUSTOM CALENDARS SELECTORS WITH INLINE CLEAR ACTIONS */}
                 <div className="border-t border-slate-900 pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px] flex justify-between items-center">
@@ -832,13 +861,14 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                <div className="overflow-x-auto text-xs">
-                  <table className="w-full text-left">
+              {/* REPORT SELECTIONS DISPLAY CARD GRID BLOCK */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl w-full">
+                <div className="overflow-x-auto w-full">
+                  <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="text-slate-500 font-bold border-b border-slate-900 uppercase">
-                        <th className="pb-2">Client Entity</th>
-                        <th className="pb-2">Target Scheme</th>
+                        <th className="pb-2 min-w-[140px]">Client Entity</th>
+                        <th className="pb-2 min-w-[140px]">Target Scheme</th>
                         <th className="pb-2">Channel Origin</th>
                         <th className="pb-2">Assigned Agent</th>
                         <th className="pb-2">Pipeline Phase</th>
@@ -869,9 +899,9 @@ export default function App() {
         </main>
       </div>
 
-      {/* ─── NEW HIGH-FIDELITY CUSTOM POP-UP CONFIRMATION TOAST OVERLAY ─── */}
+      {/* ─── TOAST NOTIFICATION POPUPS (REPLACES DEFAULT NATIVE DIALOGS) ─── */}
       {customPopup.isOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-slate-950 border border-slate-800 w-full max-w-md rounded-2xl p-6 space-y-4 shadow-2xl text-center">
             <div className="h-12 w-12 bg-orange-500/10 text-orange-500 border border-orange-500/20 rounded-full flex items-center justify-center mx-auto shadow-inner">
               <ShieldAlert className="h-6 w-6" />
@@ -897,7 +927,7 @@ export default function App() {
 
       {/* ─── STREAMLINED EXCLUSIVE OVERLAY CARD FOR MANAGERS: INSTANT ASSIGNMENT GATES ─── */}
       {selectedLead && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedLead(null)}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn" onClick={() => setSelectedLead(null)}>
           <div className="bg-slate-950 border border-slate-800 w-full max-w-md rounded-2xl p-6 space-y-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="border-b border-slate-900 pb-3 flex justify-between items-start">
               <div className="space-y-0.5">
@@ -908,7 +938,6 @@ export default function App() {
               <button onClick={() => setSelectedLead(null)} className="text-slate-500 hover:text-white font-bold text-sm">✕</button>
             </div>
 
-            {/* MANAGER ASSIGNMENT DROPDOWN GATES */}
             {["Admin", "Manager"].includes(currentUser.role) ? (
               <div className="space-y-2 text-xs">
                 <label className="text-slate-400 font-bold uppercase tracking-wide">Select Team Member to Delegate Ownership</label>
@@ -921,12 +950,11 @@ export default function App() {
                 <p className="text-[11px] text-slate-500 italic pt-1">Assigning a team member immediately removes this lead from your dashboard queue list.</p>
               </div>
             ) : (
-              /* EXECUTIVE OR TELECALLER STANDARD INTERACTION FORM */
               <div className="space-y-4">
                 <form onSubmit={commitManualFollowUpReport} className="space-y-3 text-xs">
                   <div className="space-y-1">
                     <label className="text-slate-400 font-bold">Interaction Log Summary *</label>
-                    <textarea rows={2} required value={followUpNotes} onChange={(e)=>setFollowUpNotes(e.target.value)} placeholder="Enter detailed conversation response context completely..." className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none" />
+                    <textarea rows={2} required value={followUpNotes} onChange={(e)=>setFollowUpNotes(e.target.value)} placeholder="Enter conversation notes completamente..." className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none" />
                   </div>
                   <div className="space-y-1">
                     <label className="text-slate-400 font-bold">Next Follow-up Date *</label>
@@ -940,9 +968,9 @@ export default function App() {
         </div>
       )}
 
-      {/* DIALOG NEW LEAD RECORD CAPTURE OVERLAYS */}
+      {/* DIALOG NEW LEAD RECORDS CAPTURE OVERLAYS */}
       {isLeadModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-slate-900 pb-3">
               <h2 className="text-base font-black text-white tracking-wide">Capture Customer Profile Ingestion</h2>

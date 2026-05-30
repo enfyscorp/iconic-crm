@@ -57,10 +57,10 @@ const INITIAL_PROJECTS = [
 ];
 
 const INITIAL_LEADS = [
-  { id: 1001, name: "Suresh Kumar", phone: "9840011234", altPhone: "9840011235", email: "suresh@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Vishal Virinchi", budget: 65, source: "Website", assignedTo: "Rohini", assignedByRole: "Manager", status: "Interested", notes: "Prefers higher floors.", dateCreated: "2026-05-10", lastFollowUp: "2026-05-25", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-25", by: "Rohini", action: "Follow-up conversation done. Discussing financing pathways and bank loan eligibility matrices." }, { date: "2026-05-15", by: "Sumathi", action: "Called client. Expressed keen interest in structural layouts. Requested site layout blueprints via WhatsApp." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
-  { id: 1002, name: "Lakshmi Rao", phone: "9940022345", altPhone: "", email: "lakshmi@yahoo.com", location: "Chennai", branch: "Chennai South", project: "GK Apartments", budget: 85, source: "Meta Ads", assignedTo: "Unassigned", assignedByRole: "", status: "New", notes: "Arranging transportation for family walkthrough.", dateCreated: "2026-05-12", lastFollowUp: "2026-05-28", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-28", by: "System Master", action: "Initial lead automated validation complete." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
-  { id: 1003, name: "Vijay Anand", phone: "9740033456", altPhone: "", email: "vijay@outlook.com", location: "Madurai", branch: "Madurai Desk", project: "Desam Garden", budget: 30, source: "Google Ads", assignedTo: "Jibril", assignedByRole: "Admin", status: "New", notes: "Premium corner plot structural interest.", dateCreated: "2026-05-29", lastFollowUp: "None", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-29", by: "Arjun Sharma", action: "Admin deployed tracking parameters directly to Manager Jibril view queue." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
-  { id: 1004, name: "Meena Selvam", phone: "9640044567", altPhone: "9640044568", email: "meena@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Fairland", budget: 95, source: "Walk-In", assignedTo: "Unassigned", assignedByRole: "", status: "New", notes: "Token collected cleanly.", dateCreated: "2026-04-20", lastFollowUp: "2026-05-20", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-20", by: "Priyadarshini", action: "Initial walkthrough context established." }], bookingUnit: "Villa 12", bookingAmount: 500000, bookingMode: "Cheque", bookingDate: "2026-05-20", regPending: true, regCompleted: false },
+  { id: 1001, name: "Suresh Kumar", phone: "9840011234", altPhone: "9840011235", email: "suresh@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Vishal Virinchi", budget: 65, source: "Website", assignedTo: "Rohini", assignedByRole: "Manager", status: "Interested", notes: "Prefers higher floors.", dateCreated: "2026-05-10", lastFollowUp: "2026-05-25", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-25", by: "Rohini", action: "Follow-up conversation done. Discussing financing pathways and bank loan eligibility matrices." }, { date: "2026-05-15", by: "Sumathi", action: "Called client. Expressed keen interest in structural layouts. Requested site layout blueprints via WhatsApp." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false, siteVisitTentativeDate: "" },
+  { id: 1002, name: "Lakshmi Rao", phone: "9940022345", altPhone: "", email: "lakshmi@yahoo.com", location: "Chennai", branch: "Chennai South", project: "GK Apartments", budget: 85, source: "Meta Ads", assignedTo: "Unassigned", assignedByRole: "", status: "New", notes: "Arranging transportation for family walkthrough.", dateCreated: "2026-05-12", lastFollowUp: "2026-05-28", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-28", by: "System Master", action: "Initial lead automated validation complete." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false, siteVisitTentativeDate: "" },
+  { id: 1003, name: "Vijay Anand", phone: "9740033456", altPhone: "", email: "vijay@outlook.com", location: "Madurai", branch: "Madurai Desk", project: "Desam Garden", budget: 30, source: "Google Ads", assignedTo: "Jibril", assignedByRole: "Admin", status: "New", notes: "Premium corner plot structural interest.", dateCreated: "2026-05-29", lastFollowUp: "None", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-29", by: "Shaj", action: "Admin deployed tracking parameters directly to Manager Jibril view queue." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false, siteVisitTentativeDate: "" },
+  { id: 1004, name: "Meena Selvam", phone: "9640044567", altPhone: "9640044568", email: "meena@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Fairland", budget: 95, source: "Walk-In", assignedTo: "Unassigned", assignedByRole: "", status: "New", notes: "Token collected cleanly.", dateCreated: "2026-04-20", lastFollowUp: "2026-05-20", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-20", by: "Priyadarshini", action: "Initial walkthrough context established." }], bookingUnit: "Villa 12", bookingAmount: 500000, bookingMode: "Cheque", bookingDate: "2026-05-20", regPending: true, regCompleted: false, siteVisitTentativeDate: "" },
 ];
 
 const SC = {
@@ -133,6 +133,9 @@ export default function App() {
 
   const [bkUnit, setBkUnit] = useState("");
   const [bkAmount, setBkAmount] = useState("");
+
+  // Tentative walkthrough scheduler data placeholder state hook
+  const [tentativeWalkthroughDateInput, setTentativeWalkthroughDateInput] = useState("");
 
   // ─── UTILITY NORMALIZATION FUNCTION ───────────────────────────────────────
   const stripAndNormalizeContactDigits = (val) => {
@@ -247,13 +250,110 @@ export default function App() {
     triggerToastAlert(`Project track shifted to ${targetStatus}`);
   };
 
+  // ─── COMMIT SITE VISIT TENTATIVE DATE LOGICAL DISPATCHER ──────────────────
+  const commitTentativeWalkthroughPlan = (e) => {
+    e.preventDefault();
+    if (!tentativeWalkthroughDateInput) return;
+
+    const plannedHistoryLog = {
+      date: TODAY_STR,
+      by: currentUser.name,
+      action: `[SITE VISIT PLANNED ALERT]: Walkthrough itinerary drafted. Scheduled tentative review date target set to: ${tentativeWalkthroughDateInput}. Dashboard reminders dispatched to executive and manager panels.`
+    };
+
+    setLeads(leads.map(l => l.id === selectedLead.id ? {
+      ...l,
+      status: "Site Visit Planned",
+      siteVisitTentativeDate: tentativeWalkthroughDateInput,
+      history: [plannedHistoryLog, ...l.history]
+    } : l));
+
+    setSelectedLead(prev => ({
+      ...prev,
+      status: "Site Visit Planned",
+      siteVisitTentativeDate: tentativeWalkthroughDateInput,
+      history: [plannedHistoryLog, ...prev.history]
+    }));
+
+    setTentativeWalkthroughDateInput("");
+    triggerToastAlert("Tentative date saved and metrics broadcasted.");
+  };
+
   // ─── DATA EXPORT TRIGGER METHODS ──────────────────────────────────────────
   const executeDataExportSequence = (formatType) => {
     if (processedLeads.length === 0) {
       triggerToastAlert("No scoped logs available to compile.");
       return;
     }
-    triggerToastAlert(`Successfully built and packed filtered ledger into ${formatType.toUpperCase()} schema.`);
+
+    const titleHeaders = ["Lead ID", "Customer Name", "Phone", "Email", "Project Context", "Budget (Lakhs)", "Source Channel", "Assigned Agent", "Pipeline Milestone Status", "Date Captured"];
+    
+    const contentRows = processedLeads.map(l => [
+      l.id, l.name, l.phone, l.email || "N/A", l.project, `${l.budget}L`, l.source, l.assignedTo, l.status, l.dateCreated
+    ]);
+
+    let rawOutputBuffer = "";
+    let fileMimeType = "text/plain";
+    let calculatedExtension = "txt";
+
+    if (formatType === "csv" || formatType === "excel") {
+      const formatCSVCell = (val) => {
+        const textVal = val === null ? "" : String(val);
+        return textVal.includes(",") || textVal.includes("\n") || textVal.includes('"') 
+          ? `"${textVal.replace(/"/g, '""')}"` 
+          : textVal;
+      };
+      
+      const csvLines = [
+        titleHeaders.map(formatCSVCell).join(","),
+        ...contentRows.map(row => row.map(formatCSVCell).join(","))
+      ];
+      
+      rawOutputBuffer = csvLines.join("\n");
+      fileMimeType = "text/csv;charset=utf-8;";
+      calculatedExtension = formatType === "excel" ? "xlsx" : "csv"; 
+    } 
+    else if (formatType === "pdf") {
+      let pdfLayoutText = `========================================================================\n`;
+      pdfLayoutText += `                  DESAM DEVELOPERS - PERFORMANCE LEDGER AUDIT\n`;
+      pdfLayoutText += `                  Report Compiled On: ${TODAY_STR} By: ${currentUser.name}\n`;
+      pdfLayoutText += `========================================================================\n\n`;
+      
+      contentRows.forEach((row, i) => {
+        pdfLayoutText += `${i + 1}. CLIENT PROFILE: ${row[1]}\n`;
+        pdfLayoutText += `   ---------------------------------------------------------------------\n`;
+        pdfLayoutText += `   • Phone: ${row[2]} | Email: ${row[3]}\n`;
+        pdfLayoutText += `   • Scheme Context: ${row[4]} | Budget Allocation: ${row[5]}\n`;
+        pdfLayoutText += `   • Channel Source: ${row[6]} | Routed Seat: ${row[7]}\n`;
+        pdfLayoutText += `   • Milestone Phase: [${row[8]}] | Logged Inbound: ${row[9]}\n\n`;
+      });
+      
+      pdfLayoutText += `========================================================================\n`;
+      pdfLayoutText += `               End of Compiled Parameters Ledger — Desam Core Systems\n`;
+      
+      rawOutputBuffer = pdfLayoutText;
+      fileMimeType = "application/pdf";
+      calculatedExtension = "pdf";
+    }
+
+    try {
+      const targetBlob = new Blob([rawOutputBuffer], { type: fileMimeType });
+      const temporaryLink = document.createElement("a");
+      const transientURL = URL.createObjectURL(targetBlob);
+      
+      temporaryLink.href = transientURL;
+      temporaryLink.setAttribute("download", `Desam_Pipeline_Matrix_Export_${TODAY_STR}.${calculatedExtension}`);
+      document.body.appendChild(temporaryLink);
+      
+      temporaryLink.click();
+      
+      document.body.removeChild(temporaryLink);
+      URL.revokeObjectURL(transientURL);
+      
+      triggerToastAlert(`File downloaded successfully: .${calculatedExtension.toUpperCase()}`);
+    } catch (exportError) {
+      alert(`Local File Generation Exception: ${exportError.message}`);
+    }
   };
 
   // ─── GENERAL OPERATIONS HANDLERS ──────────────────────────────────────────
@@ -362,7 +462,8 @@ export default function App() {
             dateCreated: TODAY_STR,
             lastFollowUp: "None",
             nextFollowUp: TODAY_STR,
-            history: [{ date: TODAY_STR, by: currentUser.name, action: "Ingested via Excel copy-paste system matrix." }]
+            history: [{ date: TODAY_STR, by: currentUser.name, action: "Ingested via Excel copy-paste system matrix." }],
+            siteVisitTentativeDate: ""
           });
         }
       });
@@ -433,7 +534,7 @@ export default function App() {
       altPhone: stripAndNormalizeContactDigits(newLeadForm.altPhone),
       branch: currentUser.role === "Admin" ? "Madurai Desk" : currentUser.branch,
       dateCreated: TODAY_STR, lastFollowUp: "None", nextFollowUp: TODAY_STR, assignedByRole: "",
-      bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false,
+      bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false, siteVisitTentativeDate: "",
       history: [{ date: TODAY_STR, by: currentUser.name, action: "Lead Record Captured cleanly without internal spacing vectors." }]
     };
     
@@ -503,7 +604,7 @@ export default function App() {
       </div>
 
       <div className="p-4 border-t border-slate-800 bg-slate-950/40">
-        <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-850">
+        <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-855">
           <div className="flex items-center gap-2 overflow-hidden">
             <div className="h-7 w-7 rounded-lg bg-orange-600 font-black text-xs flex items-center justify-center text-white flex-shrink-0">{currentUser.avatar}</div>
             <div className="truncate w-24">
@@ -595,7 +696,7 @@ export default function App() {
         
         <header className="h-16 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-4 lg:px-8 z-10 gap-4 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <button onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden p-2 bg-slate-900 hover:bg-slate-850 rounded-xl border border-slate-800 text-slate-200 transition-colors">
+            <button onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden p-2 bg-slate-900 hover:bg-slate-855 rounded-xl border border-slate-800 text-slate-200 transition-colors">
               <Menu className="h-5 w-5" />
             </button>
             <div className="relative w-48 sm:w-80 hidden sm:block">
@@ -636,6 +737,13 @@ export default function App() {
                         {l.assignedByRole === "Admin" && currentUser.role === "Manager" && (
                           <div className="absolute top-0 right-0 bg-rose-600 text-[8px] font-black tracking-wider uppercase px-2 py-0.5 rounded-bl text-white animate-pulse">
                             ⭐ Admin Priority
+                          </div>
+                        )}
+
+                        {/* HIGH VISIBILITY CONDITIONAL SITE VISIT DATE REMINDER INSIDE WORKSPACE TILES */}
+                        {l.status === "Site Visit Planned" && l.siteVisitTentativeDate && (
+                          <div className="absolute top-0 right-0 bg-purple-600 text-[9px] font-mono font-black tracking-wider uppercase px-2.5 py-0.5 rounded-bl text-white animate-pulse flex items-center gap-1">
+                            <Calendar className="h-3 w-3" /> SV DATE: {l.siteVisitTentativeDate}
                           </div>
                         )}
 
@@ -753,9 +861,14 @@ export default function App() {
                             </td>
 
                             <td className="p-4">
-                              <select value={l.status} onChange={(e) => requestStatusTransitionPopup(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 rounded px-2 py-1 font-bold text-xs text-slate-300 focus:outline-none cursor-pointer" style={{ color: SC[l.status]?.text || "#FFF" }}>
-                                {statuses.map(st => <option key={st} value={st}>{st}</option>)}
-                              </select>
+                              <div className="flex flex-col gap-1">
+                                <select value={l.status} onChange={(e) => requestStatusTransitionPopup(l.id, e.target.value)} className="bg-slate-900 border border-slate-800 rounded px-2 py-1 font-bold text-xs text-slate-300 focus:outline-none cursor-pointer" style={{ color: SC[l.status]?.text || "#FFF" }}>
+                                  {statuses.map(st => <option key={st} value={st}>{st}</option>)}
+                                </select>
+                                {l.status === "Site Visit Planned" && l.siteVisitTentativeDate && (
+                                  <span className="text-[9px] text-purple-400 font-mono font-bold pl-1">📅 Planned: {l.siteVisitTentativeDate}</span>
+                                )}
+                              </div>
                             </td>
                             <td className="p-4 text-right font-mono font-bold text-emerald-400 text-sm">₹{l.budget}L</td>
                           </tr>
@@ -903,7 +1016,7 @@ export default function App() {
                     placeholder="Suresh Kumar&#9;9840011234&#9;suresh@gmail.com&#9;Vishal Virinchi&#9;Madurai&#9;65&#10;Lakshmi Rao&#9;9940022345&#9;lakshmi@yahoo.com&#9;GK Apartments&#9;Chennai&#9;85" 
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-orange-500 font-mono leading-relaxed" 
                   />
-                  <div className="bg-slate-900/40 border border-slate-850 rounded-xl p-3 flex gap-3 items-start text-xs text-slate-400">
+                  <div className="bg-slate-900/40 border border-slate-855 rounded-xl p-3 flex gap-3 items-start text-xs text-slate-400">
                     <Info className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
                     <p className="leading-relaxed">Verify that the spelling of your values under the **Project Name** column accurately maps into your static system project catalogs to prevent automatic routing warnings.</p>
                   </div>
@@ -916,7 +1029,7 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 5: REPORTS CONSOLE (WITH ACTIONABLE DATA PACKAGING CONTROLS RESTORED) */}
+          {/* VIEWPORT 5: REPORTS CONSOLE */}
           {activeTab === "reports" && (
             <div className="space-y-6 animate-fadeIn w-full">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start md:items-center gap-4 w-full">
@@ -925,13 +1038,12 @@ export default function App() {
                   <p className="text-xs text-slate-400 mt-0.5">Audit overall corporate lead acquisition metrics and regional conversion curves.</p>
                 </div>
 
-                {/* RESTORED EXPORT SUITE ACTION INTERFACES */}
                 <div className="flex items-center gap-2 flex-wrap text-xs font-bold tracking-wide">
                   <button 
                     onClick={() => executeDataExportSequence("excel")}
                     className="flex items-center gap-1.5 bg-emerald-600/10 hover:bg-emerald-600 border border-emerald-500/20 text-emerald-400 hover:text-white px-3 py-2 rounded-xl transition-all"
                   >
-                    <FileSpreadsheet className="h-3.5 w-3.5" /> EXCEL
+                    <FileSpreadsheet className="h-3.5 w-3.5" /> EXCEL (.XLSX)
                   </button>
                   <button 
                     onClick={() => executeDataExportSequence("csv")}
@@ -943,7 +1055,7 @@ export default function App() {
                     onClick={() => executeDataExportSequence("pdf")}
                     className="flex items-center gap-1.5 bg-rose-600/10 hover:bg-rose-600 border border-rose-500/20 text-rose-400 hover:text-white px-3 py-2 rounded-xl transition-all"
                   >
-                    <FileText className="h-3.5 w-3.5" /> PDF REPORT
+                    <FileText className="h-3.5 w-3.5" /> PDF DOCUMENT
                   </button>
                 </div>
               </div>
@@ -1061,6 +1173,11 @@ export default function App() {
                 </span>
                 <h3 className="text-xl font-black text-white">{selectedLead.name}</h3>
                 <p className="text-xs text-slate-500 tracking-wide font-mono">Reference ID: #{selectedLead.id} • Assigned Agent: <span className="text-slate-300 font-bold">{selectedLead.assignedTo}</span></p>
+                {selectedLead.siteVisitTentativeDate && (
+                  <p className="text-xs font-black text-purple-400 mt-1 flex items-center gap-1.5 bg-purple-500/10 border border-purple-500/20 px-3 py-1 rounded-xl w-fit">
+                    <Calendar className="h-3.5 w-3.5" /> TENTATIVE WALKTHROUGH SCHEDULED FOR: {selectedLead.siteVisitTentativeDate}
+                  </p>
+                )}
               </div>
               
               <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
@@ -1101,6 +1218,31 @@ export default function App() {
                 <button onClick={() => setSelectedLead(null)} className="text-slate-500 hover:text-white font-bold text-sm bg-slate-900 border border-slate-855 p-2 rounded-xl mt-4 self-end">✕</button>
               </div>
             </div>
+
+            {/* CONDITIONAL SUB-FORM: TENTATIVE DATE SELECTOR CAPTURED LIVE ON STATUS EQUAL PLANNED */}
+            {selectedLead.status === "Site Visit Planned" && (
+              <form onSubmit={commitTentativeWalkthroughPlan} className="bg-purple-950/40 p-4 border border-purple-500/30 rounded-xl space-y-3 animate-slideDown text-xs">
+                <div className="flex items-center gap-2 text-purple-400 font-black tracking-wide uppercase">
+                  <Calendar className="h-4 w-4" /> Log Tentative Site Visit Date Parameters
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400 font-medium">Tentative Target Walkthrough Date *</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="date" 
+                      required 
+                      min={TODAY_STR}
+                      value={tentativeWalkthroughDateInput} 
+                      onChange={(e) => setTentativeWalkthroughDateInput(e.target.value)} 
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 font-mono focus:outline-none focus:border-purple-500 cursor-pointer" 
+                    />
+                    <button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white font-black px-5 rounded-xl uppercase tracking-wider transition-colors shadow-md">
+                      Save Itinerary
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
 
             {/* DIRECT CONTACT CHANNELS ACCESSIBILITY BAR */}
             <div className="bg-slate-900/80 p-4 border border-slate-855 rounded-xl space-y-2 text-xs">
@@ -1196,7 +1338,7 @@ export default function App() {
                     <div className="space-y-1"><label className="text-slate-400 text-[10px]">Attended Family Co-Buyers</label><input type="text" value={svFamily} onChange={(e)=>setSvFamily(e.target.value)} placeholder=" Spouse" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-slate-200" /></div>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-slate-400 text-[10px]">Site Walkthrough Feedback Notes *</label>
+                    <label className="text-slate-400 font-top text-[10px]">Site Walkthrough Feedback Notes *</label>
                     <textarea rows={1} value={svFeedback} onChange={(e)=>setSvFeedback(e.target.value)} placeholder="Enter design layout parameters..." className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200 focus:outline-none" />
                   </div>
                   <button type="button" onClick={commitSiteWalkthroughLog} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 rounded-xl uppercase tracking-wider">Commit Walkthrough Verification</button>

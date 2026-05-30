@@ -1650,9 +1650,21 @@ export default function App() {
                   <div className="flex items-center gap-2 text-rose-400 font-black tracking-wide text-xs">
                     <AlertTriangle className="h-5 w-5 animate-bounce" /> ⚠️ WARNING: DUPLICATE PHONE NUMBER DETECTED
                   </div>
-                  <p className="text-slate-400 text-[11px] leading-relaxed">The contact number <span className="text-white font-black font-mono bg-slate-900 px-1.5 py-0.5 rounded">{duplicateConflictRecord.phone}</span> is already logged inside the database.</p>
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                    The contact number <span className="text-white font-black font-mono bg-slate-900 px-1.5 py-0.5 rounded">{duplicateConflictRecord.phone}</span> is already logged inside the database.
+                  </p>
+                  <div className="bg-rose-500/10 border border-rose-500/20 rounded-lg p-3 space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="text-rose-300 font-semibold">Existing Customer:</span>
+                      <span className="text-white font-bold">{duplicateConflictRecord.name}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-rose-300 font-semibold">Assigned Handler:</span>
+                      <span className="text-white font-bold">{duplicateConflictRecord.assignedTo}</span>
+                    </div>
+                  </div>
                 </div>
-                <button type="button" onClick={() => setDuplicateConflictRecord(null)} className="w-full bg-rose-600 text-white text-xs font-bold py-2 rounded-xl uppercase">Modify Entry Parameters</button>
+                <button type="button" onClick={() => setDuplicateConflictRecord(null)} className="w-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold py-2 rounded-xl uppercase transition-colors">Modify Entry Parameters</button>
               </div>
             )}
 

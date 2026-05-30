@@ -142,7 +142,7 @@ export default function App() {
     if (!currentUser) return [];
     let result = leads;
 
-    // Master Table Viewport Data Scoping Tiers
+    // Strict Privacy Scoping Rule Layer for Main Lists & Matrix Analytics Reports
     if (currentUser.role === "Manager") {
       result = leads.filter(l => l.branch === currentUser.branch);
     } else if (currentUser.role === "Executive" || currentUser.role === "Telecaller") {
@@ -162,7 +162,11 @@ export default function App() {
     if (filterSource !== "All") result = result.filter(l => l.source === filterSource);
     if (filterStatus !== "All") result = result.filter(l => l.status === filterStatus);
     if (filterProject !== "All") result = result.filter(l => l.project === filterProject);
-    if (filterExecutive !== "All") result = result.filter(l => l.assignedTo === filterExecutive);
+    
+    // Fallback block to avoid cross-staff filtering parameters leaking
+    if (currentUser.role === "Admin" || currentUser.role === "Manager") {
+      if (filterExecutive !== "All") result = result.filter(l => l.assignedTo === filterExecutive);
+    }
 
     if (startDate) result = result.filter(l => l.dateCreated >= startDate);
     if (endDate) result = result.filter(l => l.dateCreated <= endDate);
@@ -170,32 +174,44 @@ export default function App() {
     return result;
   }, [leads, currentUser, globalSearch, filterSource, filterStatus, filterProject, filterExecutive, startDate, endDate]);
 
-  // ─── STAGE COMPUTE ENGINE FOR DIRECT VISUAL DASHBOARD QUEUES ───────────────
   const dashboardActionQueueLeads = useMemo(() => {
     if (!currentUser) return [];
-    
-    if (currentUser.role === "Admin") {
-      // Admin tracks unassigned root leads
-      return leads.filter(l => l.assignedTo === "Unassigned");
-    }
-    
+    if (currentUser.role === "Admin") return leads.filter(l => l.assignedTo === "Unassigned");
     if (currentUser.role === "Manager") {
-      // Managers see unassigned branch leads OR priority leads pushed directly to them by Admins
-      return leads.filter(l => 
-        l.branch === currentUser.branch && 
-        (l.assignedTo === "Unassigned" || l.assignedTo === currentUser.name)
-      );
+      return leads.filter(l => l.branch === currentUser.branch && (l.assignedTo === "Unassigned" || l.assignedTo === currentUser.name));
     }
-    
     if (currentUser.role === "Executive" || currentUser.role === "Telecaller") {
-      // Team members see accounts explicitly assigned to them by Managers or Admins
       return leads.filter(l => l.assignedTo === currentUser.name);
     }
-    
     return [];
   }, [leads, currentUser]);
 
-  // ─── HANDLERS ─────────────────────────────────────────────────────────────
+  // ─── DYNAMIC MILESTONE MODIFIER FOR WINDOW INTERFACES ─────────────────────
+  const handleInlineMilestoneStatusChange = (leadId, targetStatus) => {
+    const updatedHistoryLog = {
+      date: TODAY_STR,
+      by: currentUser.name,
+      action: `INLINE MODIFIER: Transformed client tracking milestone track to [${targetStatus}].`
+    };
+
+    setLeads(leads.map(l => l.id === leadId ? {
+      ...l,
+      status: targetStatus,
+      history: [updatedHistoryLog, ...l.history]
+    } : l));
+
+    if (selectedLead && selectedLead.id === leadId) {
+      setSelectedLead(prev => ({
+        ...prev,
+        status: targetStatus,
+        history: [updatedHistoryLog, ...prev.history]
+      }));
+    }
+
+    triggerToastAlert(`Milestone set to ${targetStatus}`);
+  };
+
+  // ─── GENERAL OPERATIONS HANDLERS ──────────────────────────────────────────
   const triggerToastAlert = (msg) => {
     setToastNotification({ isVisible: true, message: msg });
     setTimeout(() => setToastNotification({ isVisible: false, message: "" }), 3500);
@@ -231,7 +247,7 @@ export default function App() {
       targetValue: nextStatus,
       type: "status",
       title: "Confirm Status Shift",
-      message: `Are you sure you want to transition "${target.name}" to the "${nextStatus}" tracking tier?`
+      message: `Are you sure you want to transition "${target.name}" to the "${nextStatus}" track?`
     });
   };
 
@@ -253,22 +269,22 @@ export default function App() {
     if (type === "status") {
       setLeads(leads.map(l => l.id === leadId ? {
         ...l, status: targetValue,
-        history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `Status milestone transitioned to: ${targetValue}` }]
+        history: [{ date: TODAY_STR, by: currentUser.name, action: `Milestone status shifted manually to: ${targetValue}` }, ...l.history]
       } : l));
       if (selectedLead && selectedLead.id === leadId) {
-        setSelectedLead({ ...selectedLead, status: targetValue, history: [...selectedLead.history, { date: TODAY_STR, by: currentUser.name, action: `Status milestone transitioned to: ${targetValue}` }] });
+        setSelectedLead({ ...selectedLead, status: targetValue, history: [{ date: TODAY_STR, by: currentUser.name, action: `Milestone status shifted manually to: ${targetValue}` }, ...selectedLead.history] });
       }
       triggerToastAlert("Pipeline status successfully updated.");
     } else if (type === "assign") {
       setLeads(leads.map(l => l.id === leadId ? {
         ...l, 
         assignedTo: targetValue, 
-        assignedByRole: currentUser.role, // Logs whether Admin or Manager initiated the assignment pass
+        assignedByRole: currentUser.role, 
         status: targetValue === "Unassigned" ? "New" : "Assigned",
-        history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `Lead deployment token written to: ${targetValue} (${currentUser.role})` }]
+        history: [{ date: TODAY_STR, by: currentUser.name, action: `Routed lead to team desk: ${targetValue} (${currentUser.role})` }, ...l.history]
       } : l));
       setSelectedLead(null);
-      triggerToastAlert(`Lead successfully assigned to ${targetValue}`);
+      triggerToastAlert(`Lead assigned to ${targetValue}`);
     }
     setCustomPopup({ isOpen: false, leadId: null, targetValue: "", type: "status", title: "", message: "" });
   };
@@ -300,7 +316,7 @@ export default function App() {
             dateCreated: TODAY_STR,
             lastFollowUp: "None",
             nextFollowUp: TODAY_STR,
-            history: [{ date: TODAY_STR, by: currentUser.name, action: "Ingested via excel block processing matrix tool." }]
+            history: [{ date: TODAY_STR, by: currentUser.name, action: "Ingested via Excel copy-paste matrix tool." }]
           });
         }
       });
@@ -325,7 +341,7 @@ export default function App() {
           status: "Contacted", 
           lastFollowUp: TODAY_STR, 
           nextFollowUp: nextFollowUpDate,
-          history: [...l.history, { date: TODAY_STR, by: currentUser.name, action: `FOLLOW-UP NOTE: ${followUpNotes.trim()} (Next Scheduled: ${nextFollowUpDate})` }]
+          history: [{ date: TODAY_STR, by: currentUser.name, action: `FOLLOW-UP LOG ENTRY: ${followUpNotes.trim()} (Next: ${nextFollowUpDate})` }, ...l.history]
         };
         setSelectedLead(obj);
         return obj;
@@ -333,23 +349,7 @@ export default function App() {
       return l;
     });
     setLeads(updated); setFollowUpNotes(""); setNextFollowUpDate("");
-    triggerToastAlert("Follow-up logs written successfully.");
-  };
-
-  const handleAddSource = (e) => {
-    e.preventDefault();
-    if (newSourceInput.trim() && !sources.includes(newSourceInput.trim())) {
-      setSources([...sources, newSourceInput.trim()]);
-      setNewSourceInput("");
-    }
-  };
-
-  const handleAddStatus = (e) => {
-    e.preventDefault();
-    if (newStatusInput.trim() && !statuses.includes(newStatusInput.trim())) {
-      setStatuses([...statuses, newStatusInput.trim()]);
-      setNewStatusInput("");
-    }
+    triggerToastAlert("Follow-up log successfully written.");
   };
 
   const handleCreateLead = (e) => {
@@ -358,21 +358,21 @@ export default function App() {
       ...newLeadForm, id: Date.now(), branch: currentUser.role === "Admin" ? "Madurai Desk" : currentUser.branch,
       dateCreated: TODAY_STR, lastFollowUp: "None", nextFollowUp: TODAY_STR, assignedByRole: "",
       bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false,
-      history: [{ date: TODAY_STR, by: currentUser.name, action: "Lead Record Created." }]
+      history: [{ date: TODAY_STR, by: currentUser.name, action: "Lead Captured into Database System Ledger Row." }]
     };
     setLeads([created, ...leads]); setIsLeadModalOpen(false);
     setNewLeadForm({ name: "", phone: "", altPhone: "", email: "", location: "", project: "Desam Garden", budget: 25, source: "Website", assignedTo: "Unassigned", notes: "" });
-    triggerToastAlert("New lead captured cleanly.");
+    triggerToastAlert("New customer captured cleanly.");
   };
 
   const commitSiteWalkthroughLog = () => {
-    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Site Visit Completed", history: [...l.history, { date: svDate, by: currentUser.name, action: `SITE VISIT DONE: Verified layout walkthrough notes: ${svFeedback}` }] } : l));
+    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Site Visit Completed", history: [{ date: svDate, by: currentUser.name, action: `SITE WALKTHROUGH CONFIRMED: Completed walkthrough. Feedback notes: ${svFeedback}` }, ...l.history] } : l));
     setSelectedLead(null);
     triggerToastAlert("Site walkthrough registered successfully.");
   };
 
   const commitFinancialBookingLog = () => {
-    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Booking Confirmed", bookingUnit: bkUnit, history: [...l.history, { date: bkDate || TODAY_STR, by: currentUser.name, action: `BOOKING SECURED: Allocated block item ID code [${bkUnit}].` }] } : l));
+    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Booking Confirmed", bookingUnit: bkUnit, history: [{ date: bkDate || TODAY_STR, by: currentUser.name, action: `ADVANCE SECURED: Allotted block identifier designation unit [${bkUnit}].` }, ...l.history] } : l));
     setSelectedLead(null);
     triggerToastAlert("Advance token payment captured.");
   };
@@ -473,7 +473,7 @@ export default function App() {
 
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 flex lg:hidden bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <aside className="w-64 bg-slate-950 border-r border-slate-800 flex-col justify-between h-full animate-slideRight flex">
+          <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between h-full animate-slideRight flex">
             <SidebarContent />
           </aside>
           <div className="flex-1" onClick={() => setIsMobileMenuOpen(false)}></div>
@@ -489,7 +489,7 @@ export default function App() {
             </button>
             <div className="relative w-48 sm:w-80 hidden sm:block">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-              <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live context search query filter..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />
+              <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live context query filtering search..." className="w-full bg-slate-900 border border-slate-850 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />
             </div>
           </div>
           
@@ -506,11 +506,11 @@ export default function App() {
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-950 p-6 border border-slate-800 rounded-2xl">
                 <div>
                   <h1 className="text-xl lg:text-2xl font-black text-white tracking-tight">Team Operations Center</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Real-time action desk processing incoming routed customer requests.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Real-time active workspace dashboard engine processing routed requests.</p>
                 </div>
               </div>
 
-              {/* HIERARCHICAL DYNAMIC ACTION QUEUE DESK */}
+              {/* DYNAMIC ACTION DESK */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 space-y-4">
                 <h2 className="text-xs font-black text-orange-400 uppercase tracking-widest flex items-center gap-2">
                   <Bell className="h-4 w-4" /> 
@@ -522,7 +522,6 @@ export default function App() {
                     {dashboardActionQueueLeads.map(l => (
                       <div key={l.id} className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl flex flex-col justify-between space-y-3 relative overflow-hidden">
                         
-                        {/* High-priority marker if explicitly deployed down by an Admin */}
                         {l.assignedByRole === "Admin" && currentUser.role === "Manager" && (
                           <div className="absolute top-0 right-0 bg-rose-600 text-[8px] font-black tracking-wider uppercase px-2 py-0.5 rounded-bl text-white animate-pulse">
                             ⭐ Admin Priority
@@ -543,20 +542,20 @@ export default function App() {
                         </div>
                         
                         <button onClick={() => setSelectedLead(l)} className="w-full bg-orange-600/10 hover:bg-orange-600 border border-orange-500/20 text-[10px] text-orange-400 hover:text-white font-black py-1.5 rounded-lg tracking-wide uppercase transition-all">
-                          {currentUser.role === "Manager" || currentUser.role === "Admin" ? "⚡ Delegate Out" : "📝 Log Follow-up Activity"}
+                          {["Manager", "Admin"].includes(currentUser.role) ? "⚡ Delegate Out" : "📝 Open Workspace File"}
                         </button>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-500 italic p-4 bg-slate-900/40 rounded-xl border border-slate-900">Your dashboard deployment work list is clean.</p>
+                  <p className="text-xs text-slate-500 italic p-4 bg-slate-900/40 rounded-xl border border-slate-900">Your visual dashboard deployment list is clean.</p>
                 )}
               </div>
 
               {/* CORE METRIC TILES */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Total Scoped Pipelines <Briefcase className="h-4 w-4 text-orange-400" /></p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Scoped Pipelines <Briefcase className="h-4 w-4 text-orange-400" /></p>
                   <p className="text-3xl font-black text-white mt-1">{processedLeads.length}</p>
                 </div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
@@ -568,8 +567,8 @@ export default function App() {
                   <p className="text-3xl font-black text-white mt-1">₹{processedLeads.reduce((a,c)=>a+c.budget, 0)}L</p>
                 </div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Site Visits Planned <Calendar className="h-4 w-4 text-amber-400" /></p>
-                  <p className="text-3xl font-black text-amber-400 mt-1">{processedLeads.filter(l => l.status === "Site Visit Planned").length}</p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Site Visits Done <Calendar className="h-4 w-4 text-amber-400" /></p>
+                  <p className="text-3xl font-black text-amber-400 mt-1">{processedLeads.filter(l => l.status === "Site Visit Completed").length}</p>
                 </div>
               </div>
             </div>
@@ -581,7 +580,7 @@ export default function App() {
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                 <div>
                   <h1 className="text-2xl font-black text-white tracking-tight">Active Team Lead Channels</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Track and manage property interaction vectors inside your regional territory parameters.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Track property interaction vectors inside your regional territory parameters.</p>
                 </div>
                 <button onClick={() => setIsLeadModalOpen(true)} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors shadow-md w-fit">
                   <Plus className="h-4 w-4" /> INGEST RECORD
@@ -692,7 +691,7 @@ export default function App() {
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                   <div className="space-y-0.5">
                     <h3 className="text-sm font-black text-white flex items-center gap-2"><Upload className="h-4 w-4 text-orange-500" /> SpreadSheet Data Ingestion Engine</h3>
-                    <p className="text-xs text-slate-400">Import hundreds of leads directly via copying and pasting columns from Microsoft Excel/CSV.</p>
+                    <p className="text-xs text-slate-400">Import leads directly via copying and pasting columns from Excel/CSV.</p>
                   </div>
                 </div>
 
@@ -706,13 +705,18 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 5: REPORTS CONSOLE */}
+          {/* VIEWPORT 5: PRIVACY-ISOLATED PERFORMANCE MATRIX REPORTS */}
           {activeTab === "reports" && (
             <div className="space-y-6 animate-fadeIn w-full">
               <div className="flex flex-col xl:flex-row xl:justify-between xl:items-center gap-4 w-full">
                 <div>
                   <h1 className="text-2xl font-black text-white tracking-tight">Performance Matrix Engine</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Isolate historical metrics and execute clean downstream file downloads instantly.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {["Executive", "Telecaller"].includes(currentUser.role) 
+                      ? "Isolated tracking ledger tracking your personal pipelines conversions cleanly."
+                      : "Audit corporate performance analytics curves across regional pipelines."
+                    }
+                  </p>
                 </div>
               </div>
 
@@ -739,16 +743,23 @@ export default function App() {
                       {visibleProjects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                     </select>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Executive Allocation</label>
-                    <select value={filterExecutive} onChange={(e) => setFilterExecutive(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
-                      <option value="All">All Executives</option>
-                      {visibleUsers.filter(u => u.role === "Executive").map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-                    </select>
-                  </div>
+
+                  {/* PRIVACY GUARDRAIL: Hide the global executive selection filter if current user is an Executive or Telecaller */}
+                  {["Admin", "Manager"].includes(currentUser.role) && (
+                    <div className="space-y-1">
+                      <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Executive Allocation</label>
+                      <select value={filterExecutive} onChange={(e) => setFilterExecutive(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
+                        <option value="All">All Executives</option>
+                        {visibleUsers.filter(u => ["Executive", "Telecaller"].includes(u.role)).map(u => (
+                          <option key={u.id} value={u.name}>{u.name} ({u.role})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
               </div>
 
+              {/* REPORT SELECTIONS MATRIX SHEET DISPLAY BLOCK */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl w-full">
                 <div className="overflow-x-auto w-full">
                   <table className="w-full text-left text-xs border-collapse">
@@ -757,25 +768,31 @@ export default function App() {
                         <th className="pb-2 min-w-[140px]">Client Entity</th>
                         <th className="pb-2 min-w-[140px]">Target Scheme</th>
                         <th className="pb-2">Channel Origin</th>
-                        <th className="pb-2">Assigned Agent</th>
+                        {["Admin", "Manager"].includes(currentUser.role) && <th className="pb-2">Assigned Agent</th>}
                         <th className="pb-2">Pipeline Phase</th>
                         <th className="pb-2 text-right">Budget Value</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-900 text-slate-300">
-                      {processedLeads.map(l => (
-                        <tr key={l.id} className="hover:bg-slate-900/20">
-                          <td className="py-3 font-bold text-white cursor-pointer hover:text-orange-400" onClick={() => setSelectedLead(l)}>
-                            <p>{l.name}</p>
-                            <p className="text-[10px] text-slate-500 font-normal font-mono">{l.dateCreated}</p>
-                          </td>
-                          <td className="py-3 font-medium">{l.project}</td>
-                          <td className="py-3 font-mono text-slate-400">{l.source}</td>
-                          <td className="py-3 text-slate-400 font-semibold">{l.assignedTo}</td>
-                          <td className="py-3 font-black" style={{ color: SC[l.status]?.text }}>{l.status}</td>
-                          <td className="py-3 text-right font-mono font-bold text-emerald-400">₹{l.budget}L</td>
+                      {processedLeads.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-slate-500 italic">No historical records tracked inside filter boundaries.</td>
                         </tr>
-                      ))}
+                      ) : (
+                        processedLeads.map(l => (
+                          <tr key={l.id} className="hover:bg-slate-900/20">
+                            <td className="py-3 font-bold text-white cursor-pointer hover:text-orange-400" onClick={() => setSelectedLead(l)}>
+                              <p>{l.name}</p>
+                              <p className="text-[10px] text-slate-500 font-normal font-mono">{l.dateCreated}</p>
+                            </td>
+                            <td className="py-3 font-medium">{l.project}</td>
+                            <td className="py-3 font-mono text-slate-400">{l.source}</td>
+                            {["Admin", "Manager"].includes(currentUser.role) && <td className="py-3 text-slate-400 font-semibold">{l.assignedTo}</td>}
+                            <td className="py-3 font-black" style={{ color: SC[l.status]?.text }}>{l.status}</td>
+                            <td className="py-3 text-right font-mono font-bold text-emerald-400">₹{l.budget}L</td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -786,7 +803,7 @@ export default function App() {
         </main>
       </div>
 
-      {/* POPUP CONFIRMATION INTERFACES */}
+      {/* SYSTEM CONFIRMATION MODALS AND TOAST BLOCKS */}
       {customPopup.isOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 w-full max-w-md rounded-2xl p-6 space-y-4 shadow-2xl text-center">
@@ -812,23 +829,38 @@ export default function App() {
         </div>
       )}
 
-      {/* DUAL ROLE ADAPTIVE WORKSPACE FORM OVERLAY MODAL */}
+      {/* DUAL ROLE INTERACTION WORKSPACE MODAL CONTAINER */}
       {selectedLead && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn" onClick={() => setSelectedLead(null)}>
-          <div className="bg-slate-950 border border-slate-800 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl p-6 space-y-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-slate-950 border border-slate-800 w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl p-6 space-y-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             
-            <div className="border-b border-slate-900 pb-3 flex justify-between items-start">
+            <div className="border-b border-slate-900 pb-3 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
               <div className="space-y-0.5">
                 <span className="text-[10px] bg-orange-600 font-mono font-black px-2 py-0.5 rounded text-white uppercase tracking-wider">
-                  {["Admin", "Manager"].includes(currentUser.role) ? "Direct Assignment Hub" : "Executive Workspace Portfolio"}
+                  {["Admin", "Manager"].includes(currentUser.role) ? "Direct Assignment Hub" : "Lead Context Dossier"}
                 </span>
-                <h3 className="text-base font-black text-white">{selectedLead.name}</h3>
-                <p className="text-xs text-slate-500 tracking-wide font-mono">Reference Parameter: #{selectedLead.id}</p>
+                <h3 className="text-xl font-black text-white">{selectedLead.name}</h3>
+                <p className="text-xs text-slate-500 tracking-wide font-mono">Reference ID: #{selectedLead.id} • Assigned Agent: <span className="text-slate-300 font-bold">{selectedLead.assignedTo}</span></p>
               </div>
-              <button onClick={() => setSelectedLead(null)} className="text-slate-500 hover:text-white font-bold text-sm">✕</button>
+              
+              {/* ─── ENHANCED MILESTONE STATUS TRACK DROP-DOWN (INLINE UPDATE AREA) ─── */}
+              <div className="flex items-center gap-2">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 block">Milestone Status Track</label>
+                  <select 
+                    value={selectedLead.status} 
+                    onChange={(e) => handleInlineMilestoneStatusChange(selectedLead.id, e.target.value)}
+                    className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-black focus:outline-none focus:border-orange-500 cursor-pointer min-w-[160px]"
+                    style={{ color: SC[selectedLead.status]?.text || "#FFF" }}
+                  >
+                    {statuses.map(st => <option key={st} value={st}>{st}</option>)}
+                  </select>
+                </div>
+                <button onClick={() => setSelectedLead(null)} className="text-slate-500 hover:text-white font-bold text-sm bg-slate-900 border border-slate-850 p-2.5 rounded-xl sm:mt-4">✕</button>
+              </div>
             </div>
 
-            {/* DIRECT CONTACT CHANNELS ACCESSIBILITY INFOBAR */}
+            {/* DIRECT CONTACT CHANNELS ACCESSIBILITY BAR */}
             <div className="bg-slate-900/80 p-4 border border-slate-850 rounded-xl space-y-2 text-xs">
               <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Client Communication Channels</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-200">
@@ -841,36 +873,44 @@ export default function App() {
                   <span className="font-mono text-slate-300">{selectedLead.altPhone || "Not Logged"}</span>
                 </div>
                 <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-lg border border-slate-850 col-span-1 sm:col-span-2">
-                  <span className="text-slate-500 font-mono font-bold text-[9px] uppercase">Email Account:</span>
+                  <span className="text-slate-500 font-mono font-bold text-[9px] uppercase">Email Address:</span>
                   <span className="font-medium text-slate-300 truncate">{selectedLead.email || "No digital address recorded"}</span>
                 </div>
               </div>
             </div>
 
-            {/* CHRONOLOGICAL INTERACTION TRACE TIMELINE MATRIX WINDOW */}
-            <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-xl space-y-3">
+            {/* ─── RESTRUCTURED VISUAL TREE TIMELINE STREAM LOG MATRIX (LAST UPDATE FIRST) ─── */}
+            <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-xl space-y-4">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Clock className="h-4 w-4 text-orange-500" /> Interaction Logs & History Trace
+                <Clock className="h-4 w-4 text-orange-500" /> Chronological Communication & Interaction Branch Trace
               </h4>
-              <div className="space-y-2.5 max-h-[140px] overflow-y-auto pr-1">
+              
+              <div className="relative pl-4 border-l-2 border-slate-800 space-y-4 max-h-[220px] overflow-y-auto pr-2 scrollbar-thin">
                 {selectedLead.history && selectedLead.history.length > 0 ? (
                   selectedLead.history.map((log, index) => (
-                    <div key={index} className="bg-slate-950 p-2.5 rounded-lg border border-slate-900 text-xs space-y-1">
-                      <div className="flex justify-between items-center text-[10px] border-b border-slate-900 pb-1">
-                        <span className="text-orange-400 font-black font-mono">By: {log.by}</span>
-                        <span className="text-slate-500 font-bold font-mono">{log.date}</span>
+                    <div key={index} className="relative group animate-fadeIn">
+                      
+                      {/* Timeline Dot Node Indicator Anchor */}
+                      <div className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-orange-500 border border-slate-950 ring-4 ring-orange-500/10 group-hover:bg-amber-400 transition-all"></div>
+                      
+                      {/* Interaction Tree Node Body */}
+                      <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 hover:border-slate-700 transition-all space-y-1">
+                        <div className="flex justify-between items-center text-[10px] text-slate-400 font-semibold font-mono border-b border-slate-900 pb-1">
+                          <span className="text-orange-400 font-black">Agent Seat: {log.by}</span>
+                          <span>{log.date}</span>
+                        </div>
+                        <p className="text-slate-200 font-medium leading-relaxed pt-1 text-[11px]">{log.action}</p>
                       </div>
-                      <p className="text-slate-300 leading-relaxed pt-0.5 text-[11px]">{log.action}</p>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-slate-500 italic">No communication logs recorded yet.</p>
+                  <p className="text-xs text-slate-500 italic pl-2">No historical interaction timeline pathways logged yet.</p>
                 )}
               </div>
             </div>
 
-            {/* CASE A: USER LOGGED IN IS AN ADMIN OR MANAGER ➔ ONLY SHOW THE DIRECT ROUTING STRIP FORM */}
-            {["Admin", "Manager"].includes(currentUser.role) ? (
+            {/* CASE A: USER LOGGED IN IS A MANAGER ➔ ONLY SHOW THE DIRECT ROUTING STRIP FORM */}
+            {currentUser.role === "Manager" ? (
               <div className="space-y-4 text-xs pt-1">
                 <div className="bg-slate-900 p-3.5 border border-slate-850 rounded-xl text-slate-400">
                   <p className="font-bold text-slate-300">Project Target Context: <span className="text-white">{selectedLead.project}</span></p>
@@ -880,18 +920,9 @@ export default function App() {
                   <label className="text-slate-400 font-bold uppercase tracking-wide">Select Roster Target to Route Lead</label>
                   <select value={selectedLead.assignedTo} onChange={(e) => requestOwnerAssignmentPopup(selectedLead.id, e.target.value)} className="w-full bg-slate-900 border border-slate-800 text-slate-100 rounded-xl p-3 text-xs font-bold focus:outline-none focus:border-orange-500 cursor-pointer">
                     <option value="Unassigned">⚠️ Choose Active Target Entity</option>
-                    {currentUser.role === "Admin" && (
-                      <optgroup label="Corporate Branch Managers">
-                        {users.filter(u => u.role === "Manager").map(u => (
-                          <option key={u.id} value={u.name}>{u.name} (Mgr - {u.branch})</option>
-                        ))}
-                      </optgroup>
-                    )}
-                    <optgroup label="Regional Team Roster Staff">
-                      {visibleUsers.filter(u => ["Executive", "Telecaller"].includes(u.role)).map(u => (
-                        <option key={u.id} value={u.name}>{u.name} ({u.role})</option>
-                      ))}
-                    </optgroup>
+                    {visibleUsers.filter(u => ["Executive", "Telecaller"].includes(u.role)).map(u => (
+                      <option key={u.id} value={u.name}>{u.name} ({u.role})</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -901,11 +932,11 @@ export default function App() {
               <div className="space-y-5 text-xs">
                 <div className="bg-slate-900 p-4 border border-slate-850 rounded-xl grid grid-cols-2 gap-4 font-semibold text-slate-300">
                   <div><p className="text-slate-500 text-[10px] font-bold uppercase">Project Context</p><p className="text-white mt-0.5 font-bold">{selectedLead.project}</p></div>
-                  <div><p className="text-slate-500 text-[10px] font-bold uppercase">Current Track Status</p><p className="text-orange-400 mt-0.5 font-bold">{selectedLead.status}</p></div>
-                  <div className="col-span-2"><p className="text-slate-500 text-[10px] font-bold uppercase">Inbound Client Notes</p><p className="text-slate-300 font-normal mt-0.5 italic">"{selectedLead.notes || 'No custom notes logged yet.'}"</p></div>
+                  <div><p className="text-slate-500 text-[10px] font-bold uppercase">Financial Intent</p><p className="text-emerald-400 mt-0.5 font-bold font-mono">₹{selectedLead.budget}L Base</p></div>
+                  <div className="col-span-2"><p className="text-slate-500 text-[10px] font-bold uppercase">Initial Requirements Notes</p><p className="text-slate-300 font-normal mt-0.5 italic">"{selectedLead.notes || 'No custom details logged.'}"</p></div>
                 </div>
 
-                {/* HISTORICAL WORK LOGGER */}
+                {/* LOG ACTION FIELD SUBMIT INTERACTION */}
                 <form onSubmit={commitManualFollowUpReport} className="bg-slate-900/50 p-4 border border-slate-850 rounded-xl space-y-3">
                   <p className="text-[11px] font-black uppercase text-orange-400 tracking-wider">Log Conversation Timeline History</p>
                   <div className="space-y-1">
@@ -981,7 +1012,7 @@ export default function App() {
               </div>
               
               <div className="space-y-1">
-                <label className="text-slate-400 font-semibold">Email Contact Parameters <span className="text-slate-500 text-[10px] italic">(Optional Row)</span></label>
+                <label className="text-slate-400 font-semibold">Email Contact Parameters <span className="text-slate-500 text-[10px] italic">(Optional)</span></label>
                 <input type="email" value={newLeadForm.email} onChange={(e)=>setNewLeadForm({...newLeadForm, email: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none" placeholder="client@domain.com" />
               </div>
 

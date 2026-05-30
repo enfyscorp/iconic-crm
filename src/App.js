@@ -32,15 +32,15 @@ const TEAMS_REGISTRY = {
 };
 
 const INITIAL_USERS = [
-  { id: 101, name: "Arjun Sharma", email: "admin@desam.in", pass: "admin123", role: "Admin", branch: "All Branches", phone: "98400 00001", active: true, avatar: "A" },
-  { id: 102, name: "Jibril", email: "jibril@desam.in", pass: "manager123", role: "Manager", branch: "Madurai Desk", phone: "98400 00002", active: true, avatar: "J" },
-  { id: 103, name: "AryaLakshmi", email: "aryalakshmi@desam.in", pass: "manager123", role: "Manager", branch: "Chennai South", phone: "98400 00003", active: true, avatar: "A" },
-  { id: 104, name: "Rohini", email: "rohini@desam.in", pass: "agent123", role: "Executive", branch: "Madurai Desk", phone: "98400 00004", active: true, avatar: "R" },
-  { id: 105, name: "Priyadarshini", email: "priya@desam.in", pass: "agent123", role: "Executive", branch: "Madurai Desk", phone: "98400 00005", active: true, avatar: "P" },
-  { id: 106, name: "Arun", email: "arun@desam.in", pass: "agent123", role: "Executive", branch: "Chennai South", phone: "98400 00006", active: true, avatar: "A" },
-  { id: 107, name: "Sumathi", email: "sumathi@desam.in", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "98400 00007", active: true, avatar: "S" },
-  { id: 108, name: "Shakila", email: "shakila@desam.in", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "98400 00008", active: true, avatar: "S" },
-  { id: 109, name: "Gowshika", email: "gowshika@desam.in", pass: "caller123", role: "Telecaller", branch: "Chennai South", phone: "98400 00009", active: true, avatar: "G" },
+  { id: 101, name: "Arjun Sharma", email: "admin@desam.in", pass: "admin123", role: "Admin", branch: "All Branches", phone: "9840000001", active: true, avatar: "A" },
+  { id: 102, name: "Jibril", email: "jibril@desam.in", pass: "manager123", role: "Manager", branch: "Madurai Desk", phone: "9840000002", active: true, avatar: "J" },
+  { id: 103, name: "AryaLakshmi", email: "aryalakshmi@desam.in", pass: "manager123", role: "Manager", branch: "Chennai South", phone: "9840000003", active: true, avatar: "A" },
+  { id: 104, name: "Rohini", email: "rohini@desam.in", pass: "agent123", role: "Executive", branch: "Madurai Desk", phone: "9840000004", active: true, avatar: "R" },
+  { id: 105, name: "Priyadarshini", email: "priya@desam.in", pass: "agent123", role: "Executive", branch: "Madurai Desk", phone: "9840000005", active: true, avatar: "P" },
+  { id: 106, name: "Arun", email: "arun@desam.in", pass: "agent123", role: "Executive", branch: "Chennai South", phone: "9840000006", active: true, avatar: "A" },
+  { id: 107, name: "Sumathi", email: "sumathi@desam.in", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "9840000007", active: true, avatar: "S" },
+  { id: 108, name: "Shakila", email: "shakila@desam.in", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "9840000008", active: true, avatar: "S" },
+  { id: 109, name: "Gowshika", email: "gowshika@desam.in", pass: "caller123", role: "Telecaller", branch: "Chennai South", phone: "9840000009", active: true, avatar: "G" },
 ];
 
 const INITIAL_PROJECTS = [
@@ -52,10 +52,10 @@ const INITIAL_PROJECTS = [
 ];
 
 const INITIAL_LEADS = [
-  { id: 1001, name: "Suresh Kumar", phone: "98400 11234", altPhone: "98400 11235", email: "suresh@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Vishal Virinchi", budget: 65, source: "Website", assignedTo: "Rohini", assignedByRole: "Manager", status: "Interested", notes: "Prefers higher floors.", dateCreated: "2026-05-10", lastFollowUp: "2026-05-25", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-15", by: "Sumathi", action: "Called client. Expressed keen interest in structural layouts. Requested site layout blueprints via WhatsApp." }, { date: "2026-05-25", by: "Rohini", action: "Follow-up conversation done. Discussing financing pathways and bank loan eligibility matrices." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
-  { id: 1002, name: "Lakshmi Rao", phone: "99400 22345", altPhone: "", email: "lakshmi@yahoo.com", location: "Chennai", branch: "Chennai South", project: "GK Apartments", budget: 85, source: "Meta Ads", assignedTo: "Unassigned", assignedByRole: "", status: "New", notes: "Arranging transportation for family walkthrough.", dateCreated: "2026-05-12", lastFollowUp: "2026-05-28", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-28", by: "System Master", action: "Initial lead automated validation complete." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
-  { id: 1003, name: "Vijay Anand", phone: "97400 33456", altPhone: "", email: "vijay@outlook.com", location: "Madurai", branch: "Madurai Desk", project: "Desam Garden", budget: 30, source: "Google Ads", assignedTo: "Jibril", assignedByRole: "Admin", status: "New", notes: "Premium corner plot structural interest.", dateCreated: "2026-05-29", lastFollowUp: "None", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-29", by: "Arjun Sharma", action: "Admin deployed tracking parameters directly to Manager Jibril view queue." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
-  { id: 1004, name: "Meena Selvam", phone: "96400 44567", altPhone: "96400 44568", email: "meena@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Fairland", budget: 95, source: "Walk-In", assignedTo: "Unassigned", assignedByRole: "", status: "New", notes: "Token collected cleanly.", dateCreated: "2026-04-20", lastFollowUp: "2026-05-20", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-20", by: "Priyadarshini", action: "Initial walkthrough context established." }], bookingUnit: "Villa 12", bookingAmount: 500000, bookingMode: "Cheque", bookingDate: "2026-05-20", regPending: true, regCompleted: false },
+  { id: 1001, name: "Suresh Kumar", phone: "9840011234", altPhone: "9840011235", email: "suresh@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Vishal Virinchi", budget: 65, source: "Website", assignedTo: "Rohini", assignedByRole: "Manager", status: "Interested", notes: "Prefers higher floors.", dateCreated: "2026-05-10", lastFollowUp: "2026-05-25", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-15", by: "Sumathi", action: "Called client. Expressed keen interest in structural layouts. Requested site layout blueprints via WhatsApp." }, { date: "2026-05-25", by: "Rohini", action: "Follow-up conversation done. Discussing financing pathways and bank loan eligibility matrices." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
+  { id: 1002, name: "Lakshmi Rao", phone: "9940022345", altPhone: "", email: "lakshmi@yahoo.com", location: "Chennai", branch: "Chennai South", project: "GK Apartments", budget: 85, source: "Meta Ads", assignedTo: "Unassigned", assignedByRole: "", status: "New", notes: "Arranging transportation for family walkthrough.", dateCreated: "2026-05-12", lastFollowUp: "2026-05-28", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-28", by: "System Master", action: "Initial lead automated validation complete." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
+  { id: 1003, name: "Vijay Anand", phone: "9740033456", altPhone: "", email: "vijay@outlook.com", location: "Madurai", branch: "Madurai Desk", project: "Desam Garden", budget: 30, source: "Google Ads", assignedTo: "Jibril", assignedByRole: "Admin", status: "New", notes: "Premium corner plot structural interest.", dateCreated: "2026-05-29", lastFollowUp: "None", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-29", by: "Arjun Sharma", action: "Admin deployed tracking parameters directly to Manager Jibril view queue." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false },
+  { id: 1004, name: "Meena Selvam", phone: "9640044567", altPhone: "9640044568", email: "meena@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Fairland", budget: 95, source: "Walk-In", assignedTo: "Unassigned", assignedByRole: "", status: "New", notes: "Token collected cleanly.", dateCreated: "2026-04-20", lastFollowUp: "2026-05-20", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-20", by: "Priyadarshini", action: "Initial walkthrough context established." }], bookingUnit: "Villa 12", bookingAmount: 500000, bookingMode: "Cheque", bookingDate: "2026-05-20", regPending: true, regCompleted: false },
 ];
 
 const SC = {
@@ -83,8 +83,6 @@ export default function App() {
 
   const [sources, setSources] = useState(INITIAL_SOURCES);
   const [statuses, setStatuses] = useState(INITIAL_STATUSES);
-  const [newSourceInput, setNewSourceInput] = useState("");
-  const [newStatusInput, setNewStatusInput] = useState("");
 
   const [filterSource, setFilterSource] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
@@ -98,7 +96,6 @@ export default function App() {
   const [projects, setProjects] = useState(INITIAL_PROJECTS);
 
   const [selectedLead, setSelectedLead] = useState(null);
-  const [editingUser, setEditingUser] = useState(null); 
   const [importText, setImportText] = useState("");
   const [showImportWizard, setShowImportWizard] = useState(false);
 
@@ -106,12 +103,10 @@ export default function App() {
   const [toastNotification, setToastNotification] = useState({ isVisible: false, message: "" });
 
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
-  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
+  // ─── STATED INGEST CAPTURE VARIABLES ──────────────────────────────────────
   const [newLeadForm, setNewLeadForm] = useState({ name: "", phone: "", altPhone: "", email: "", location: "", project: "Desam Garden", budget: 25, source: "Website", assignedTo: "Unassigned", notes: "" });
-  const [newUserForm, setNewUserForm] = useState({ name: "", email: "", pass: "desam123", role: "Executive", branch: "Madurai Desk", phone: "" });
-  const [newProjectForm, setNewProjectForm] = useState({ name: "", location: "", type: "Apartment", price: 50, units: 10 });
+  const [duplicateConflictRecord, setDuplicateConflictRecord] = useState(null); // Real-time state holder for validation blocks
 
   const [followUpNotes, setFollowUpNotes] = useState("");
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
@@ -122,8 +117,12 @@ export default function App() {
 
   const [bkUnit, setBkUnit] = useState("");
   const [bkAmount, setBkAmount] = useState("");
-  const [bkMode, setBkMode] = useState("Cheque");
-  const [bkDate, setBkDate] = useState("");
+
+  // ─── UTILITY NORMALIZATION FUNCTION ───────────────────────────────────────
+  const stripAndNormalizeContactDigits = (val) => {
+    if (!val) return "";
+    return val.toString().replace(/\s+/g, "").replace(/\D/g, "");
+  };
 
   // ─── MEMOIZED DATA COMPUTATIONS ───────────────────────────────────────────
   const visibleProjects = useMemo(() => {
@@ -142,7 +141,6 @@ export default function App() {
     if (!currentUser) return [];
     let result = leads;
 
-    // Strict Privacy Scoping Rule Layer for Main Lists & Matrix Analytics Reports
     if (currentUser.role === "Manager") {
       result = leads.filter(l => l.branch === currentUser.branch);
     } else if (currentUser.role === "Executive" || currentUser.role === "Telecaller") {
@@ -163,8 +161,7 @@ export default function App() {
     if (filterStatus !== "All") result = result.filter(l => l.status === filterStatus);
     if (filterProject !== "All") result = result.filter(l => l.project === filterProject);
     
-    // Fallback block to avoid cross-staff filtering parameters leaking
-    if (currentUser.role === "Admin" || currentUser.role === "Manager") {
+    if (["Admin", "Manager"].includes(currentUser.role)) {
       if (filterExecutive !== "All") result = result.filter(l => l.assignedTo === filterExecutive);
     }
 
@@ -186,12 +183,32 @@ export default function App() {
     return [];
   }, [leads, currentUser]);
 
-  // ─── DYNAMIC MILESTONE MODIFIER FOR WINDOW INTERFACES ─────────────────────
+  // ─── LIVE DUPLICATION VALIDATION LISTENER HOOK ────────────────────────────
+  const handlePhoneInputChange = (inputRawValue, isAlternateField = false) => {
+    const fullyCleanDigits = stripAndNormalizeContactDigits(inputRawValue);
+    
+    if (isAlternateField) {
+      setNewLeadForm({ ...newLeadForm, altPhone: fullyCleanDigits });
+    } else {
+      setNewLeadForm({ ...newLeadForm, phone: fullyCleanDigits });
+      
+      if (fullyCleanDigits.length >= 10) {
+        // Cross-checks clean entry against normalized phone logs in state storage
+        const matchedDuplicate = leads.find(l => stripAndNormalizeContactDigits(l.phone) === fullyCleanDigits);
+        if (matchedDuplicate) {
+          setDuplicateConflictRecord(matchedDuplicate);
+          return;
+        }
+      }
+      setDuplicateConflictRecord(null);
+    }
+  };
+
   const handleInlineMilestoneStatusChange = (leadId, targetStatus) => {
     const updatedHistoryLog = {
       date: TODAY_STR,
       by: currentUser.name,
-      action: `INLINE MODIFIER: Transformed client tracking milestone track to [${targetStatus}].`
+      action: `INLINE MODIFIER: Transformed tracking milestone to [${targetStatus}].`
     };
 
     setLeads(leads.map(l => l.id === leadId ? {
@@ -207,11 +224,10 @@ export default function App() {
         history: [updatedHistoryLog, ...prev.history]
       }));
     }
-
     triggerToastAlert(`Milestone set to ${targetStatus}`);
   };
 
-  // ─── GENERAL OPERATIONS HANDLERS ──────────────────────────────────────────
+  // ─── GENERAL LOGIC CORE HANDLERS ──────────────────────────────────────────
   const triggerToastAlert = (msg) => {
     setToastNotification({ isVisible: true, message: msg });
     setTimeout(() => setToastNotification({ isVisible: false, message: "" }), 3500);
@@ -300,10 +316,11 @@ export default function App() {
         if (columns.length >= 4) {
           const matchedProj = projects.find(p => p.name.toLowerCase() === (columns[3] || "").toLowerCase().trim());
           const branchHome = matchedProj ? matchedProj.branch : "Madurai Desk";
+          const parsedPhone = stripAndNormalizeContactDigits(columns[1] || "00000");
           newlyIngestedLeads.push({
             id: Date.now() + Math.floor(Math.random() * 10000),
             name: columns[0] || "Spreadsheet Lead",
-            phone: columns[1] || "00000",
+            phone: parsedPhone,
             email: columns[2] || "",
             project: columns[3] || "Vishal Virinchi",
             location: columns[4] || "Inbound",
@@ -316,7 +333,7 @@ export default function App() {
             dateCreated: TODAY_STR,
             lastFollowUp: "None",
             nextFollowUp: TODAY_STR,
-            history: [{ date: TODAY_STR, by: currentUser.name, action: "Ingested via Excel copy-paste matrix tool." }]
+            history: [{ date: TODAY_STR, by: currentUser.name, action: "Ingested via copy-paste system matrix. Cleansed non-digit space padding automatically." }]
           });
         }
       });
@@ -354,13 +371,28 @@ export default function App() {
 
   const handleCreateLead = (e) => {
     e.preventDefault();
+    // Final check for identical number entries right before allowing database array insert steps
+    const finalizedCleanPhone = stripAndNormalizeContactDigits(newLeadForm.phone);
+    const databaseDoubleCheck = leads.find(l => stripAndNormalizeContactDigits(l.phone) === finalizedCleanPhone);
+    
+    if (databaseDoubleCheck) {
+      setDuplicateConflictRecord(databaseDoubleCheck);
+      return;
+    }
+
     const created = {
-      ...newLeadForm, id: Date.now(), branch: currentUser.role === "Admin" ? "Madurai Desk" : currentUser.branch,
+      ...newLeadForm,
+      id: Date.now(),
+      phone: finalizedCleanPhone,
+      altPhone: stripAndNormalizeContactDigits(newLeadForm.altPhone),
+      branch: currentUser.role === "Admin" ? "Madurai Desk" : currentUser.branch,
       dateCreated: TODAY_STR, lastFollowUp: "None", nextFollowUp: TODAY_STR, assignedByRole: "",
       bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false,
-      history: [{ date: TODAY_STR, by: currentUser.name, action: "Lead Captured into Database System Ledger Row." }]
+      history: [{ date: TODAY_STR, by: currentUser.name, action: "Lead Record Captured cleanly without internal spacing vectors." }]
     };
-    setLeads([created, ...leads]); setIsLeadModalOpen(false);
+    
+    setLeads([created, ...leads]); 
+    setIsLeadModalOpen(false);
     setNewLeadForm({ name: "", phone: "", altPhone: "", email: "", location: "", project: "Desam Garden", budget: 25, source: "Website", assignedTo: "Unassigned", notes: "" });
     triggerToastAlert("New customer captured cleanly.");
   };
@@ -372,7 +404,7 @@ export default function App() {
   };
 
   const commitFinancialBookingLog = () => {
-    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Booking Confirmed", bookingUnit: bkUnit, history: [{ date: bkDate || TODAY_STR, by: currentUser.name, action: `ADVANCE SECURED: Allotted block identifier designation unit [${bkUnit}].` }, ...l.history] } : l));
+    setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, status: "Booking Confirmed", bookingUnit: bkUnit, history: [{ date: TODAY_STR, by: currentUser.name, action: `ADVANCE SECURED: Allocated block unit [${bkUnit}].` }, ...l.history] } : l));
     setSelectedLead(null);
     triggerToastAlert("Advance token payment captured.");
   };
@@ -473,7 +505,7 @@ export default function App() {
 
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 flex lg:hidden bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between h-full animate-slideRight flex">
+          <aside className="w-64 bg-slate-950 border-r border-slate-800 flex-col justify-between h-full animate-slideRight flex">
             <SidebarContent />
           </aside>
           <div className="flex-1" onClick={() => setIsMobileMenuOpen(false)}></div>
@@ -705,7 +737,7 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 5: PRIVACY-ISOLATED PERFORMANCE MATRIX REPORTS */}
+          {/* VIEWPORT 5: REPORTS CONSOLE */}
           {activeTab === "reports" && (
             <div className="space-y-6 animate-fadeIn w-full">
               <div className="flex flex-col xl:flex-row xl:justify-between xl:items-center gap-4 w-full">
@@ -744,7 +776,6 @@ export default function App() {
                     </select>
                   </div>
 
-                  {/* PRIVACY GUARDRAIL: Hide the global executive selection filter if current user is an Executive or Telecaller */}
                   {["Admin", "Manager"].includes(currentUser.role) && (
                     <div className="space-y-1">
                       <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Executive Allocation</label>
@@ -759,7 +790,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* REPORT SELECTIONS MATRIX SHEET DISPLAY BLOCK */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl w-full">
                 <div className="overflow-x-auto w-full">
                   <table className="w-full text-left text-xs border-collapse">
@@ -774,25 +804,19 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-900 text-slate-300">
-                      {processedLeads.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="py-8 text-center text-slate-500 italic">No historical records tracked inside filter boundaries.</td>
+                      {processedLeads.map(l => (
+                        <tr key={l.id} className="hover:bg-slate-900/20">
+                          <td className="py-3 font-bold text-white cursor-pointer hover:text-orange-400" onClick={() => setSelectedLead(l)}>
+                            <p>{l.name}</p>
+                            <p className="text-[10px] text-slate-500 font-normal font-mono">{l.dateCreated}</p>
+                          </td>
+                          <td className="py-3 font-medium">{l.project}</td>
+                          <td className="py-3 font-mono text-slate-400">{l.source}</td>
+                          {["Admin", "Manager"].includes(currentUser.role) && <td className="py-3 text-slate-400 font-semibold">{l.assignedTo}</td>}
+                          <td className="py-3 font-black" style={{ color: SC[l.status]?.text }}>{l.status}</td>
+                          <td className="py-3 text-right font-mono font-bold text-emerald-400">₹{l.budget}L</td>
                         </tr>
-                      ) : (
-                        processedLeads.map(l => (
-                          <tr key={l.id} className="hover:bg-slate-900/20">
-                            <td className="py-3 font-bold text-white cursor-pointer hover:text-orange-400" onClick={() => setSelectedLead(l)}>
-                              <p>{l.name}</p>
-                              <p className="text-[10px] text-slate-500 font-normal font-mono">{l.dateCreated}</p>
-                            </td>
-                            <td className="py-3 font-medium">{l.project}</td>
-                            <td className="py-3 font-mono text-slate-400">{l.source}</td>
-                            {["Admin", "Manager"].includes(currentUser.role) && <td className="py-3 text-slate-400 font-semibold">{l.assignedTo}</td>}
-                            <td className="py-3 font-black" style={{ color: SC[l.status]?.text }}>{l.status}</td>
-                            <td className="py-3 text-right font-mono font-bold text-emerald-400">₹{l.budget}L</td>
-                          </tr>
-                        ))
-                      )}
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -803,7 +827,7 @@ export default function App() {
         </main>
       </div>
 
-      {/* SYSTEM CONFIRMATION MODALS AND TOAST BLOCKS */}
+      {/* POPUP CONFIRMATION INTERFACES */}
       {customPopup.isOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 w-full max-w-md rounded-2xl p-6 space-y-4 shadow-2xl text-center">
@@ -829,7 +853,7 @@ export default function App() {
         </div>
       )}
 
-      {/* DUAL ROLE INTERACTION WORKSPACE MODAL CONTAINER */}
+      {/* DUAL ROLE WORKSPACE MODAL OVERLAY */}
       {selectedLead && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn" onClick={() => setSelectedLead(null)}>
           <div className="bg-slate-950 border border-slate-800 w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl p-6 space-y-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -843,10 +867,9 @@ export default function App() {
                 <p className="text-xs text-slate-500 tracking-wide font-mono">Reference ID: #{selectedLead.id} • Assigned Agent: <span className="text-slate-300 font-bold">{selectedLead.assignedTo}</span></p>
               </div>
               
-              {/* ─── ENHANCED MILESTONE STATUS TRACK DROP-DOWN (INLINE UPDATE AREA) ─── */}
-              <div className="flex items-center gap-2">
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 block">Milestone Status Track</label>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 block">Milestone Status Track</label>
+                <div className="flex items-center gap-2">
                   <select 
                     value={selectedLead.status} 
                     onChange={(e) => handleInlineMilestoneStatusChange(selectedLead.id, e.target.value)}
@@ -855,8 +878,8 @@ export default function App() {
                   >
                     {statuses.map(st => <option key={st} value={st}>{st}</option>)}
                   </select>
+                  <button onClick={() => setSelectedLead(null)} className="text-slate-500 hover:text-white font-bold text-sm bg-slate-900 border border-slate-850 p-2 rounded-xl">✕</button>
                 </div>
-                <button onClick={() => setSelectedLead(null)} className="text-slate-500 hover:text-white font-bold text-sm bg-slate-900 border border-slate-850 p-2.5 rounded-xl sm:mt-4">✕</button>
               </div>
             </div>
 
@@ -879,22 +902,18 @@ export default function App() {
               </div>
             </div>
 
-            {/* ─── RESTRUCTURED VISUAL TREE TIMELINE STREAM LOG MATRIX (LAST UPDATE FIRST) ─── */}
+            {/* RESTRUCTURED VISUAL TREE TIMELINE */}
             <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-xl space-y-4">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Clock className="h-4 w-4 text-orange-500" /> Chronological Communication & Interaction Branch Trace
               </h4>
               
-              <div className="relative pl-4 border-l-2 border-slate-800 space-y-4 max-h-[220px] overflow-y-auto pr-2 scrollbar-thin">
+              <div className="relative pl-4 border-l-2 border-slate-800 space-y-4 max-h-[160px] overflow-y-auto pr-2 scrollbar-thin">
                 {selectedLead.history && selectedLead.history.length > 0 ? (
                   selectedLead.history.map((log, index) => (
                     <div key={index} className="relative group animate-fadeIn">
-                      
-                      {/* Timeline Dot Node Indicator Anchor */}
-                      <div className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-orange-500 border border-slate-950 ring-4 ring-orange-500/10 group-hover:bg-amber-400 transition-all"></div>
-                      
-                      {/* Interaction Tree Node Body */}
-                      <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 hover:border-slate-700 transition-all space-y-1">
+                      <div className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-orange-500 border border-slate-950 ring-4 ring-orange-500/10"></div>
+                      <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 space-y-1">
                         <div className="flex justify-between items-center text-[10px] text-slate-400 font-semibold font-mono border-b border-slate-900 pb-1">
                           <span className="text-orange-400 font-black">Agent Seat: {log.by}</span>
                           <span>{log.date}</span>
@@ -909,8 +928,8 @@ export default function App() {
               </div>
             </div>
 
-            {/* CASE A: USER LOGGED IN IS A MANAGER ➔ ONLY SHOW THE DIRECT ROUTING STRIP FORM */}
-            {currentUser.role === "Manager" ? (
+            {/* PRIVILEGE BASED ACTION PANELS */}
+            {["Admin", "Manager"].includes(currentUser.role) ? (
               <div className="space-y-4 text-xs pt-1">
                 <div className="bg-slate-900 p-3.5 border border-slate-850 rounded-xl text-slate-400">
                   <p className="font-bold text-slate-300">Project Target Context: <span className="text-white">{selectedLead.project}</span></p>
@@ -927,8 +946,6 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              
-              /* CASE B: LOGGED PRIVILEGE IS AN EXECUTIVE/TELECALLER ➔ SHOW EXTENSIVE UPDATE CONTROLS */
               <div className="space-y-5 text-xs">
                 <div className="bg-slate-900 p-4 border border-slate-850 rounded-xl grid grid-cols-2 gap-4 font-semibold text-slate-300">
                   <div><p className="text-slate-500 text-[10px] font-bold uppercase">Project Context</p><p className="text-white mt-0.5 font-bold">{selectedLead.project}</p></div>
@@ -936,7 +953,6 @@ export default function App() {
                   <div className="col-span-2"><p className="text-slate-500 text-[10px] font-bold uppercase">Initial Requirements Notes</p><p className="text-slate-300 font-normal mt-0.5 italic">"{selectedLead.notes || 'No custom details logged.'}"</p></div>
                 </div>
 
-                {/* LOG ACTION FIELD SUBMIT INTERACTION */}
                 <form onSubmit={commitManualFollowUpReport} className="bg-slate-900/50 p-4 border border-slate-850 rounded-xl space-y-3">
                   <p className="text-[11px] font-black uppercase text-orange-400 tracking-wider">Log Conversation Timeline History</p>
                   <div className="space-y-1">
@@ -950,7 +966,6 @@ export default function App() {
                   <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-2 rounded-xl text-xs uppercase tracking-wider transition-all">Write Follow-up Entry</button>
                 </form>
 
-                {/* PHYSICAL SITE VISITS Planned Tiers */}
                 <div className="bg-slate-900/50 p-4 border border-slate-850 rounded-xl space-y-3">
                   <p className="text-[11px] font-black uppercase text-amber-400 tracking-wider">Verify Physical Site Walkthrough</p>
                   <div className="grid grid-cols-2 gap-2">
@@ -964,12 +979,11 @@ export default function App() {
                   <button type="button" onClick={commitSiteWalkthroughLog} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 rounded-xl uppercase tracking-wider">Commit Walkthrough Verification</button>
                 </div>
 
-                {/* UNIT TOKEN ALLOCATION SETTLEMENT PANEL */}
                 <div className="bg-slate-900/50 p-4 border border-slate-850 rounded-xl space-y-3">
                   <p className="text-[11px] font-black uppercase text-emerald-400 tracking-wider">Secure Advance Token Booking Ingestion</p>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1"><label className="text-slate-400 text-[10px]">Unit Code Designation *</label><input type="text" value={bkUnit} onChange={(e)=>setBkUnit(e.target.value)} placeholder="e.g. Plot 42" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-slate-200" /></div>
-                    <div className="space-y-1"><label className="text-slate-400 text-[10px]">Token Amount Cleared (₹) *</label><input type="number" value={bkAmount} onChange={(e)=>setBkAmount(e.target.value)} placeholder="INR Value" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-emerald-400 font-bold focus:outline-none" /></div>
+                    <div className="space-y-1"><label className="text-slate-400 text-[10px]">Unit Designation *</label><input type="text" value={bkUnit} onChange={(e)=>setBkUnit(e.target.value)} placeholder="e.g. Plot 42" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-slate-200" /></div>
+                    <div className="space-y-1"><label className="text-slate-400 text-[10px]">Token Amount (₹) *</label><input type="number" value={bkAmount} onChange={(e)=>setBkAmount(e.target.value)} placeholder="INR Value" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-emerald-400 font-bold focus:outline-none" /></div>
                   </div>
                   <button type="button" onClick={commitFinancialBookingLog} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-1.5 rounded-xl uppercase tracking-wider">Secure Unit Allocation Ledger</button>
                 </div>
@@ -979,19 +993,47 @@ export default function App() {
         </div>
       )}
 
-      {/* DIALOG NEW LEAD RECORDS INGEST CARDS */}
+      {/* DIALOG NEW LEAD CAPTURE FORM WITH REAL-TIME DUPLICATION PROTECTION */}
       {isLeadModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-xl space-y-4 shadow-2xl relative">
+            
             <div className="flex justify-between items-center border-b border-slate-900 pb-3">
-              <h2 className="text-base font-black text-white tracking-wide">Capture Customer Profile Ingestion</h2>
-              <button onClick={() => setIsLeadModalOpen(false)} className="text-slate-500 hover:text-white">✕</button>
+              <h2 className="text-base font-black text-white tracking-wide uppercase">Capture Customer Profile Ingestion</h2>
+              <button onClick={() => { setIsLeadModalOpen(false); setDuplicateConflictRecord(null); }} className="text-slate-500 hover:text-white">✕</button>
             </div>
+
+            {/* ─── REAL-TIME CRITICAL DUPLICATION ALERT DOSSIER POP-UP OVERLAY CARD ─── */}
+            {duplicateConflictRecord && (
+              <div className="absolute inset-x-6 top-16 bottom-6 bg-slate-950/95 border border-rose-500/40 rounded-xl p-5 z-20 flex flex-col justify-between space-y-3 backdrop-blur-md animate-scaleUp">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-rose-400 font-black tracking-wide text-xs">
+                    <AlertTriangle className="h-5 w-5 animate-bounce" /> ⚠️ WARNING: DUPLICATE PHONE NUMBER DETECTED
+                  </div>
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                    The contact number <span className="text-white font-black font-mono bg-slate-900 px-1.5 py-0.5 rounded">{duplicateConflictRecord.phone}</span> is already logged inside the Desam centralized lead ledger database:
+                  </p>
+                  
+                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-850 text-[11px] grid grid-cols-2 gap-3.5 font-semibold text-slate-300">
+                    <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Client Name</span><span className="text-white font-bold">{duplicateConflictRecord.name}</span></div>
+                    <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Target Scheme</span><span className="text-orange-400 font-bold">{duplicateConflictRecord.project}</span></div>
+                    <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Current Milestone</span><span className="text-blue-400 font-bold">{duplicateConflictRecord.status}</span></div>
+                    <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Assigned Staff Seat</span><span className="text-white font-bold">{duplicateConflictRecord.assignedTo}</span></div>
+                    <div className="col-span-2 border-t border-slate-850 pt-2"><span className="text-slate-500 block text-[9px] uppercase font-bold">Latest History Footprint</span><span className="text-slate-400 font-normal italic">"{duplicateConflictRecord.history[0]?.action || 'No logs registered.'}"</span></div>
+                  </div>
+                </div>
+
+                <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-2.5 rounded-lg text-[10px] font-bold text-center uppercase tracking-wide">
+                  Ingestion Blocked to Maintain High-Accuracy Ledger Integrity.
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handleCreateLead} className="space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-slate-400 font-semibold">Client Target Name *</label>
-                  <input type="text" required value={newLeadForm.name} onChange={(e)=>setNewLeadForm({...newLeadForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none" />
+                  <input type="text" required value={newLeadForm.name} onChange={(e)=>setNewLeadForm({...newLeadForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none focus:border-orange-500" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-slate-400 font-semibold">Attribution Channel Source</label>
@@ -1000,20 +1042,34 @@ export default function App() {
                   </select>
                 </div>
               </div>
+              
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-slate-400 font-semibold">Primary Contact Phone *</label>
-                  <input type="text" required value={newLeadForm.phone} onChange={(e)=>setNewLeadForm({...newLeadForm, phone: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none" />
+                  <label className="text-slate-400 font-semibold">Primary Contact Phone (Strict Digit Format) *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={newLeadForm.phone} 
+                    onChange={(e) => handlePhoneInputChange(e.target.value, false)} 
+                    placeholder="e.g. 9840011234"
+                    className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 font-mono font-bold tracking-wider focus:outline-none focus:border-orange-500" 
+                  />
                 </div>
                 <div className="space-y-1">
                   <label className="text-slate-400 font-semibold">Alternate Contact Number</label>
-                  <input type="text" value={newLeadForm.altPhone} onChange={(e)=>setNewLeadForm({...newLeadForm, altPhone: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none" />
+                  <input 
+                    type="text" 
+                    value={newLeadForm.altPhone} 
+                    onChange={(e) => handlePhoneInputChange(e.target.value, true)} 
+                    placeholder="Optional fallback digit string"
+                    className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 font-mono focus:outline-none focus:border-orange-500" 
+                  />
                 </div>
               </div>
               
               <div className="space-y-1">
                 <label className="text-slate-400 font-semibold">Email Contact Parameters <span className="text-slate-500 text-[10px] italic">(Optional)</span></label>
-                <input type="email" value={newLeadForm.email} onChange={(e)=>setNewLeadForm({...newLeadForm, email: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none" placeholder="client@domain.com" />
+                <input type="email" value={newLeadForm.email} onChange={(e)=>setNewLeadForm({...newLeadForm, email: e.target.value})} className="w-full bg-slate-900 border border-slate-850 p-2.5 rounded-xl text-slate-200 focus:outline-none focus:border-orange-500" placeholder="client@domain.com" />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1028,7 +1084,14 @@ export default function App() {
                   </select>
                 </div>
               </div>
-              <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-3 rounded-xl uppercase tracking-wider shadow-lg transition-all">Commit Ingest Record</button>
+              
+              <button 
+                type="submit" 
+                disabled={!!duplicateConflictRecord}
+                className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-3 rounded-xl uppercase tracking-wider shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Commit Ingest Record
+              </button>
             </form>
           </div>
         </div>

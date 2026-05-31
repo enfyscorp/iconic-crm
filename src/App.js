@@ -23,7 +23,6 @@ const INITIAL_SOURCES = [
   "Reference", "Expo / Event", "Own Leads", "WhatsApp Campaign", "Property Portals"
 ];
 
-// Added granular negative statuses from Excel tracker
 const INITIAL_STATUSES = [
   "New", "Assigned", "Contacted", "Follow-Up", "Site Visit Planned", 
   "Site Visit Completed", "Negotiation", "Booking Pending", "Booking Confirmed", 
@@ -64,10 +63,10 @@ const INITIAL_PROJECTS = [
 ];
 
 const INITIAL_LEADS = [
-  { id: 1001, name: "Suresh Kumar", phone: "9840011234", altPhone: "9840011235", email: "suresh@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Vishal Virinchi", budget: 65, source: "Website", assignedTo: "Rohini", assignedByRole: "Manager", status: "Interested", notes: "Prefers higher floors.", dateCreated: "2026-05-10", lastFollowUp: "2026-05-25", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-25", by: "Rohini", action: "Follow-up conversation done. Discussing financing pathways and bank loan eligibility matrices." }, { date: "2026-05-15", by: "Sumathi", action: "Called client. Expressed keen interest in structural layouts. Requested site layout blueprints via WhatsApp." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false, siteVisitTentativeDate: "" },
+  { id: 1001, name: "Suresh Kumar", phone: "9840011234", altPhone: "9840011235", email: "suresh@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Vishal Virinchi", budget: 65, source: "Website", assignedTo: "Rohini", assignedByRole: "Manager", status: "Follow-Up", notes: "Prefers higher floors.", dateCreated: "2026-05-10", lastFollowUp: "2026-05-25", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-25", by: "Rohini", action: "Follow-up conversation done. Discussing financing pathways and bank loan eligibility matrices." }, { date: "2026-05-15", by: "Sumathi", action: "Called client. Expressed keen interest in structural layouts. Requested site layout blueprints via WhatsApp." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false, siteVisitTentativeDate: "" },
   { id: 1002, name: "Lakshmi Rao", phone: "9940022345", altPhone: "", email: "lakshmi@yahoo.com", location: "Chennai", branch: "Chennai South", project: "GK Apartments", budget: 85, source: "Meta Ads", assignedTo: "Unassigned", assignedByRole: "", status: "New", notes: "Arranging transportation for family walkthrough.", dateCreated: "2026-05-12", lastFollowUp: "2026-05-28", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-28", by: "System Master", action: "Initial lead automated validation complete." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false, siteVisitTentativeDate: "" },
   { id: 1003, name: "Vijay Anand", phone: "9740033456", altPhone: "", email: "vijay@outlook.com", location: "Madurai", branch: "Madurai Desk", project: "Desam Garden", budget: 30, source: "Google Ads", assignedTo: "Jibril", assignedByRole: "Admin", status: "New", notes: "Premium corner plot structural interest.", dateCreated: "2026-05-29", lastFollowUp: "None", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-29", by: "Shaj", action: "Admin deployed tracking parameters directly to Manager Jibril view queue." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false, siteVisitTentativeDate: "" },
-  { id: 1004, name: "Meena Selvam", phone: "9640044567", altPhone: "9640044568", email: "meena@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Fairland", budget: 95, source: "Walk-In", assignedTo: "Unassigned", assignedByRole: "", status: "New", notes: "Token collected cleanly.", dateCreated: "2026-04-20", lastFollowUp: "2026-05-20", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-20", by: "Priyadarshini", action: "Initial walkthrough context established." }], bookingUnit: "Villa 12", bookingAmount: 500000, bookingMode: "Cheque", bookingDate: "2026-05-20", regPending: true, regCompleted: false, siteVisitTentativeDate: "" },
+  { id: 1004, name: "Meena Selvam", phone: "9640044567", altPhone: "9640044568", email: "meena@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Fairland", budget: 95, source: "Walk-In", assignedTo: "Unassigned", assignedByRole: "", status: "Booking Confirmed", notes: "Token collected cleanly.", dateCreated: "2026-04-20", lastFollowUp: "2026-05-20", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-20", by: "Priyadarshini", action: "Initial walkthrough context established." }], bookingUnit: "Villa 12", bookingAmount: 500000, bookingMode: "Cheque", bookingDate: "2026-05-20", regPending: true, regCompleted: false, siteVisitTentativeDate: "" },
 ];
 
 const SC = {
@@ -78,7 +77,6 @@ const SC = {
   "Site Visit Planned":   { bg: "rgba(139,92,246,0.1)", text: "#a78bfa", border: "rgba(139,92,246,0.2)" },
   "Booking Confirmed":    { bg: "rgba(52,211,153,0.15)", text: "#34d399", border: "rgba(52,211,153,0.3)" },
   Closed:                 { bg: "rgba(107,114,128,0.1)", text: "#9ca3af", border: "rgba(107,114,128,0.2)" },
-  // Added styling for new dead-lead statuses
   "Not Interested":       { bg: "rgba(239,68,68,0.1)", text: "#ef4444", border: "rgba(239,68,68,0.2)" },
   "RNR":                  { bg: "rgba(156,163,175,0.1)", text: "#9ca3af", border: "rgba(156,163,175,0.2)" },
   "Switched Off":         { bg: "rgba(156,163,175,0.1)", text: "#9ca3af", border: "rgba(156,163,175,0.2)" },
@@ -97,7 +95,7 @@ const PSC = {
 const PIE_COLORS = ['#ea580c', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#f59e0b', '#64748b', '#14b8a6', '#ef4444', '#06b6d4'];
 
 export default function App() {
-  const TODAY_STR = "2026-05-29";
+  const TODAY_STR = "2026-05-31";
 
   // ─── HOOK STATES ──────────────────────────────────────────────────────────
   const [currentUser, setCurrentUser] = useState(null); 
@@ -226,10 +224,8 @@ export default function App() {
     return [];
   }, [leads, currentUser]);
 
-  // UNATTENDED LEADS MANAGER ALERT
   const unattendedManagerAlerts = useMemo(() => {
     if (!currentUser || currentUser.role !== "Manager") return [];
-    
     return leads.filter(l => {
       if (l.branch !== currentUser.branch) return false;
       if (l.status !== "New") return false;
@@ -241,7 +237,7 @@ export default function App() {
     });
   }, [leads, currentUser]);
 
-  // ─── ANALYTICS CHARTS DATA COMPUTATION (UPDATED WITH EXCEL REPORTS) ───────
+  // ─── ANALYTICS CHARTS DATA COMPUTATION ────────────────────────────────────
   const chartDataSource = useMemo(() => {
     const counts = {};
     processedLeads.forEach(l => { counts[l.source] = (counts[l.source] || 0) + 1; });
@@ -254,14 +250,12 @@ export default function App() {
     return Object.keys(counts).map(key => ({ name: key, value: counts[key] }));
   }, [processedLeads]);
 
-  // New Chart: Project-wise Distribution
   const chartDataProject = useMemo(() => {
     const counts = {};
     processedLeads.forEach(l => { counts[l.project] = (counts[l.project] || 0) + 1; });
     return Object.keys(counts).map(key => ({ name: key, value: counts[key] }));
   }, [processedLeads]);
 
-  // New Chart: Executive-wise Lead Load
   const chartDataExecutive = useMemo(() => {
     const counts = {};
     processedLeads.forEach(l => { 
@@ -277,6 +271,46 @@ export default function App() {
     processedLeads.forEach(l => { counts[l.dateCreated] = (counts[l.dateCreated] || 0) + 1; });
     return Object.keys(counts).sort().map(date => ({ date, leads: counts[date] }));
   }, [processedLeads]);
+
+  // ─── NEW: DATE RANGE EXECUTIVE SUMMARY REPORT MATRIX ──────────────────────
+  const executiveSummaryData = useMemo(() => {
+    const execMap = {};
+    
+    // Pre-populate with all relevant visible users to show 0s if they have no leads in period
+    visibleUsers.forEach(u => {
+      if (["Executive", "Telecaller"].includes(u.role)) {
+        execMap[u.name] = { name: u.name, total: 0, new: 0, active: 0, siteVisits: 0, bookings: 0, dead: 0 };
+      }
+    });
+    // Add an Unassigned bucket
+    execMap["Unassigned"] = { name: "Unassigned", total: 0, new: 0, active: 0, siteVisits: 0, bookings: 0, dead: 0 };
+
+    processedLeads.forEach(l => {
+      const exec = l.assignedTo || "Unassigned";
+      if (!execMap[exec]) {
+        execMap[exec] = { name: exec, total: 0, new: 0, active: 0, siteVisits: 0, bookings: 0, dead: 0 };
+      }
+      
+      execMap[exec].total += 1;
+      
+      if (l.status === "New") {
+        execMap[exec].new += 1;
+      } else if (["Assigned", "Contacted", "Follow-Up", "Negotiation"].includes(l.status)) {
+        execMap[exec].active += 1;
+      } else if (["Site Visit Planned", "Site Visit Completed"].includes(l.status)) {
+        execMap[exec].siteVisits += 1;
+      } else if (["Booking Pending", "Booking Confirmed", "Closed"].includes(l.status)) {
+        execMap[exec].bookings += 1;
+      } else if (["Not Interested", "RNR", "Switched Off", "Wrong Number"].includes(l.status)) {
+        execMap[exec].dead += 1;
+      }
+    });
+
+    // Filter out rows that have 0 total leads unless they are part of the team's visible active roster
+    return Object.values(execMap)
+      .filter(e => e.total > 0 || visibleUsers.some(u => u.name === e.name))
+      .sort((a, b) => b.total - a.total);
+  }, [processedLeads, visibleUsers]);
 
   // ─── LIVE DUPLICATION VALIDATION LISTENER HOOK ────────────────────────────
   const handlePhoneInputChange = (inputRawValue, isAlternateField = false) => {
@@ -913,7 +947,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 5-PANEL ANALYTICS GRID (Updated with Excel Tracker Reports) */}
+              {/* 5-PANEL ANALYTICS GRID */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 
                 {/* 1. Bar Chart: Leads by Source */}
@@ -953,7 +987,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 3. Bar Chart: Executive Performance (From Excel) */}
+                {/* 3. Bar Chart: Executive Performance */}
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl col-span-1 lg:col-span-2 shadow-xl">
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Executive Lead Allocation (Performance Base)</h3>
                   <div className="h-[280px] w-full">
@@ -969,7 +1003,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 4. Pie Chart: Project-Wise Breakdown (From Excel) */}
+                {/* 4. Pie Chart: Project-Wise Breakdown */}
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl shadow-xl flex flex-col">
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Project Demand Split</h3>
                   <div className="h-[280px] w-full relative flex-1">
@@ -1092,7 +1126,7 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 3: PROJECTS MASTER (Strictly Admin Access to Creation Action) */}
+          {/* VIEWPORT 3: PROJECTS MASTER */}
           {activeTab === "projects" && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -1157,11 +1191,10 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEWPORT 4: ADMIN HUB (USER MANAGEMENT + EXCEL INGESTION CARDS) */}
+          {/* VIEWPORT 4: ADMIN HUB */}
           {activeTab === "users" && currentUser.role === "Admin" && (
             <div className="space-y-8 animate-fadeIn">
               
-              {/* NEW SYSTEM ROSTER TABLE */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl col-span-1 md:col-span-3">
                 <div className="space-y-0.5">
                   <h3 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-wider text-orange-400">
@@ -1258,7 +1291,7 @@ export default function App() {
 
                     <div className="space-y-1">
                       <label className="text-slate-400 font-bold">Contact Phone Number</label>
-                      <input type="text" value={newUserForm.phone} onChange={(e)=>setNewUserForm({...newUserForm, phone: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 font-mono" placeholder="9840001234" />
+                      <input type="text" value={newUserForm.phone} onChange={(e)=>setNewUserForm({...newUserForm, phone: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 font-mono" placeholder="9840011234" />
                     </div>
 
                     <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-md mt-1">
@@ -1378,6 +1411,63 @@ export default function App() {
                 </div>
               </div>
 
+              {/* NEW SECTION: EXECUTIVE PIPELINE SUMMARY REPORT (Date Filtered) */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl w-full animate-fadeIn">
+                <div className="space-y-0.5 mb-4">
+                  <h3 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-wider text-orange-400">
+                    <BarChart3 className="h-4 w-4" /> Executive Pipeline Summary Report
+                  </h3>
+                  <p className="text-xs text-slate-400">Aggregated breakdown of lead stages by assigned personnel based on the selected date parameters.</p>
+                </div>
+                <div className="overflow-x-auto w-full">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="text-slate-500 font-bold border-b border-slate-900 uppercase">
+                        <th className="pb-2 pl-2">Executive Name</th>
+                        <th className="pb-2 text-center text-blue-400">Total Leads</th>
+                        <th className="pb-2 text-center text-slate-300">Untouched (New)</th>
+                        <th className="pb-2 text-center text-amber-400">Active Follow-up</th>
+                        <th className="pb-2 text-center text-purple-400">Site Visits</th>
+                        <th className="pb-2 text-center text-emerald-400">Bookings / Closed</th>
+                        <th className="pb-2 text-center text-rose-400">Dead / Lost</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-900 text-slate-300">
+                      {executiveSummaryData.map((exec, idx) => (
+                        <tr key={idx} className="hover:bg-slate-900/20">
+                          <td className="py-3 pl-2 font-bold text-white">{exec.name}</td>
+                          <td className="py-3 text-center font-mono font-bold text-blue-400">{exec.total}</td>
+                          <td className="py-3 text-center font-mono">{exec.new}</td>
+                          <td className="py-3 text-center font-mono text-amber-400/80">{exec.active}</td>
+                          <td className="py-3 text-center font-mono text-purple-400/80">{exec.siteVisits}</td>
+                          <td className="py-3 text-center font-mono font-black text-emerald-400">{exec.bookings}</td>
+                          <td className="py-3 text-center font-mono text-rose-400/80">{exec.dead}</td>
+                        </tr>
+                      ))}
+                      {executiveSummaryData.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="py-8 text-center text-slate-500 font-semibold italic">No data available for the selected parameters.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                    {executiveSummaryData.length > 0 && (
+                      <tfoot className="bg-slate-900/50 border-t border-slate-800 font-black">
+                        <tr>
+                          <td className="py-3 pl-2 text-white">SYSTEM AGGREGATE TOTALS</td>
+                          <td className="py-3 text-center font-mono text-blue-400">{executiveSummaryData.reduce((acc, curr) => acc + curr.total, 0)}</td>
+                          <td className="py-3 text-center font-mono">{executiveSummaryData.reduce((acc, curr) => acc + curr.new, 0)}</td>
+                          <td className="py-3 text-center font-mono text-amber-400/80">{executiveSummaryData.reduce((acc, curr) => acc + curr.active, 0)}</td>
+                          <td className="py-3 text-center font-mono text-purple-400/80">{executiveSummaryData.reduce((acc, curr) => acc + curr.siteVisits, 0)}</td>
+                          <td className="py-3 text-center font-mono text-emerald-400">{executiveSummaryData.reduce((acc, curr) => acc + curr.bookings, 0)}</td>
+                          <td className="py-3 text-center font-mono text-rose-400/80">{executiveSummaryData.reduce((acc, curr) => acc + curr.dead, 0)}</td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+              </div>
+
+              {/* EXISTING LEDGER TABLE */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl w-full">
                 <div className="overflow-x-auto w-full">
                   <table className="w-full text-left text-xs border-collapse">

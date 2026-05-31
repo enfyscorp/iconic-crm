@@ -1400,7 +1400,6 @@ export default function App() {
           {/* VIEWPORT 5: REPORTS CONSOLE */}
           {activeTab === "reports" && (
             <div className="space-y-8 animate-fadeIn w-full pb-20">
-              {/* HEADER & EXPORT CONTROLS */}
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start md:items-center gap-4 w-full">
                 <div>
                   <h1 className="text-2xl font-black text-white tracking-tight">Performance Matrix Engine</h1>
@@ -1488,12 +1487,12 @@ export default function App() {
               </div>
             </div>
           )}
-        </main> 
+        </main>
       </div>
     </div>
   );
 }
-    {/* NEW SOURCEWISE PERFORMANCE MATRIX */}
+{/* NEW SOURCEWISE PERFORMANCE MATRIX */}
     <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
       <h3 className="text-sm font-black text-orange-400 mb-4 uppercase tracking-widest">Lead Source Performance Matrix</h3>
       <div className="overflow-x-auto">

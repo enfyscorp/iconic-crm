@@ -1400,6 +1400,7 @@ export default function App() {
           {/* VIEWPORT 5: REPORTS CONSOLE */}
           {activeTab === "reports" && (
             <div className="space-y-8 animate-fadeIn w-full pb-20">
+              {/* HEADER & EXPORT CONTROLS */}
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start md:items-center gap-4 w-full">
                 <div>
                   <h1 className="text-2xl font-black text-white tracking-tight">Performance Matrix Engine</h1>
@@ -1458,56 +1459,40 @@ export default function App() {
                   ))}
                 </div>
               </div>
-            </div>
-          )}
-        </main>
-      {/* PROJECT CONVERSION EFFICIENCY */}
-      <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
-        <h3 className="text-sm font-black text-emerald-400 mb-4 uppercase tracking-widest">Project Conversion Efficiency</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {projectwiseAnalysis.map(([project, stats]) => (
-            <div key={project} className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-              <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">{project}</p>
-              <div className="flex justify-between items-end">
-                 <span className="text-2xl font-black text-white">{stats.converted}/{stats.total}</span>
-                 <span className="text-[10px] font-mono text-emerald-500 font-bold">
-                   {stats.total > 0 ? Math.round((stats.converted / stats.total) * 100) : 0}% Conversion
-                 </span>
+
+              {/* EXECUTIVE PIPELINE SUMMARY */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl">
+                <h3 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-wider text-orange-400 mb-4">
+                  <BarChart3 className="h-4 w-4" /> Executive Pipeline Summary Report
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="text-slate-500 font-bold border-b border-slate-900 uppercase">
+                        <th className="pb-2 pl-2">Executive Name</th>
+                        <th className="pb-2 text-center text-blue-400">Total</th>
+                        <th className="pb-2 text-center text-emerald-400">Bookings</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-900 text-slate-300">
+                      {executiveSummaryData.map((exec, idx) => (
+                        <tr key={idx} className="hover:bg-slate-900/20">
+                          <td className="py-3 pl-2 font-bold text-white">{exec.name}</td>
+                          <td className="py-3 text-center font-mono font-bold text-blue-400">{exec.total}</td>
+                          <td className="py-3 text-center font-mono font-black text-emerald-400">{exec.bookings}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* EXECUTIVE PIPELINE SUMMARY */}
-      <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl">
-        <h3 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-wider text-orange-400 mb-4">
-          <BarChart3 className="h-4 w-4" /> Executive Pipeline Summary Report
-        </h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="text-slate-500 font-bold border-b border-slate-900 uppercase">
-                <th className="pb-2 pl-2">Executive Name</th>
-                <th className="pb-2 text-center text-blue-400">Total</th>
-                <th className="pb-2 text-center text-emerald-400">Bookings</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-900 text-slate-300">
-              {executiveSummaryData.map((exec, idx) => (
-                <tr key={idx} className="hover:bg-slate-900/20">
-                  <td className="py-3 pl-2 font-bold text-white">{exec.name}</td>
-                  <td className="py-3 text-center font-mono font-bold text-blue-400">{exec.total}</td>
-                  <td className="py-3 text-center font-mono font-black text-emerald-400">{exec.bookings}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+          )}
+        </main> 
       </div>
     </div>
-  )}
-
+  );
+}
     {/* NEW SOURCEWISE PERFORMANCE MATRIX */}
     <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
       <h3 className="text-sm font-black text-orange-400 mb-4 uppercase tracking-widest">Lead Source Performance Matrix</h3>

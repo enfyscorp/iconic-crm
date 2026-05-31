@@ -23,9 +23,11 @@ const INITIAL_SOURCES = [
   "Reference", "Expo / Event", "Own Leads", "WhatsApp Campaign", "Property Portals"
 ];
 
+// Added granular negative statuses from Excel tracker
 const INITIAL_STATUSES = [
   "New", "Assigned", "Contacted", "Follow-Up", "Site Visit Planned", 
-  "Site Visit Completed", "Negotiation", "Booking Pending", "Booking Confirmed", "Closed"
+  "Site Visit Completed", "Negotiation", "Booking Pending", "Booking Confirmed", 
+  "Closed", "Not Interested", "RNR", "Switched Off", "Wrong Number"
 ];
 
 const PROJECT_STATUSES = ["Upcoming", "Pre-Launch", "Ongoing", "Completed", "Sold-Out"];
@@ -76,6 +78,11 @@ const SC = {
   "Site Visit Planned":   { bg: "rgba(139,92,246,0.1)", text: "#a78bfa", border: "rgba(139,92,246,0.2)" },
   "Booking Confirmed":    { bg: "rgba(52,211,153,0.15)", text: "#34d399", border: "rgba(52,211,153,0.3)" },
   Closed:                 { bg: "rgba(107,114,128,0.1)", text: "#9ca3af", border: "rgba(107,114,128,0.2)" },
+  // Added styling for new dead-lead statuses
+  "Not Interested":       { bg: "rgba(239,68,68,0.1)", text: "#ef4444", border: "rgba(239,68,68,0.2)" },
+  "RNR":                  { bg: "rgba(156,163,175,0.1)", text: "#9ca3af", border: "rgba(156,163,175,0.2)" },
+  "Switched Off":         { bg: "rgba(156,163,175,0.1)", text: "#9ca3af", border: "rgba(156,163,175,0.2)" },
+  "Wrong Number":         { bg: "rgba(248,113,113,0.1)", text: "#f87171", border: "rgba(248,113,113,0.2)" },
 };
 
 const PSC = {
@@ -87,7 +94,7 @@ const PSC = {
 };
 
 // Colors for Pie Chart
-const PIE_COLORS = ['#ea580c', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#f59e0b', '#64748b', '#14b8a6'];
+const PIE_COLORS = ['#ea580c', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#f59e0b', '#64748b', '#14b8a6', '#ef4444', '#06b6d4'];
 
 export default function App() {
   const TODAY_STR = "2026-05-29";
@@ -234,7 +241,7 @@ export default function App() {
     });
   }, [leads, currentUser]);
 
-  // ─── ANALYTICS CHARTS DATA COMPUTATION ────────────────────────────────────
+  // ─── ANALYTICS CHARTS DATA COMPUTATION (UPDATED WITH EXCEL REPORTS) ───────
   const chartDataSource = useMemo(() => {
     const counts = {};
     processedLeads.forEach(l => { counts[l.source] = (counts[l.source] || 0) + 1; });
@@ -245,6 +252,24 @@ export default function App() {
     const counts = {};
     processedLeads.forEach(l => { counts[l.status] = (counts[l.status] || 0) + 1; });
     return Object.keys(counts).map(key => ({ name: key, value: counts[key] }));
+  }, [processedLeads]);
+
+  // New Chart: Project-wise Distribution
+  const chartDataProject = useMemo(() => {
+    const counts = {};
+    processedLeads.forEach(l => { counts[l.project] = (counts[l.project] || 0) + 1; });
+    return Object.keys(counts).map(key => ({ name: key, value: counts[key] }));
+  }, [processedLeads]);
+
+  // New Chart: Executive-wise Lead Load
+  const chartDataExecutive = useMemo(() => {
+    const counts = {};
+    processedLeads.forEach(l => { 
+      if (l.assignedTo && l.assignedTo !== "Unassigned") {
+        counts[l.assignedTo] = (counts[l.assignedTo] || 0) + 1; 
+      }
+    });
+    return Object.keys(counts).map(key => ({ name: key, count: counts[key] })).sort((a, b) => b.count - a.count);
   }, [processedLeads]);
 
   const chartDataTrend = useMemo(() => {
@@ -819,7 +844,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* DYNAMIC ACTION DESK (MOVED TO TOP OF DASHBOARD) */}
+              {/* DYNAMIC ACTION DESK */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 space-y-4">
                 <h2 className="text-xs font-black text-orange-400 uppercase tracking-widest flex items-center gap-2">
                   <Bell className="h-4 w-4" /> 
@@ -888,10 +913,10 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ANALYTICS CHARTS INTEGRATION */}
+              {/* 5-PANEL ANALYTICS GRID (Updated with Excel Tracker Reports) */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 
-                {/* Bar Chart: Leads by Source */}
+                {/* 1. Bar Chart: Leads by Source */}
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl col-span-1 lg:col-span-2 shadow-xl">
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Lead Acquisition by Source</h3>
                   <div className="h-[280px] w-full">
@@ -907,7 +932,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Pie Chart: Pipeline Status */}
+                {/* 2. Pie Chart: Pipeline Status */}
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl shadow-xl flex flex-col">
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Pipeline Distribution</h3>
                   <div className="h-[280px] w-full relative flex-1">
@@ -928,7 +953,40 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Line Chart: Acquisition Trend */}
+                {/* 3. Bar Chart: Executive Performance (From Excel) */}
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl col-span-1 lg:col-span-2 shadow-xl">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Executive Lead Allocation (Performance Base)</h3>
+                  <div className="h-[280px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartDataExecutive} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                        <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} angle={-35} textAnchor="end" />
+                        <YAxis tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '8px', fontSize: '11px', color: '#f8fafc' }} itemStyle={{ color: '#3b82f6', fontWeight: 'bold' }} cursor={{ fill: '#1e293b' }} />
+                        <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={28} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* 4. Pie Chart: Project-Wise Breakdown (From Excel) */}
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl shadow-xl flex flex-col">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Project Demand Split</h3>
+                  <div className="h-[280px] w-full relative flex-1">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={chartDataProject} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={4} dataKey="value" stroke="none">
+                          {chartDataProject.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={PIE_COLORS[(index + 3) % PIE_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '8px', fontSize: '11px', color: '#f8fafc' }} itemStyle={{ fontWeight: 'bold' }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* 5. Line Chart: Acquisition Trend */}
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl col-span-1 lg:col-span-3 shadow-xl">
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Lead Generation Timeline Trend</h3>
                   <div className="h-[240px] w-full">

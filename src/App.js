@@ -161,6 +161,10 @@ export default function App() {
     return val.toString().replace(/\s+/g, "").replace(/\D/g, "");
   };
 
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    triggerToastAlert("Copied to clipboard!");
+  };
   // ─── MEMOIZED DATA COMPUTATIONS ───────────────────────────────────────────
   const visibleProjects = useMemo(() => {
     if (!currentUser) return [];
@@ -270,6 +274,11 @@ export default function App() {
     const counts = {};
     processedLeads.forEach(l => { counts[l.dateCreated] = (counts[l.dateCreated] || 0) + 1; });
     return Object.keys(counts).sort().map(date => ({ date, leads: counts[date] }));
+  }, [processedLeads]);
+
+  const conversionRate = useMemo(() => {
+    const booked = processedLeads.filter(l => ["Booking Confirmed", "Closed"].includes(l.status)).length;
+    return processedLeads.length > 0 ? Math.round((booked / processedLeads.length) * 100) : 0;
   }, [processedLeads]);
 
   // ─── NEW: DATE RANGE EXECUTIVE SUMMARY REPORT MATRIX ──────────────────────
@@ -928,25 +937,28 @@ export default function App() {
               </div>
 
               {/* CORE METRIC TILES */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Scoped Pipelines <Briefcase className="h-4 w-4 text-orange-400" /></p>
-                  <p className="text-3xl font-black text-white mt-1">{processedLeads.length}</p>
-                </div>
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Confirmed Conversions <CheckCircle2 className="h-4 w-4 text-emerald-400" /></p>
-                  <p className="text-3xl font-black text-emerald-400 mt-1">{processedLeads.filter(l => ["Booking Confirmed","Closed"].includes(l.status)).length}</p>
-                </div>
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Capitalized Volume <DollarSign className="h-4 w-4 text-orange-400" /></p>
-                  <p className="text-3xl font-black text-white mt-1">₹{processedLeads.reduce((a,c)=>a+c.budget, 0)}L</p>
-                </div>
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Site Visits Done <Calendar className="h-4 w-4 text-amber-400" /></p>
-                  <p className="text-3xl font-black text-amber-400 mt-1">{processedLeads.filter(l => l.status === "Site Visit Completed").length}</p>
-                </div>
-              </div>
-
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+  <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
+    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Scoped Pipelines <Briefcase className="h-4 w-4 text-orange-400" /></p>
+    <p className="text-3xl font-black text-white mt-1">{processedLeads.length}</p>
+  </div>
+  <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
+    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Conversions <CheckCircle2 className="h-4 w-4 text-emerald-400" /></p>
+    <p className="text-3xl font-black text-emerald-400 mt-1">{processedLeads.filter(l => ["Booking Confirmed","Closed"].includes(l.status)).length}</p>
+  </div>
+  <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
+    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Rate (%) <TrendingUp className="h-4 w-4 text-blue-400" /></p>
+    <p className="text-3xl font-black text-blue-400 mt-1">{conversionRate}%</p>
+  </div>
+  <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
+    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Volume <DollarSign className="h-4 w-4 text-orange-400" /></p>
+    <p className="text-3xl font-black text-white mt-1">₹{processedLeads.reduce((a,c)=>a+c.budget, 0)}L</p>
+  </div>
+  <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
+    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Site Visits <Calendar className="h-4 w-4 text-amber-400" /></p>
+    <p className="text-3xl font-black text-amber-400 mt-1">{processedLeads.filter(l => l.status === "Site Visit Completed").length}</p>
+  </div>
+</div>
               {/* 5-PANEL ANALYTICS GRID */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 
@@ -1074,10 +1086,17 @@ export default function App() {
                         processedLeads.map(l => (
                           <tr key={l.id} className="hover:bg-slate-900/30 transition-all">
                             <td className="p-4">
-                              <p className="font-bold text-white text-sm cursor-pointer hover:text-orange-400 transition-colors" onClick={() => setSelectedLead(l)}>{l.name}</p>
-                              <p className="text-[11px] text-slate-500 font-mono mt-0.5">{l.phone} • {l.location}</p>
-                            </td>
-                            <td className="p-4">
+  <p className="font-bold text-white text-sm cursor-pointer hover:text-orange-400 transition-colors" onClick={() => setSelectedLead(l)}>{l.name}</p>
+  <div className="flex items-center gap-2 mt-0.5">
+    <p className="text-[11px] text-slate-500 font-mono">{l.phone}</p>
+    <button onClick={() => copyToClipboard(l.phone)} className="text-slate-600 hover:text-orange-500">
+      <Search className="h-3 w-3" />
+    </button>
+  </div>
+  {(new Date(TODAY_STR) - new Date(l.lastFollowUp || l.dateCreated)) / (1000 * 3600 * 24) > 7 && (
+    <span className="text-[9px] bg-rose-500/10 text-rose-500 font-black px-1.5 py-0.5 rounded uppercase tracking-wider mt-1 block w-fit">Stale Lead</span>
+  )}
+</td>                            <td className="p-4">
                               <p className="font-semibold text-slate-200">{l.project}</p>
                               <p className="text-[11px] text-slate-500 mt-0.5 font-mono">Captured: {l.dateCreated}</p>
                             </td>

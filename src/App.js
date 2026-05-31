@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { 
   Users, ShieldAlert, BarChart3, Building2, Briefcase, 
   Layers, PhoneCall, Calendar, Search, Plus, TrendingUp, 
   DollarSign, MapPin, Shield, Clock, LogOut, Lock, 
   Mail, CheckCircle2, UserPlus, Trash2, Edit2, X, Bell, 
   AlertTriangle, Download, Upload, Info, FileSpreadsheet, Check,
-  Menu, ArrowRight, Home, FileText
+  Menu, ArrowRight, Home, FileText, ArrowLeft
 } from "lucide-react";
 import { 
   BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, 
@@ -102,7 +102,10 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
-  const [activeTab, setActiveTab] = useState("dashboard"); 
+  const [activeTab, setActiveTab] = useState("dashboard");
+  // ── NAV HISTORY STACK: tracks tab history for in-app back navigation ──
+  const [navHistory, setNavHistory] = useState([]);
+
   const [globalSearch, setGlobalSearch] = useState("");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -150,6 +153,50 @@ export default function App() {
 
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [editUserForm, setEditUserForm] = useState(null);
+
+  // ─── IN-APP NAVIGATION WITH HISTORY STACK ─────────────────────────────────
+  // navigateTo pushes current tab onto history stack before switching
+  const navigateTo = useCallback((tab) => {
+    setNavHistory(prev => [...prev, activeTab]);
+    setActiveTab(tab);
+    setIsMobileMenuOpen(false);
+  }, [activeTab]);
+
+  // navigateBack pops last tab from history stack
+  const navigateBack = useCallback(() => {
+    setNavHistory(prev => {
+      if (prev.length === 0) return prev;
+      const newHistory = [...prev];
+      const lastTab = newHistory.pop();
+      setActiveTab(lastTab);
+      return newHistory;
+    });
+  }, []);
+
+  // Intercept browser back button — go back within the app, not out of it
+  useEffect(() => {
+    // Push a dummy state so the browser back button fires popstate instead of leaving
+    window.history.pushState({ inApp: true }, "");
+
+    const handlePopState = (e) => {
+      // Always push another state to keep the browser trapped in the app
+      window.history.pushState({ inApp: true }, "");
+
+      if (navHistory.length > 0) {
+        // Navigate back within the app
+        setNavHistory(prev => {
+          const newHistory = [...prev];
+          const lastTab = newHistory.pop();
+          setActiveTab(lastTab);
+          return newHistory;
+        });
+      }
+      // If navHistory is empty, we're already at the root — do nothing (don't log out)
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [navHistory]);
 
   // ─── UTILITY ──────────────────────────────────────────────────────────────
   const stripAndNormalizeContactDigits = (val) => {
@@ -416,7 +463,13 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    setCurrentUser(null); setLoginEmail(""); setLoginPassword(""); setGlobalSearch(""); setActiveTab("dashboard"); setIsMobileMenuOpen(false);
+    setCurrentUser(null);
+    setLoginEmail("");
+    setLoginPassword("");
+    setGlobalSearch("");
+    setActiveTab("dashboard");
+    setNavHistory([]); // Clear navigation history on logout
+    setIsMobileMenuOpen(false);
   };
 
   const requestStatusTransitionPopup = (leadId, nextStatus) => {
@@ -585,12 +638,12 @@ export default function App() {
             { id: "projects", icon: <Building2 className="h-4 w-4" />, label: "PROJECT MASTER" },
             { id: "reports", icon: <BarChart3 className="h-4 w-4" />, label: "MATRIX REPORTS" },
           ].map(item => (
-            <button key={item.id} onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === item.id ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
+            <button key={item.id} onClick={() => navigateTo(item.id)} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === item.id ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
               {item.icon} {item.label}
             </button>
           ))}
           {currentUser.role === "Admin" && (
-            <button onClick={() => { setActiveTab("users"); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "users" ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
+            <button onClick={() => navigateTo("users")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === "users" ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
               <Users className="h-4 w-4" /> SYSTEM CONTROL HUB
             </button>
           )}
@@ -671,9 +724,21 @@ export default function App() {
         {/* Header */}
         <header className="h-16 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-4 lg:px-8 z-10 gap-4 flex-shrink-0">
           <div className="flex items-center gap-3">
+            {/* Mobile menu toggle */}
             <button onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden p-2 bg-slate-900 hover:bg-slate-800 rounded-xl border border-slate-800 text-slate-200 transition-colors">
               <Menu className="h-5 w-5" />
             </button>
+            {/* In-app back button — only shown when there is history to go back to */}
+            {navHistory.length > 0 && (
+              <button
+                onClick={navigateBack}
+                className="flex items-center gap-1.5 p-2 bg-slate-900 hover:bg-slate-800 rounded-xl border border-slate-800 text-slate-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-wide"
+                title="Go back"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">Back</span>
+              </button>
+            )}
             <div className="relative w-48 sm:w-80 hidden sm:block">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
               <input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Live context query filtering search..." className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500" />

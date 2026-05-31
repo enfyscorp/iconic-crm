@@ -1367,51 +1367,100 @@ export default function App() {
             </div>
           )}
 
+          <main className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-8 w-full">
+          
+          {/* VIEWPORT 1: DASHBOARD */}
+          {activeTab === "dashboard" && (
+            <div className="space-y-8 animate-fadeIn">
+              {/* [Keep your existing Dashboard content here] */}
+            </div>
+          )}
+
+          {/* VIEWPORT 2: LEAD TRACKING ROWS */}
+          {activeTab === "leads" && (
+            <div className="space-y-6 animate-fadeIn">
+              {/* [Keep your existing Leads content here] */}
+            </div>
+          )}
+
+          {/* VIEWPORT 3: PROJECTS MASTER */}
+          {activeTab === "projects" && (
+            <div className="space-y-6 animate-fadeIn">
+              {/* [Keep your existing Projects content here] */}
+            </div>
+          )}
+
+          {/* VIEWPORT 4: ADMIN HUB */}
+          {activeTab === "users" && currentUser.role === "Admin" && (
+            <div className="space-y-8 animate-fadeIn">
+              {/* [Keep your existing Admin content here] */}
+            </div>
+          )}
+
           {/* VIEWPORT 5: REPORTS CONSOLE */}
           {activeTab === "reports" && (
-    <div className="space-y-8 animate-fadeIn w-full pb-20">
-      {/* HEADER & EXPORT CONTROLS */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start md:items-center gap-4 w-full">
-        <div>
-          <h1 className="text-2xl font-black text-white tracking-tight">Performance Matrix Engine</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Audit overall corporate lead acquisition metrics and regional conversion curves.</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap text-xs font-bold tracking-wide">
-          <button onClick={() => executeDataExportSequence("excel")} className="flex items-center gap-1.5 bg-emerald-600/10 hover:bg-emerald-600 border border-emerald-500/20 text-emerald-400 hover:text-white px-3 py-2 rounded-xl transition-all">
-            <FileSpreadsheet className="h-3.5 w-3.5" /> EXCEL (.XLSX)
-          </button>
-          <button onClick={() => executeDataExportSequence("csv")} className="flex items-center gap-1.5 bg-blue-600/10 hover:bg-blue-600 border border-blue-500/20 text-blue-400 hover:text-white px-3 py-2 rounded-xl transition-all">
-            <Upload className="h-3.5 w-3.5 transform rotate-180" /> CSV
-          </button>
-          <button onClick={() => executeDataExportSequence("pdf")} className="flex items-center gap-1.5 bg-rose-600/10 hover:bg-rose-600 border border-rose-500/20 text-rose-400 hover:text-white px-3 py-2 rounded-xl transition-all">
-            <FileText className="h-3.5 w-3.5" /> PRINT-TEXT REPORT
-          </button>
-        </div>
-      </div>
+            <div className="space-y-8 animate-fadeIn w-full pb-20">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start md:items-center gap-4 w-full">
+                <div>
+                  <h1 className="text-2xl font-black text-white tracking-tight">Performance Matrix Engine</h1>
+                  <p className="text-xs text-slate-400 mt-0.5">Audit overall corporate lead acquisition metrics and regional conversion curves.</p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap text-xs font-bold tracking-wide">
+                  <button onClick={() => executeDataExportSequence("excel")} className="flex items-center gap-1.5 bg-emerald-600/10 hover:bg-emerald-600 border border-emerald-500/20 text-emerald-400 hover:text-white px-3 py-2 rounded-xl transition-all">
+                    <FileSpreadsheet className="h-3.5 w-3.5" /> EXCEL (.XLSX)
+                  </button>
+                  <button onClick={() => executeDataExportSequence("csv")} className="flex items-center gap-1.5 bg-blue-600/10 hover:bg-blue-600 border border-blue-500/20 text-blue-400 hover:text-white px-3 py-2 rounded-xl transition-all">
+                    <Upload className="h-3.5 w-3.5 transform rotate-180" /> CSV
+                  </button>
+                  <button onClick={() => executeDataExportSequence("pdf")} className="flex items-center gap-1.5 bg-rose-600/10 hover:bg-rose-600 border border-rose-500/20 text-rose-400 hover:text-white px-3 py-2 rounded-xl transition-all">
+                    <FileText className="h-3.5 w-3.5" /> PRINT-TEXT REPORT
+                  </button>
+                </div>
+              </div>
 
-      {/* SOURCEWISE PERFORMANCE MATRIX */}
-      <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
-        <h3 className="text-sm font-black text-orange-400 mb-4 uppercase tracking-widest">Lead Source Performance Matrix</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-slate-800 text-slate-500 uppercase">
-                <th className="p-3">Source Channel</th>
-                <th className="p-3 text-center">Total Volume</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-900 text-slate-300">
-              {sourcewiseAnalysis.map(([source, stats]) => (
-                <tr key={source} className="hover:bg-slate-900/50">
-                  <td className="p-3 font-bold text-white">{source}</td>
-                  <td className="p-3 text-center font-mono font-bold text-lg">{stats.total}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+              {/* SOURCEWISE PERFORMANCE MATRIX */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <h3 className="text-sm font-black text-orange-400 mb-4 uppercase tracking-widest">Lead Source Performance Matrix</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-800 text-slate-500 uppercase">
+                        <th className="p-3">Source Channel</th>
+                        <th className="p-3 text-center">Total Volume</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-900 text-slate-300">
+                      {sourcewiseAnalysis.map(([source, stats]) => (
+                        <tr key={source} className="hover:bg-slate-900/50">
+                          <td className="p-3 font-bold text-white">{source}</td>
+                          <td className="p-3 text-center font-mono font-bold text-lg">{stats.total}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
+              {/* PROJECT CONVERSION EFFICIENCY */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <h3 className="text-sm font-black text-emerald-400 mb-4 uppercase tracking-widest">Project Conversion Efficiency</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {projectwiseAnalysis.map(([project, stats]) => (
+                    <div key={project} className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">{project}</p>
+                      <div className="flex justify-between items-end">
+                         <span className="text-2xl font-black text-white">{stats.converted}/{stats.total}</span>
+                         <span className="text-[10px] font-mono text-emerald-500 font-bold">
+                           {stats.total > 0 ? Math.round((stats.converted / stats.total) * 100) : 0}% Conversion
+                         </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
       {/* PROJECT CONVERSION EFFICIENCY */}
       <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
         <h3 className="text-sm font-black text-emerald-400 mb-4 uppercase tracking-widest">Project Conversion Efficiency</h3>

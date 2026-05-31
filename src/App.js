@@ -1369,73 +1369,95 @@ export default function App() {
 
           {/* VIEWPORT 5: REPORTS CONSOLE */}
           {activeTab === "reports" && (
-  <div className="space-y-6 animate-fadeIn w-full">
-    {/* HEADER & EXPORT CONTROLS */}
-    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start md:items-center gap-4 w-full">
-      <div>
-        <h1 className="text-2xl font-black text-white tracking-tight">Performance Matrix Engine</h1>
-        <p className="text-xs text-slate-400 mt-0.5">Audit overall corporate lead acquisition metrics and regional conversion curves.</p>
+    <div className="space-y-8 animate-fadeIn w-full pb-20">
+      {/* HEADER & EXPORT CONTROLS */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start md:items-center gap-4 w-full">
+        <div>
+          <h1 className="text-2xl font-black text-white tracking-tight">Performance Matrix Engine</h1>
+          <p className="text-xs text-slate-400 mt-0.5">Audit overall corporate lead acquisition metrics and regional conversion curves.</p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap text-xs font-bold tracking-wide">
+          <button onClick={() => executeDataExportSequence("excel")} className="flex items-center gap-1.5 bg-emerald-600/10 hover:bg-emerald-600 border border-emerald-500/20 text-emerald-400 hover:text-white px-3 py-2 rounded-xl transition-all">
+            <FileSpreadsheet className="h-3.5 w-3.5" /> EXCEL (.XLSX)
+          </button>
+          <button onClick={() => executeDataExportSequence("csv")} className="flex items-center gap-1.5 bg-blue-600/10 hover:bg-blue-600 border border-blue-500/20 text-blue-400 hover:text-white px-3 py-2 rounded-xl transition-all">
+            <Upload className="h-3.5 w-3.5 transform rotate-180" /> CSV
+          </button>
+          <button onClick={() => executeDataExportSequence("pdf")} className="flex items-center gap-1.5 bg-rose-600/10 hover:bg-rose-600 border border-rose-500/20 text-rose-400 hover:text-white px-3 py-2 rounded-xl transition-all">
+            <FileText className="h-3.5 w-3.5" /> PRINT-TEXT REPORT
+          </button>
+        </div>
       </div>
-      <div className="flex items-center gap-2 flex-wrap text-xs font-bold tracking-wide">
-        <button onClick={() => executeDataExportSequence("excel")} className="flex items-center gap-1.5 bg-emerald-600/10 hover:bg-emerald-600 border border-emerald-500/20 text-emerald-400 hover:text-white px-3 py-2 rounded-xl transition-all">
-          <FileSpreadsheet className="h-3.5 w-3.5" /> EXCEL (.XLSX)
-        </button>
-        <button onClick={() => executeDataExportSequence("csv")} className="flex items-center gap-1.5 bg-blue-600/10 hover:bg-blue-600 border border-blue-500/20 text-blue-400 hover:text-white px-3 py-2 rounded-xl transition-all">
-          <Upload className="h-3.5 w-3.5 transform rotate-180" /> CSV
-        </button>
-        <button onClick={() => executeDataExportSequence("pdf")} className="flex items-center gap-1.5 bg-rose-600/10 hover:bg-rose-600 border border-rose-500/20 text-rose-400 hover:text-white px-3 py-2 rounded-xl transition-all">
-          <FileText className="h-3.5 w-3.5" /> PRINT-TEXT REPORT
-        </button>
-      </div>
-    </div>
 
-    {/* FILTERS & DATE RANGE */}
-    <div className="bg-slate-950 border border-slate-800 p-4 lg:p-5 rounded-xl space-y-4 text-xs w-full">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pb-4 border-b border-slate-800/60">
-        <div className="space-y-1">
-          <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-orange-500" /> Report Start Date</label>
-          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono cursor-pointer" />
-        </div>
-        <div className="space-y-1">
-          <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-orange-500" /> Report End Date</label>
-          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono cursor-pointer" />
+      {/* SOURCEWISE PERFORMANCE MATRIX */}
+      <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
+        <h3 className="text-sm font-black text-orange-400 mb-4 uppercase tracking-widest">Lead Source Performance Matrix</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-slate-800 text-slate-500 uppercase">
+                <th className="p-3">Source Channel</th>
+                <th className="p-3 text-center">Total Volume</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-900 text-slate-300">
+              {sourcewiseAnalysis.map(([source, stats]) => (
+                <tr key={source} className="hover:bg-slate-900/50">
+                  <td className="p-3 font-bold text-white">{source}</td>
+                  <td className="p-3 text-center font-mono font-bold text-lg">{stats.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <div className="space-y-1">
-          <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Source Channel Hub</label>
-          <select value={filterSource} onChange={(e) => setFilterSource(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
-            <option value="All">All Sources</option>
-            {sources.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+
+      {/* PROJECT CONVERSION EFFICIENCY */}
+      <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
+        <h3 className="text-sm font-black text-emerald-400 mb-4 uppercase tracking-widest">Project Conversion Efficiency</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {projectwiseAnalysis.map(([project, stats]) => (
+            <div key={project} className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+              <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">{project}</p>
+              <div className="flex justify-between items-end">
+                 <span className="text-2xl font-black text-white">{stats.converted}/{stats.total}</span>
+                 <span className="text-[10px] font-mono text-emerald-500 font-bold">
+                   {stats.total > 0 ? Math.round((stats.converted / stats.total) * 100) : 0}% Conversion
+                 </span>
+              </div>
+            </div>
+          ))}
         </div>
-        <div className="space-y-1">
-          <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Pipeline Phase Status</label>
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
-            <option value="All">All Statuses</option>
-            {statuses.map(st => <option key={st} value={st}>{st}</option>)}
-          </select>
-        </div>
-        <div className="space-y-1">
-          <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Target Asset Scheme</label>
-          <select value={filterProject} onChange={(e) => setFilterProject(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
-            <option value="All">All Projects</option>
-            {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-          </select>
-        </div>
-        {["Admin", "Manager"].includes(currentUser.role) && (
-          <div className="space-y-1">
-            <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Executive Allocation</label>
-            <select value={filterExecutive} onChange={(e) => setFilterExecutive(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
-              <option value="All">All Executives</option>
-              {visibleUsers.filter(u => ["Executive", "Telecaller"].includes(u.role)).map(u => (
-                <option key={u.id} value={u.name}>{u.name} ({u.role})</option>
+      </div>
+
+      {/* EXECUTIVE PIPELINE SUMMARY */}
+      <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl">
+        <h3 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-wider text-orange-400 mb-4">
+          <BarChart3 className="h-4 w-4" /> Executive Pipeline Summary Report
+        </h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="text-slate-500 font-bold border-b border-slate-900 uppercase">
+                <th className="pb-2 pl-2">Executive Name</th>
+                <th className="pb-2 text-center text-blue-400">Total</th>
+                <th className="pb-2 text-center text-emerald-400">Bookings</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-900 text-slate-300">
+              {executiveSummaryData.map((exec, idx) => (
+                <tr key={idx} className="hover:bg-slate-900/20">
+                  <td className="py-3 pl-2 font-bold text-white">{exec.name}</td>
+                  <td className="py-3 text-center font-mono font-bold text-blue-400">{exec.total}</td>
+                  <td className="py-3 text-center font-mono font-black text-emerald-400">{exec.bookings}</td>
+                </tr>
               ))}
-            </select>
-          </div>
-        )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
+  )}
 
     {/* NEW SOURCEWISE PERFORMANCE MATRIX */}
     <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">

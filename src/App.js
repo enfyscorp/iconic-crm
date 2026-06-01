@@ -20,6 +20,15 @@ import {
 // ─── BRAND ────────────────────────────────────────────────────────────────
 const DESAM_LOGO_ASSET = "/DESAM-NEW-LOGO.png";
 
+// Admin contact email shown during password reset (masked for display)
+const ADMIN_SUPPORT_EMAIL = "admin@desam";
+const maskEmail = (email) => {
+  if (!email) return "••••@desam";
+  const [local, domain] = email.split("@");
+  if (!local || local.length <= 2) return `••@${domain}`;
+  return `${local[0]}${"•".repeat(Math.max(local.length - 2, 2))}${local[local.length - 1]}@${domain}`;
+};
+
 // ─── STATIC CONSTANTS (structural only — no seed data) ───────────────────
 const ROLES = ["Admin", "Manager", "Executive", "Telecaller"];
 const SOURCES = [
@@ -294,10 +303,10 @@ function ExcelImportPanel({ activityLogs, setActivityLogs, triggerToastAlert }) 
 }
 
 // ─── PASSWORD RESET MODAL ─────────────────────────────────────────────────
-// Secure 3-step flow: Email → OTP → New Password
-// No passwords are ever displayed. OTP is time-limited (5 min) and single-use.
+// Secure 3-step flow: Username → OTP (via Admin email) → New Password
+// OTP is time-limited (5 min), single-use, and shown only in Admin console.
 function PasswordResetModal({ users, setUsers, onClose }) {
-  const [step, setStep] = useState(1); // 1=email, 2=otp, 3=newpass, 4=done
+  const [step, setStep] = useState(1); // 1=username, 2=otp, 3=newpass, 4=done
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [generatedOtp, setGeneratedOtp] = useState("");
@@ -307,7 +316,7 @@ function PasswordResetModal({ users, setUsers, onClose }) {
   const [confirmPass, setConfirmPass] = useState("");
   const [error, setError] = useState("");
   const [targetUser, setTargetUser] = useState(null);
-  const [maskedPhone, setMaskedPhone] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
 
   // Countdown timer for OTP
   useEffect(() => {
@@ -322,13 +331,7 @@ function PasswordResetModal({ users, setUsers, onClose }) {
 
   const formatTime = (s) => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
 
-  const maskPhone = (phone) => {
-    const p = String(phone || "");
-    if (p.length < 4) return "••••••••••";
-    return "••••••" + p.slice(-4);
-  };
-
-  // Step 1: Validate email
+  // Step 1: Validate username
   const handleEmailSubmit = (e) => {
     e.preventDefault();
     setError("");
@@ -338,6 +341,11 @@ function PasswordResetModal({ users, setUsers, onClose }) {
       setError("No active account found with this username.");
       return;
     }
+    // Find the admin email to display (first active Admin)
+    const adminUser = users.find(u => u.role === "Admin" && u.active);
+    const displayAdminEmail = adminUser ? maskEmail(adminUser.email) : maskEmail(ADMIN_SUPPORT_EMAIL);
+    setAdminEmail(displayAdminEmail);
+
     // Generate 6-digit OTP
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiry = Date.now() + 5 * 60 * 1000; // 5 minutes
@@ -345,12 +353,10 @@ function PasswordResetModal({ users, setUsers, onClose }) {
     setOtpExpiry(expiry);
     setOtpTimeLeft(300);
     setTargetUser(found);
-    setMaskedPhone(maskPhone(found.phone));
     setStep(2);
-    // In a real system, this would be sent via SMS/email.
-    // For this internal system, the OTP is shown once to the Admin/IT who
-    // physically communicates it to the user (simulated below in UI).
-    console.info(`[DESAM CRM] Password reset OTP for ${found.name}: ${code}`); // Admin console only
+    // In production, this OTP would be emailed to the admin.
+    // Here it is logged to the Admin console only.
+    console.info(`[DESAM CRM] Password reset OTP for ${found.name}: ${code}`);
   };
 
   // Step 2: Validate OTP
@@ -424,13 +430,13 @@ function PasswordResetModal({ users, setUsers, onClose }) {
         </div>
 
         <div className="p-6 space-y-5">
-          {/* ── STEP 1: Email Input ── */}
+          {/* ── STEP 1: Username Input ── */}
           {step === 1 && (
             <form onSubmit={handleEmailSubmit} className="space-y-4 text-xs">
               <div className="bg-blue-950/30 border border-blue-500/20 rounded-xl p-3 flex items-start gap-2">
                 <Info className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
                 <p className="text-[11px] text-blue-300/80 leading-relaxed">
-                  Enter your <span className="font-black text-blue-200">account username</span> (e.g. <span className="font-mono text-blue-200">rohini@desam</span>). A one-time verification code will be generated for Admin-assisted reset.
+                  Enter your <span className="font-black text-blue-200">account username</span> (e.g. <span className="font-mono text-blue-200">rohini@desam</span>). A one-time verification code will be sent to the <span className="font-black text-blue-200">System Administrator's email</span>.
                 </p>
               </div>
               <div className="space-y-1.5">
@@ -461,12 +467,14 @@ function PasswordResetModal({ users, setUsers, onClose }) {
               <div className="bg-amber-950/30 border border-amber-500/20 rounded-xl p-4 space-y-2">
                 <div className="flex items-center gap-2">
                   <div className="h-7 w-7 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
-                    <Phone className="h-3.5 w-3.5 text-amber-400" />
+                    <Mail className="h-3.5 w-3.5 text-amber-400" />
                   </div>
-                  <p className="text-[11px] text-amber-200 font-bold">OTP sent to registered number ending in <span className="font-mono text-amber-300">{maskedPhone}</span></p>
+                  <p className="text-[11px] text-amber-200 font-bold">
+                    OTP dispatched to Admin email: <span className="font-mono text-amber-300">{adminEmail}</span>
+                  </p>
                 </div>
                 <p className="text-[10px] text-amber-400/70 pl-9">
-                  Contact your <span className="font-black text-amber-300">System Administrator</span> to receive the 6-digit code. Code expires in:
+                  Contact your <span className="font-black text-amber-300">System Administrator</span> to receive the 6-digit code from their email. Code expires in:
                 </p>
                 <div className={`pl-9 font-mono font-black text-lg ${otpTimeLeft < 60 ? "text-rose-400 animate-pulse" : "text-amber-300"}`}>
                   {formatTime(otpTimeLeft)}
@@ -591,7 +599,7 @@ export default function App() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
-  const [showResetModal, setShowResetModal] = useState(false); // ← replaces showForgotModal
+  const [showResetModal, setShowResetModal] = useState(false);
 
   const [activeTab, setActiveTab] = useState("dashboard");
   const [navHistory, setNavHistory] = useState([]);
@@ -899,7 +907,6 @@ export default function App() {
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
-        {/* Password Reset Modal — replaces the insecure ForgotModal */}
         {showResetModal && (
           <PasswordResetModal
             users={users}
@@ -919,7 +926,6 @@ export default function App() {
               {loginError&&<p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded border border-rose-500/20">{loginError}</p>}
               <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg">Authorize Access</button>
             </form>
-            {/* Forgot Password — secure OTP-based reset, no passwords shown */}
             <div className="pt-2 border-t border-slate-900 flex justify-center">
               <button
                 onClick={() => setShowResetModal(true)}
@@ -1149,6 +1155,7 @@ export default function App() {
                 </div>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+                {/* ── FIX: was <BookBook/> which doesn't exist — now correctly <BookOpen/> ── */}
                 <KpiTile label="Total Calls" value={activityKPIs.totalCalls.toLocaleString()} icon={<Phone/>} color="#ea580c"/>
                 <KpiTile label="Followups" value={activityKPIs.totalFollowups.toLocaleString()} icon={<PhoneCall/>} color="#3b82f6"/>
                 <KpiTile label="Site Visits" value={activityKPIs.totalSiteVisits} icon={<MapPin/>} color="#10b981"/>

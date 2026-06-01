@@ -20,7 +20,7 @@ import {
 // ─── BRAND ────────────────────────────────────────────────────────────────
 const DESAM_LOGO_ASSET = "/DESAM-NEW-LOGO.png";
 
-const ADMIN_SUPPORT_EMAIL = "admin@desam";
+const ADMIN_SUPPORT_EMAIL = "enfyscorp@gmail.com";
 const maskEmail = (email) => {
   if (!email) return "••••@desam";
   const [local, domain] = email.split("@");

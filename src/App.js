@@ -47,13 +47,12 @@ const CALL_STATUSES = ["Warm","Cold","Not Reachable","Callback Requested"];
 const PIE_COLORS = ['#ea580c','#3b82f6','#10b981','#8b5cf6','#ec4899','#f59e0b','#64748b','#14b8a6','#ef4444','#06b6d4','#a3e635','#fb923c'];
 
 // ─── ADMIN CREDENTIALS (hardcoded — never stored in DB) ───────────────────
-// Only these two admins are kept in code. All other users come from storage.
 const HARDCODED_ADMINS = [
   { id: 101, name: "Shaj", email: "admin@desam", pass: "saamrat@123", role: "Admin", branch: "All Branches", phone: "9840000001", active: true, avatar: "S" },
   { id: 110, name: "Digital Marketing", email: "dm@desam", pass: "m@rketing", role: "Admin", branch: "All Branches", phone: "9840000001", active: true, avatar: "D" },
 ];
 
-// ─── BOOTSTRAP NON-ADMIN USERS (loaded once into storage if empty) ────────
+// ─── BOOTSTRAP NON-ADMIN USERS ────────────────────────────────────────────
 const BOOTSTRAP_NON_ADMIN_USERS = [
   { id: 102, name: "Jibril", email: "jibril@desam", pass: "angel@26", role: "Manager", branch: "Madurai Desk", phone: "9840000002", active: true, avatar: "J" },
   { id: 103, name: "AryaLakshmi", email: "arya@lakshmi", pass: "manager123", role: "Manager", branch: "Madurai Desk", phone: "9840000003", active: true, avatar: "A" },
@@ -76,7 +75,7 @@ const BOOTSTRAP_PROJECTS = [
 
 // ─── STORAGE HELPERS ──────────────────────────────────────────────────────
 const SK = {
-  nonAdminUsers: "desam_crm_non_admin_users",  // Only non-admin users in storage
+  nonAdminUsers: "desam_crm_non_admin_users",
   projects: "desam_crm_projects",
   leads: "desam_crm_leads",
   activityLogs: "desam_crm_activity_logs",
@@ -180,18 +179,16 @@ const KpiTile = ({ label, value, icon, color, sub }) => (
 
 // ─── MOBILE CALL BUTTON + FEEDBACK POPUP ─────────────────────────────────
 function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY_STR }) {
-  const [callState, setCallState] = useState("idle"); // idle | calling | feedback
+  const [callState, setCallState] = useState("idle");
   const [callDuration, setCallDuration] = useState(0);
   const [feedback, setFeedback] = useState({ rating: 0, notes: "", outcome: "Contacted", followUpDate: "" });
   const timerRef = useRef(null);
 
   const startCall = () => {
     if (!phone) return;
-    // Initiate phone call
     window.location.href = `tel:${phone}`;
     setCallState("calling");
     setCallDuration(0);
-    // Start a timer to track how long since call was initiated
     timerRef.current = setInterval(() => setCallDuration(d => d + 1), 1000);
   };
 
@@ -202,13 +199,7 @@ function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY
 
   const saveFeedback = () => {
     if (onFeedbackSaved) {
-      onFeedbackSaved({
-        ...feedback,
-        callDuration,
-        calledAt: new Date().toISOString(),
-        phone,
-        leadName,
-      });
+      onFeedbackSaved({ ...feedback, callDuration, calledAt: new Date().toISOString(), phone, leadName });
     }
     setCallState("idle");
     setFeedback({ rating: 0, notes: "", outcome: "Contacted", followUpDate: "" });
@@ -226,7 +217,6 @@ function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY
 
   return (
     <>
-      {/* Call Button */}
       <button
         onClick={callState === "idle" ? startCall : endCall}
         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all shadow-md ${
@@ -243,11 +233,9 @@ function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY
         )}
       </button>
 
-      {/* Post-Call Feedback Popup */}
       {callState === "feedback" && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[300] flex items-end sm:items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
-            {/* Header */}
             <div className="bg-gradient-to-r from-emerald-900/40 to-slate-900 border-b border-slate-800 p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
@@ -265,77 +253,34 @@ function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY
                 <X className="h-4 w-4" />
               </button>
             </div>
-
             <div className="p-5 space-y-4">
-              {/* Star Rating */}
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Call Quality</label>
                 <div className="flex gap-2">
                   {[1, 2, 3, 4, 5].map(star => (
-                    <button
-                      key={star}
-                      onClick={() => setFeedback(f => ({ ...f, rating: star }))}
-                      className="transition-transform hover:scale-110"
-                    >
-                      <Star
-                        className={`h-7 w-7 transition-colors ${
-                          feedback.rating >= star ? "text-amber-400 fill-amber-400" : "text-slate-700"
-                        }`}
-                      />
+                    <button key={star} onClick={() => setFeedback(f => ({ ...f, rating: star }))} className="transition-transform hover:scale-110">
+                      <Star className={`h-7 w-7 transition-colors ${feedback.rating >= star ? "text-amber-400 fill-amber-400" : "text-slate-700"}`} />
                     </button>
                   ))}
                 </div>
               </div>
-
-              {/* Outcome */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Call Outcome</label>
-                <select
-                  value={feedback.outcome}
-                  onChange={e => setFeedback(f => ({ ...f, outcome: e.target.value }))}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
-                >
+                <select value={feedback.outcome} onChange={e => setFeedback(f => ({ ...f, outcome: e.target.value }))} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
                   {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
-
-              {/* Follow-up date */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Next Follow-up Date</label>
-                <input
-                  type="date"
-                  value={feedback.followUpDate}
-                  min={TODAY_STR}
-                  onChange={e => setFeedback(f => ({ ...f, followUpDate: e.target.value }))}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
-                />
+                <input type="date" value={feedback.followUpDate} min={TODAY_STR} onChange={e => setFeedback(f => ({ ...f, followUpDate: e.target.value }))} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono" />
               </div>
-
-              {/* Notes */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Notes</label>
-                <textarea
-                  rows={2}
-                  value={feedback.notes}
-                  onChange={e => setFeedback(f => ({ ...f, notes: e.target.value }))}
-                  placeholder="What was discussed? Any next steps?"
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 resize-none"
-                />
+                <textarea rows={2} value={feedback.notes} onChange={e => setFeedback(f => ({ ...f, notes: e.target.value }))} placeholder="What was discussed? Any next steps?" className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 resize-none" />
               </div>
-
               <div className="grid grid-cols-2 gap-2 pt-1">
-                <button
-                  onClick={dismiss}
-                  className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors"
-                >
-                  Skip
-                </button>
-                <button
-                  onClick={saveFeedback}
-                  className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 text-white transition-all shadow-lg"
-                >
-                  Save Feedback
-                </button>
+                <button onClick={dismiss} className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors">Skip</button>
+                <button onClick={saveFeedback} className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 text-white transition-all shadow-lg">Save Feedback</button>
               </div>
             </div>
           </div>
@@ -491,8 +436,6 @@ function ExcelImportPanel({ activityLogs, setActivityLogs, triggerToastAlert }) 
 }
 
 // ─── ADMIN RESET REQUESTS PANEL ───────────────────────────────────────────
-// Shows pending reset requests. Admin can see user info + generated OTP to
-// hand over in-person or by phone. No email needed.
 function AdminResetRequestsPanel({ resetRequests, setResetRequests, triggerToastAlert }) {
   const [copiedId, setCopiedId] = useState(null);
   const now = Date.now();
@@ -521,13 +464,9 @@ function AdminResetRequestsPanel({ resetRequests, setResetRequests, triggerToast
   if (resetRequests.length === 0) {
     return (
       <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-2xl">
-        <h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider mb-4">
-          <KeyRound className="h-4 w-4" /> Password Reset Requests
-        </h3>
+        <h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider mb-4"><KeyRound className="h-4 w-4" /> Password Reset Requests</h3>
         <div className="flex flex-col items-center gap-2 py-6 text-center">
-          <div className="h-12 w-12 bg-slate-900 border border-slate-800 rounded-full flex items-center justify-center">
-            <ShieldCheck className="h-5 w-5 text-slate-600" />
-          </div>
+          <div className="h-12 w-12 bg-slate-900 border border-slate-800 rounded-full flex items-center justify-center"><ShieldCheck className="h-5 w-5 text-slate-600" /></div>
           <p className="text-xs text-slate-500 font-medium">No pending reset requests.</p>
         </div>
       </div>
@@ -539,11 +478,7 @@ function AdminResetRequestsPanel({ resetRequests, setResetRequests, triggerToast
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider">
           <KeyRound className="h-4 w-4" /> Password Reset Requests
-          {active.length > 0 && (
-            <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-pulse">
-              {active.length} PENDING
-            </span>
-          )}
+          {active.length > 0 && <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-pulse">{active.length} PENDING</span>}
         </h3>
         {expired.length > 0 && (
           <button onClick={handleClearExpired} className="text-[10px] text-slate-500 hover:text-white flex items-center gap-1 border border-slate-800 px-2.5 py-1.5 rounded-lg bg-slate-900 transition-colors">
@@ -551,27 +486,19 @@ function AdminResetRequestsPanel({ resetRequests, setResetRequests, triggerToast
           </button>
         )}
       </div>
-
-      {/* Instructions banner */}
       {active.length > 0 && (
         <div className="bg-amber-950/30 border border-amber-500/20 rounded-xl p-3 flex items-start gap-2">
           <Info className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
-          <p className="text-[11px] text-amber-300/80 leading-relaxed">
-            Share the OTP below with the user <span className="font-black text-amber-200">directly (in-person or by phone)</span>. They will enter it in the password reset screen. No email required.
-          </p>
+          <p className="text-[11px] text-amber-300/80 leading-relaxed">Share the OTP below with the user <span className="font-black text-amber-200">directly (in-person or by phone)</span>. They will enter it in the password reset screen. No email required.</p>
         </div>
       )}
-
-      {/* Active Requests */}
       {active.length > 0 && (
         <div className="space-y-4">
           {active.map(req => (
             <div key={req.id} className="bg-slate-900/60 border border-orange-500/20 rounded-xl p-4 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center font-black text-orange-400 text-sm flex-shrink-0">
-                    {req.userName.charAt(0).toUpperCase()}
-                  </div>
+                  <div className="h-9 w-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center font-black text-orange-400 text-sm flex-shrink-0">{req.userName.charAt(0).toUpperCase()}</div>
                   <div>
                     <p className="text-xs font-black text-white">{req.userName}</p>
                     <p className="text-[10px] text-slate-500 font-mono">{req.userEmail}</p>
@@ -583,50 +510,28 @@ function AdminResetRequestsPanel({ resetRequests, setResetRequests, triggerToast
                   <p className="text-sm font-black text-amber-400 font-mono">{formatTimeLeft(req.expiresAt)}</p>
                 </div>
               </div>
-
-              {/* OTP Display — large and prominent */}
               <div className="bg-slate-950 border-2 border-orange-500/30 rounded-xl p-4 flex items-center justify-between">
                 <div>
                   <p className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">One-Time Password — Share with user</p>
                   <p className="text-3xl font-black text-white tracking-[0.4em] font-mono mt-1">{req.otp}</p>
                 </div>
-                <button
-                  onClick={() => copyOtp(req)}
-                  className={`p-2.5 rounded-xl border transition-all ${
-                    copiedId === req.id
-                      ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
-                      : "bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-400 hover:text-white"
-                  }`}
-                  title="Copy OTP"
-                >
+                <button onClick={() => copyOtp(req)} className={`p-2.5 rounded-xl border transition-all ${copiedId === req.id ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400" : "bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-400 hover:text-white"}`} title="Copy OTP">
                   {copiedId === req.id ? <Check className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
                 </button>
               </div>
-
-              <p className="text-[9px] text-slate-600 font-mono">
-                Requested: {new Date(req.requestedAt).toLocaleString()}
-              </p>
+              <p className="text-[9px] text-slate-600 font-mono">Requested: {new Date(req.requestedAt).toLocaleString()}</p>
             </div>
           ))}
         </div>
       )}
-
-      {/* Expired / Consumed */}
       {expired.length > 0 && (
         <div className="space-y-2">
           <p className="text-[10px] font-black text-slate-600 uppercase tracking-wider">Expired / Used</p>
           {expired.map(req => (
             <div key={req.id} className="bg-slate-900/30 border border-slate-800/60 rounded-xl p-3 flex items-center gap-3 opacity-50">
-              <div className="h-7 w-7 rounded-lg bg-slate-800 flex items-center justify-center font-bold text-slate-500 text-xs flex-shrink-0">
-                {req.userName.charAt(0).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-bold text-slate-400">{req.userName}</p>
-                <p className="text-[10px] text-slate-600 font-mono">{req.userEmail}</p>
-              </div>
-              <span className="text-[9px] bg-slate-800 text-slate-500 px-2 py-0.5 rounded font-black uppercase">
-                {req.consumed ? "Used" : "Expired"}
-              </span>
+              <div className="h-7 w-7 rounded-lg bg-slate-800 flex items-center justify-center font-bold text-slate-500 text-xs flex-shrink-0">{req.userName.charAt(0).toUpperCase()}</div>
+              <div className="flex-1 min-w-0"><p className="text-[11px] font-bold text-slate-400">{req.userName}</p><p className="text-[10px] text-slate-600 font-mono">{req.userEmail}</p></div>
+              <span className="text-[9px] bg-slate-800 text-slate-500 px-2 py-0.5 rounded font-black uppercase">{req.consumed ? "Used" : "Expired"}</span>
             </div>
           ))}
         </div>
@@ -636,43 +541,23 @@ function AdminResetRequestsPanel({ resetRequests, setResetRequests, triggerToast
 }
 
 // ─── ADMIN LOGIN RESET POPUP ─────────────────────────────────────────────
-// Shown when admin logs in and there are pending reset requests
 function AdminLoginResetPopup({ count, onGoToHub, onDismiss }) {
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[500] flex items-center justify-center p-4">
       <div className="bg-slate-950 border border-orange-500/30 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden">
         <div className="bg-gradient-to-r from-orange-900/30 to-slate-900 border-b border-slate-800 p-5 flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center animate-pulse">
-            <KeyRound className="h-5 w-5 text-rose-400" />
-          </div>
-          <div>
-            <h3 className="text-sm font-black text-white uppercase tracking-wide">Reset Requests Pending</h3>
-            <p className="text-[10px] text-slate-400 mt-0.5">Requires your attention</p>
-          </div>
+          <div className="h-10 w-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center animate-pulse"><KeyRound className="h-5 w-5 text-rose-400" /></div>
+          <div><h3 className="text-sm font-black text-white uppercase tracking-wide">Reset Requests Pending</h3><p className="text-[10px] text-slate-400 mt-0.5">Requires your attention</p></div>
         </div>
         <div className="p-5 space-y-4">
           <div className="bg-rose-950/30 border border-rose-500/20 rounded-xl p-4 text-center space-y-2">
             <p className="text-4xl font-black text-rose-400">{count}</p>
-            <p className="text-xs font-bold text-slate-300">
-              {count === 1 ? "user has" : "users have"} requested a password reset.
-            </p>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              Go to System Control Hub to view the OTPs and share them with the users directly.
-            </p>
+            <p className="text-xs font-bold text-slate-300">{count === 1 ? "user has" : "users have"} requested a password reset.</p>
+            <p className="text-[11px] text-slate-500 leading-relaxed">Go to System Control Hub to view the OTPs and share them with the users directly.</p>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={onDismiss}
-              className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors"
-            >
-              Later
-            </button>
-            <button
-              onClick={onGoToHub}
-              className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white transition-all shadow-lg flex items-center justify-center gap-1.5"
-            >
-              <ArrowRight className="h-3.5 w-3.5" /> Go to Hub
-            </button>
+            <button onClick={onDismiss} className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors">Later</button>
+            <button onClick={onGoToHub} className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white transition-all shadow-lg flex items-center justify-center gap-1.5"><ArrowRight className="h-3.5 w-3.5" /> Go to Hub</button>
           </div>
         </div>
       </div>
@@ -681,10 +566,8 @@ function AdminLoginResetPopup({ count, onGoToHub, onDismiss }) {
 }
 
 // ─── PASSWORD RESET MODAL ─────────────────────────────────────────────────
-// Simplified: Step 1 = username, Step 2 = OTP (get from admin directly), Step 3 = new pass, Step 4 = done
-// No email/phone OTP dispatch — request goes straight to admin panel.
 function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, onClose }) {
-  const [step, setStep] = useState(1); // 1=username, 2=wait+enter OTP, 3=newpass, 4=done
+  const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
   const [currentReqId, setCurrentReqId] = useState(null);
   const [otp, setOtp] = useState("");
@@ -695,7 +578,6 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
   const [error, setError] = useState("");
   const [targetUser, setTargetUser] = useState(null);
 
-  // Live countdown
   useEffect(() => {
     if (step !== 2 || !otpExpiry) return;
     const interval = setInterval(() => {
@@ -708,42 +590,22 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
 
   const formatTime = (s) => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
 
-  // Step 1: verify username — pushes request to admin panel immediately
   const handleEmailSubmit = (e) => {
-    e.preventDefault();
-    setError("");
+    e.preventDefault(); setError("");
     const trimmed = email.trim().toLowerCase();
     const found = users.find(u => u.email.toLowerCase() === trimmed && u.active);
     if (!found) { setError("No active account found with this username."); return; }
     setTargetUser(found);
-
-    // Generate OTP & push to admin panel right away
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiry = Date.now() + 5 * 60 * 1000;
     const reqId = Date.now();
-
-    const newReq = {
-      id: reqId,
-      userName: found.name,
-      userEmail: found.email,
-      userRole: found.role,
-      otp: code,
-      requestedAt: Date.now(),
-      expiresAt: expiry,
-      consumed: false,
-    };
-
+    const newReq = { id: reqId, userName: found.name, userEmail: found.email, userRole: found.role, otp: code, requestedAt: Date.now(), expiresAt: expiry, consumed: false };
     setResetRequests(prev => [newReq, ...prev]);
-    setCurrentReqId(reqId);
-    setOtpExpiry(expiry);
-    setOtpTimeLeft(300);
-    setStep(2);
+    setCurrentReqId(reqId); setOtpExpiry(expiry); setOtpTimeLeft(300); setStep(2);
   };
 
-  // Step 2: verify OTP the user received from admin
   const handleOtpSubmit = (e) => {
-    e.preventDefault();
-    setError("");
+    e.preventDefault(); setError("");
     if (otpTimeLeft === 0) { setError("OTP has expired. Please start over."); return; }
     const req = resetRequests.find(r => r.id === currentReqId);
     if (!req || req.otp !== otp.trim()) { setError("Incorrect OTP. Please check with your admin and try again."); return; }
@@ -755,28 +617,13 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiry = Date.now() + 5 * 60 * 1000;
     const reqId = Date.now();
-    const newReq = {
-      id: reqId,
-      userName: targetUser.name,
-      userEmail: targetUser.email,
-      userRole: targetUser.role,
-      otp: code,
-      requestedAt: Date.now(),
-      expiresAt: expiry,
-      consumed: false,
-    };
+    const newReq = { id: reqId, userName: targetUser.name, userEmail: targetUser.email, userRole: targetUser.role, otp: code, requestedAt: Date.now(), expiresAt: expiry, consumed: false };
     setResetRequests(prev => [newReq, ...prev]);
-    setCurrentReqId(reqId);
-    setOtpExpiry(expiry);
-    setOtpTimeLeft(300);
-    setOtp("");
-    setError("");
+    setCurrentReqId(reqId); setOtpExpiry(expiry); setOtpTimeLeft(300); setOtp(""); setError("");
   };
 
-  // Step 3: new password
   const handlePasswordSubmit = (e) => {
-    e.preventDefault();
-    setError("");
+    e.preventDefault(); setError("");
     if (newPass.length < 6) { setError("Password must be at least 6 characters."); return; }
     if (newPass !== confirmPass) { setError("Passwords do not match."); return; }
     setUsers(users.map(u => u.id === targetUser.id ? { ...u, pass: newPass } : u));
@@ -786,191 +633,71 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
       <div className="bg-slate-950 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
-        {/* Header */}
         <div className="bg-gradient-to-r from-slate-900 to-slate-950 border-b border-slate-800 p-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
-              <ShieldCheck className="h-5 w-5 text-orange-400" />
-            </div>
+            <div className="h-10 w-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center"><ShieldCheck className="h-5 w-5 text-orange-400" /></div>
             <div>
               <h3 className="text-sm font-black text-white uppercase tracking-wide">Password Reset</h3>
-              <p className="text-[10px] text-slate-500 mt-0.5">
-                {step === 1 && "Enter your account username"}
-                {step === 2 && "Contact admin for your OTP"}
-                {step === 3 && "Set a new password"}
-                {step === 4 && "Reset complete"}
-              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{step===1&&"Enter your account username"}{step===2&&"Contact admin for your OTP"}{step===3&&"Set a new password"}{step===4&&"Reset complete"}</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors p-1.5 hover:bg-slate-900 rounded-lg"><X className="h-5 w-5" /></button>
         </div>
-
-        {/* Step indicators */}
         <div className="flex items-center justify-between px-6 py-3 bg-slate-900/40 border-b border-slate-800/60">
           {[1,2,3,4].map((s) => (
             <div key={s} className="flex items-center gap-2">
-              <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-black transition-all ${
-                step > s ? "bg-emerald-500 text-white" :
-                step === s ? "bg-orange-500 text-white ring-4 ring-orange-500/20" :
-                "bg-slate-800 text-slate-500"
-              }`}>
+              <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-black transition-all ${step > s ? "bg-emerald-500 text-white" : step === s ? "bg-orange-500 text-white ring-4 ring-orange-500/20" : "bg-slate-800 text-slate-500"}`}>
                 {step > s ? <Check className="h-3 w-3" /> : s}
               </div>
               {s < 4 && <div className={`h-0.5 w-8 sm:w-14 rounded-full transition-all ${step > s ? "bg-emerald-500/60" : "bg-slate-800"}`} />}
             </div>
           ))}
         </div>
-
         <div className="p-6 space-y-5">
-
-          {/* ── STEP 1: Username ── */}
           {step === 1 && (
             <form onSubmit={handleEmailSubmit} className="space-y-4 text-xs">
-              <div className="bg-blue-950/30 border border-blue-500/20 rounded-xl p-3 flex items-start gap-2">
-                <Info className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
-                <p className="text-[11px] text-blue-300/80 leading-relaxed">
-                  Enter your <span className="font-black text-blue-200">account username</span>. A one-time code will be sent to your <span className="font-black text-blue-200">system admin</span> — contact them to receive it.
-                </p>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Account Username</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                  <input
-                    type="text" required value={email}
-                    onChange={e => { setEmail(e.target.value); setError(""); }}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono"
-                    placeholder="username@desam" autoComplete="off"
-                  />
-                </div>
-              </div>
-              {error && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 flex items-center gap-2"><AlertCircle className="h-4 w-4 shrink-0" />{error}</p>}
-              <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg text-xs">
-                Request Reset
-              </button>
+              <div className="bg-blue-950/30 border border-blue-500/20 rounded-xl p-3 flex items-start gap-2"><Info className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" /><p className="text-[11px] text-blue-300/80 leading-relaxed">Enter your <span className="font-black text-blue-200">account username</span>. A one-time code will be sent to your <span className="font-black text-blue-200">system admin</span> — contact them to receive it.</p></div>
+              <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Account Username</label><div className="relative"><Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" /><input type="text" required value={email} onChange={e=>{setEmail(e.target.value);setError("");}} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono" placeholder="username@desam" autoComplete="off"/></div></div>
+              {error && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 flex items-center gap-2"><AlertCircle className="h-4 w-4 shrink-0"/>{error}</p>}
+              <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg text-xs">Request Reset</button>
             </form>
           )}
-
-          {/* ── STEP 2: Wait for admin + enter OTP ── */}
           {step === 2 && (
             <form onSubmit={handleOtpSubmit} className="space-y-4 text-xs">
-              {/* User card */}
               <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center gap-3">
-                <div className="h-7 w-7 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center font-bold text-orange-400 text-xs flex-shrink-0">
-                  {targetUser?.name.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <p className="text-[11px] font-bold text-white">Reset requested for: <span className="text-orange-400">{targetUser?.name}</span></p>
-                  <p className="text-[10px] text-slate-500 font-mono">{targetUser?.email}</p>
-                </div>
+                <div className="h-7 w-7 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center font-bold text-orange-400 text-xs flex-shrink-0">{targetUser?.name.charAt(0).toUpperCase()}</div>
+                <div><p className="text-[11px] font-bold text-white">Reset requested for: <span className="text-orange-400">{targetUser?.name}</span></p><p className="text-[10px] text-slate-500 font-mono">{targetUser?.email}</p></div>
               </div>
-
-              {/* Admin notification banner */}
               <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-xl p-4 space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="h-7 w-7 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                  </div>
-                  <p className="text-[11px] text-emerald-200 font-bold">
-                    Request forwarded to Admin Panel
-                  </p>
-                </div>
-                <p className="text-[10px] text-emerald-400/70 pl-9 leading-relaxed">
-                  Your admin has been notified. <span className="font-black text-emerald-300">Contact your System Administrator</span> to get the 6-digit OTP code. Expires in:
-                </p>
-                <div className={`pl-9 font-mono font-black text-lg ${otpTimeLeft < 60 ? "text-rose-400 animate-pulse" : "text-emerald-300"}`}>
-                  {formatTime(otpTimeLeft)}
-                </div>
+                <div className="flex items-center gap-2"><div className="h-7 w-7 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0"><ShieldCheck className="h-3.5 w-3.5 text-emerald-400"/></div><p className="text-[11px] text-emerald-200 font-bold">Request forwarded to Admin Panel</p></div>
+                <p className="text-[10px] text-emerald-400/70 pl-9 leading-relaxed"><span className="font-black text-emerald-300">Contact your System Administrator</span> to get the 6-digit OTP code. Expires in:</p>
+                <div className={`pl-9 font-mono font-black text-lg ${otpTimeLeft < 60 ? "text-rose-400 animate-pulse" : "text-emerald-300"}`}>{formatTime(otpTimeLeft)}</div>
               </div>
-
-              <div className="space-y-1.5">
-                <label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">6-Digit OTP (from Admin)</label>
-                <input
-                  type="text" required maxLength={6}
-                  value={otp}
-                  onChange={e => { setOtp(e.target.value.replace(/\D/g,"")); setError(""); }}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-orange-500 font-mono font-black text-center text-2xl tracking-[0.5em]"
-                  placeholder="——————"
-                  autoComplete="one-time-code"
-                />
-              </div>
-
-              {error && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 flex items-center gap-2"><AlertCircle className="h-4 w-4 shrink-0" />{error}</p>}
-
-              <button type="submit" disabled={otp.length < 6 || otpTimeLeft === 0} className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg text-xs">
-                Verify OTP
-              </button>
-
+              <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">6-Digit OTP (from Admin)</label><input type="text" required maxLength={6} value={otp} onChange={e=>{setOtp(e.target.value.replace(/\D/g,""));setError("");}} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-orange-500 font-mono font-black text-center text-2xl tracking-[0.5em]" placeholder="——————" autoComplete="one-time-code"/></div>
+              {error && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 flex items-center gap-2"><AlertCircle className="h-4 w-4 shrink-0"/>{error}</p>}
+              <button type="submit" disabled={otp.length < 6 || otpTimeLeft === 0} className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg text-xs">Verify OTP</button>
               <div className="flex items-center justify-between pt-1">
-                <button type="button" onClick={() => { setStep(1); setError(""); setOtp(""); }} className="text-slate-500 hover:text-slate-300 text-[11px] font-bold flex items-center gap-1 transition-colors">
-                  <ArrowLeft className="h-3 w-3" /> Back
-                </button>
-                {otpTimeLeft === 0 ? (
-                  <button type="button" onClick={handleResendOtp} className="text-orange-400 hover:text-orange-300 text-[11px] font-black flex items-center gap-1 transition-colors">
-                    <RotateCcw className="h-3 w-3" /> Request New OTP
-                  </button>
-                ) : (
-                  <span className="text-slate-600 text-[10px] font-mono">Resend after expiry</span>
-                )}
+                <button type="button" onClick={() => { setStep(1); setError(""); setOtp(""); }} className="text-slate-500 hover:text-slate-300 text-[11px] font-bold flex items-center gap-1 transition-colors"><ArrowLeft className="h-3 w-3" /> Back</button>
+                {otpTimeLeft === 0 ? <button type="button" onClick={handleResendOtp} className="text-orange-400 hover:text-orange-300 text-[11px] font-black flex items-center gap-1 transition-colors"><RotateCcw className="h-3 w-3" /> Request New OTP</button> : <span className="text-slate-600 text-[10px] font-mono">Resend after expiry</span>}
               </div>
             </form>
           )}
-
-          {/* ── STEP 3: New Password ── */}
           {step === 3 && (
             <form onSubmit={handlePasswordSubmit} className="space-y-4 text-xs">
-              <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-xl p-3 flex items-start gap-2">
-                <ShieldCheck className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
-                <p className="text-[11px] text-emerald-300/80 leading-relaxed">
-                  Identity verified for <span className="font-black text-emerald-200">{targetUser?.name}</span>. Choose a strong new password — minimum 6 characters.
-                </p>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">New Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                  <input type="password" required minLength={6} value={newPass} onChange={e => { setNewPass(e.target.value); setError(""); }} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="Min. 6 characters" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Confirm New Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                  <input type="password" required value={confirmPass} onChange={e => { setConfirmPass(e.target.value); setError(""); }} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="Re-enter password" />
-                </div>
-                {newPass && confirmPass && (
-                  <p className={`text-[10px] font-bold flex items-center gap-1 ${newPass === confirmPass ? "text-emerald-400" : "text-rose-400"}`}>
-                    {newPass === confirmPass ? <><Check className="h-3 w-3" /> Passwords match</> : <><X className="h-3 w-3" /> Passwords do not match</>}
-                  </p>
-                )}
-              </div>
-              {error && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 flex items-center gap-2"><AlertCircle className="h-4 w-4 shrink-0" />{error}</p>}
-              <button type="submit" className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg text-xs">
-                Set New Password
-              </button>
+              <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-xl p-3 flex items-start gap-2"><ShieldCheck className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" /><p className="text-[11px] text-emerald-300/80 leading-relaxed">Identity verified for <span className="font-black text-emerald-200">{targetUser?.name}</span>. Choose a strong new password — minimum 6 characters.</p></div>
+              <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">New Password</label><div className="relative"><Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500"/><input type="password" required minLength={6} value={newPass} onChange={e=>{setNewPass(e.target.value);setError("");}} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="Min. 6 characters"/></div></div>
+              <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Confirm New Password</label><div className="relative"><Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500"/><input type="password" required value={confirmPass} onChange={e=>{setConfirmPass(e.target.value);setError("");}} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="Re-enter password"/></div>{newPass && confirmPass && <p className={`text-[10px] font-bold flex items-center gap-1 ${newPass===confirmPass?"text-emerald-400":"text-rose-400"}`}>{newPass===confirmPass?<><Check className="h-3 w-3"/> Passwords match</>:<><X className="h-3 w-3"/> Passwords do not match</>}</p>}</div>
+              {error && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 flex items-center gap-2"><AlertCircle className="h-4 w-4 shrink-0"/>{error}</p>}
+              <button type="submit" className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg text-xs">Set New Password</button>
             </form>
           )}
-
-          {/* ── STEP 4: Success ── */}
           {step === 4 && (
             <div className="text-center space-y-5 py-4">
-              <div className="flex justify-center">
-                <div className="h-20 w-20 rounded-full bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center">
-                  <CheckCircle2 className="h-10 w-10 text-emerald-400" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <h4 className="text-base font-black text-white">Password Updated!</h4>
-                <p className="text-xs text-slate-400">
-                  Password for <span className="font-bold text-slate-200">{targetUser?.name}</span> has been successfully reset. You can now log in with the new credentials.
-                </p>
-              </div>
-              <button onClick={onClose} className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg text-xs">
-                Back to Login
-              </button>
+              <div className="flex justify-center"><div className="h-20 w-20 rounded-full bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center"><CheckCircle2 className="h-10 w-10 text-emerald-400"/></div></div>
+              <div className="space-y-1.5"><h4 className="text-base font-black text-white">Password Updated!</h4><p className="text-xs text-slate-400">Password for <span className="font-bold text-slate-200">{targetUser?.name}</span> has been successfully reset.</p></div>
+              <button onClick={onClose} className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg text-xs">Back to Login</button>
             </div>
           )}
-
         </div>
       </div>
     </div>
@@ -990,7 +717,6 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [showResetModal, setShowResetModal] = useState(false);
-  // Admin login popup — shown once after admin logs in if there are pending reset requests
   const [showAdminLoginPopup, setShowAdminLoginPopup] = useState(false);
 
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -1013,18 +739,15 @@ export default function App() {
   const [actEndDate, setActEndDate] = useState("");
 
   const [leads, setLeadsState] = useState([]);
-  // nonAdminUsers: all non-admin users from storage
   const [nonAdminUsers, setNonAdminUsersState] = useState([]);
   const [projects, setProjectsState] = useState([]);
   const [activityLogs, setActivityLogsState] = useState([]);
   const [resetRequests, setResetRequestsState] = useState([]);
 
-  // ── Merged users view: hardcoded admins + DB non-admins ──────────────────
   const users = useMemo(() => [...HARDCODED_ADMINS, ...nonAdminUsers], [nonAdminUsers]);
 
   const setLeads = useCallback((val) => { const data = typeof val === "function" ? val(leads) : val; setLeadsState(data); storageSet(SK.leads, data); }, [leads]);
 
-  // setUsers: only persists the non-admin subset; admins stay in code
   const setUsers = useCallback((val) => {
     const allData = typeof val === "function" ? val(users) : val;
     const nonAdmins = allData.filter(u => u.role !== "Admin");
@@ -1042,31 +765,23 @@ export default function App() {
     });
   }, []);
 
-  // Bootstrap: load non-admin users from storage (or seed from bootstrap)
   useEffect(() => {
     (async () => {
       let nonAdmins = await storageGet(SK.nonAdminUsers);
-      // Migration: if old key "desam_crm_users" exists, migrate non-admins from it
       if (!nonAdmins) {
         const oldUsers = await storageGet("desam_crm_users");
-        if (oldUsers) {
-          nonAdmins = oldUsers.filter(u => u.role !== "Admin");
-        } else {
-          nonAdmins = BOOTSTRAP_NON_ADMIN_USERS;
-        }
+        if (oldUsers) { nonAdmins = oldUsers.filter(u => u.role !== "Admin"); }
+        else { nonAdmins = BOOTSTRAP_NON_ADMIN_USERS; }
         await storageSet(SK.nonAdminUsers, nonAdmins);
       }
-
       let p = await storageGet(SK.projects);
       let l = await storageGet(SK.leads);
       let a = await storageGet(SK.activityLogs);
       let r = await storageGet(SK.resetRequests);
-
       if (!p) { p = BOOTSTRAP_PROJECTS; await storageSet(SK.projects, p); }
       if (!l) { l = []; await storageSet(SK.leads, l); }
       if (!a) { a = []; await storageSet(SK.activityLogs, a); }
       if (!r) { r = []; await storageSet(SK.resetRequests, r); }
-
       setNonAdminUsersState(nonAdmins);
       setProjectsState(p);
       setLeadsState(l);
@@ -1230,7 +945,6 @@ export default function App() {
     triggerToastAlert(`Exported as .${ext.toUpperCase()}`);
   };
 
-  // ── LOGIN: admins checked against hardcoded list first, then storage users ──
   const handleLoginSubmit = (e) => {
     e.preventDefault();
     const allUsers = [...HARDCODED_ADMINS, ...nonAdminUsers];
@@ -1239,7 +953,6 @@ export default function App() {
       setCurrentUser(acc);
       setLoginError("");
       triggerToastAlert(`Welcome, ${acc.name}!`);
-      // Show popup to admin if there are pending reset requests
       if (acc.role === "Admin") {
         const pendingCount = resetRequests.filter(r => r.expiresAt > Date.now() && !r.consumed).length;
         if (pendingCount > 0) setShowAdminLoginPopup(true);
@@ -1257,19 +970,25 @@ export default function App() {
   const confirmCustomPopupAction=()=>{
     const{leadId,targetValue,type}=customPopup;
     if(type==="status"){const log={date:TODAY_STR,by:currentUser.name,action:`Status updated to: ${targetValue}`};const updated=leads.map(l=>l.id===leadId?{...l,status:targetValue,history:[log,...l.history]}:l);setLeads(updated);if(selectedLead&&selectedLead.id===leadId)setSelectedLead({...selectedLead,status:targetValue,history:[log,...selectedLead.history]});triggerToastAlert("Status updated.");}
-    else if(type==="assign"){const log={date:TODAY_STR,by:currentUser.name,action:`Assigned to: ${targetValue}`};const updated=leads.map(l=>l.id===leadId?{...l,assignedTo:targetValue,assignedByRole:currentUser.role,status:targetValue==="Unassigned"?"New":"Assigned",history:[log,...l.history]}:l);setLeads(updated);setSelectedLead(null);triggerToastAlert(`Assigned to ${targetValue}`);}
+    else if(type==="assign"){
+      // FIX: when assigning, update the lead's branch to match the assigned user's branch
+      // so the lead appears correctly in Manager and Executive filtered views
+      const assignedUser = users.find(u => u.name === targetValue);
+      const newBranch = assignedUser ? assignedUser.branch : leads.find(l=>l.id===leadId)?.branch;
+      const log={date:TODAY_STR,by:currentUser.name,action:`Assigned to: ${targetValue}`};
+      const updated=leads.map(l=>l.id===leadId?{...l,assignedTo:targetValue,assignedByRole:currentUser.role,branch:newBranch||l.branch,status:targetValue==="Unassigned"?"New":"Assigned",history:[log,...l.history]}:l);
+      setLeads(updated);setSelectedLead(null);triggerToastAlert(`Assigned to ${targetValue}`);
+    }
     setCustomPopup({isOpen:false,leadId:null,targetValue:"",type:"status",title:"",message:""});
   };
 
   const handleDataImportSubmit=(e)=>{ e.preventDefault(); if(!importText.trim())return; try{ const lines=importText.split("\n").map(l=>l.trim()).filter(Boolean); const newLeads=[]; lines.forEach(line=>{const cols=line.split("\t"); if(cols.length>=4){const matchedProj=projects.find(p=>p.name.toLowerCase()===(cols[3]||"").toLowerCase().trim()); const branchHome=matchedProj?matchedProj.branch:"Madurai Desk"; newLeads.push({id:Date.now()+Math.floor(Math.random()*10000),name:cols[0]||"Lead",phone:stripPhone(cols[1]||"00000"),email:cols[2]||"",project:cols[3]||"",location:cols[4]||"Inbound",budget:parseInt(cols[5])||25,source:cols[6]||"Website",assignedTo:"Unassigned",assignedByRole:"",status:"New",branch:branchHome,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,history:[{date:TODAY_STR,by:currentUser.name,action:"Imported via paste."}],siteVisitTentativeDate:"",bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false});}});if(newLeads.length>0){setLeads([...newLeads,...leads]);triggerToastAlert(`Imported ${newLeads.length} leads.`);setImportText("");}
   }catch(err){alert(err.message);} };
 
-  // Create user: only allow non-admin; admins are hardcoded
   const handleCreateUserSubmit=(e)=>{ e.preventDefault(); const prefix=newUserForm.emailPrefix.trim().toLowerCase(); const role = newUserForm.role; if (role === "Admin") { triggerToastAlert("Admin accounts cannot be created here."); return; } const u={id:Date.now(),name:newUserForm.name.trim(),email:`${prefix}@desam`,pass:newUserForm.pass,role,branch:newUserForm.branch,phone:stripPhone(newUserForm.phone)||"9840000000",active:true,avatar:newUserForm.name.charAt(0).toUpperCase()}; setNonAdminUsersState(prev => { const updated = [...prev, u]; storageSet(SK.nonAdminUsers, updated); return updated; }); setNewUserForm({name:"",emailPrefix:"",pass:"",role:"Executive",branch:"Madurai Desk",phone:""}); triggerToastAlert(`Profile for ${u.name} created.`); };
 
   const handleDeleteUser=(userId)=>{
     if(userId===currentUser.id){triggerToastAlert("Cannot delete your own account.");return;}
-    // Check if it's a hardcoded admin
     if(HARDCODED_ADMINS.some(a=>a.id===userId)){triggerToastAlert("Admin accounts cannot be deleted here.");return;}
     setNonAdminUsersState(prev => { const updated = prev.filter(u => u.id !== userId); storageSet(SK.nonAdminUsers, updated); return updated; });
     triggerToastAlert("Profile removed.");
@@ -1286,39 +1005,31 @@ export default function App() {
 
   const commitManualFollowUpReport=(e)=>{ e.preventDefault(); if(!followUpNotes.trim()||!nextFollowUpDate)return; const updated=leads.map(l=>{ if(l.id===selectedLead.id){const obj={...l,status:"Contacted",lastFollowUp:TODAY_STR,nextFollowUp:nextFollowUpDate,history:[{date:TODAY_STR,by:currentUser.name,action:`[Follow-Up]: ${followUpNotes.trim()} (Next: ${nextFollowUpDate})`},...l.history]};setSelectedLead(obj);return obj;}return l;}); setLeads(updated); setFollowUpNotes("");setNextFollowUpDate(""); triggerToastAlert("Follow-up logged."); };
 
-  const handleCreateLead=(e)=>{ e.preventDefault(); const phone=stripPhone(newLeadForm.phone); const dup=leads.find(l=>stripPhone(l.phone)===phone); if(dup){setDuplicateConflictRecord(dup);return;} const projBranch=projects.find(p=>p.name===newLeadForm.project)?.branch||currentUser.branch||"Madurai Desk"; const created={...newLeadForm,id:Date.now(),phone,altPhone:stripPhone(newLeadForm.altPhone),branch:projBranch,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,assignedByRole:"",bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false,siteVisitTentativeDate:"",status:newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?"Assigned":"New",history:[{date:TODAY_STR,by:currentUser.name,action:"Lead captured."+(newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?` Assigned to ${newLeadForm.assignedTo}.`:"")}]}; setLeads([created,...leads]); setIsLeadModalOpen(false); setNewLeadForm({name:"",phone:"",altPhone:"",email:"",location:"",project:projects[0]?.name||"",budget:25,source:"Website",assignedTo:"Unassigned",notes:""}); triggerToastAlert("Lead created."); };
+  // FIX: handleCreateLead — derive branch from assigned user first, then fallback to project branch
+  const handleCreateLead=(e)=>{ e.preventDefault(); const phone=stripPhone(newLeadForm.phone); const dup=leads.find(l=>stripPhone(l.phone)===phone); if(dup){setDuplicateConflictRecord(dup);return;}
+    const assignedUser = newLeadForm.assignedTo && newLeadForm.assignedTo !== "Unassigned"
+      ? users.find(u => u.name === newLeadForm.assignedTo) : null;
+    const projBranch = projects.find(p=>p.name===newLeadForm.project)?.branch || currentUser.branch || "Madurai Desk";
+    // Use assigned user's branch if available, so Manager can see it; otherwise use project branch
+    const leadBranch = assignedUser ? assignedUser.branch : projBranch;
+    const created={...newLeadForm,id:Date.now(),phone,altPhone:stripPhone(newLeadForm.altPhone),branch:leadBranch,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,assignedByRole:currentUser.role,bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false,siteVisitTentativeDate:"",status:newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?"Assigned":"New",history:[{date:TODAY_STR,by:currentUser.name,action:"Lead captured."+(newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?` Assigned to ${newLeadForm.assignedTo}.`:"")}]};
+    setLeads([created,...leads]); setIsLeadModalOpen(false); setNewLeadForm({name:"",phone:"",altPhone:"",email:"",location:"",project:projects[0]?.name||"",budget:25,source:"Website",assignedTo:"Unassigned",notes:""}); triggerToastAlert("Lead created."); };
+
   const handleCreateProject=(e)=>{ e.preventDefault(); const p={...newProjectForm,id:Date.now(),price:parseInt(newProjectForm.price)||0,units:parseInt(newProjectForm.units)||0,sold:parseInt(newProjectForm.sold)||0}; setProjects([p,...projects]); setIsProjectModalOpen(false); setNewProjectForm({name:"",location:"",branch:"Madurai Desk",type:"Plot",price:30,units:50,sold:0,status:"Pre-Launch"}); triggerToastAlert(`Project "${p.name}" added.`); };
   const handleCreateActivityLog=(e)=>{ e.preventDefault(); const log={...newActivityForm,id:Date.now(),executive:["Admin","Manager"].includes(currentUser.role)?newActivityForm.executive:currentUser.name,callsMade:parseInt(newActivityForm.callsMade)||0,followup:parseInt(newActivityForm.followup)||0,siteVisit:parseInt(newActivityForm.siteVisit)||0,booking:parseInt(newActivityForm.booking)||0,registration:parseInt(newActivityForm.registration)||0,cancellation:parseInt(newActivityForm.cancellation)||0,collection:parseInt(newActivityForm.collection)||0}; setActivityLogsWrapped(prev=>[log,...prev]); setIsActivityLogModalOpen(false); setNewActivityForm({date:TODAY_STR,executive:"",project:projects[0]?.name||"",source:"Own Leads",callsMade:0,callStatus:"Warm",followup:0,siteVisit:0,booking:0,registration:0,cancellation:0,collection:0,remark:""}); triggerToastAlert("Activity log saved."); };
 
   const commitSiteWalkthroughLog=()=>{ const updated=leads.map(l=>l.id===selectedLead.id?{...l,status:"Site Visit Completed",history:[{date:svDate,by:currentUser.name,action:`[Site Visit]: Family: ${svFamily}. Feedback: ${svFeedback}`},...l.history]}:l); setLeads(updated); setSelectedLead(null); triggerToastAlert("Site visit logged."); };
   const commitFinancialBookingLog=()=>{ const updated=leads.map(l=>l.id===selectedLead.id?{...l,status:"Booking Confirmed",bookingUnit:bkUnit,history:[{date:TODAY_STR,by:currentUser.name,action:`[Booking]: Unit [${bkUnit}] booked.`},...l.history]}:l); setLeads(updated); setSelectedLead(null); triggerToastAlert("Booking logged."); };
 
-  // Handle mobile call feedback: logs as a follow-up on the lead
   const handleCallFeedback = (leadId, feedbackData) => {
     const { notes, outcome, followUpDate, callDuration, leadName } = feedbackData;
-    const log = {
-      date: TODAY_STR,
-      by: currentUser.name,
-      action: `[Mobile Call]: Duration ${Math.floor(callDuration/60)}m${callDuration%60}s. Outcome: ${outcome}.${notes ? ` Notes: ${notes}` : ""}${followUpDate ? ` Next follow-up: ${followUpDate}` : ""}`
-    };
-    const updated = leads.map(l => {
-      if (l.id !== leadId) return l;
-      return {
-        ...l,
-        status: outcome || l.status,
-        lastFollowUp: TODAY_STR,
-        nextFollowUp: followUpDate || l.nextFollowUp,
-        history: [log, ...l.history]
-      };
-    });
+    const log = { date: TODAY_STR, by: currentUser.name, action: `[Mobile Call]: Duration ${Math.floor(callDuration/60)}m${callDuration%60}s. Outcome: ${outcome}.${notes ? ` Notes: ${notes}` : ""}${followUpDate ? ` Next follow-up: ${followUpDate}` : ""}` };
+    const updated = leads.map(l => { if (l.id !== leadId) return l; return { ...l, status: outcome || l.status, lastFollowUp: TODAY_STR, nextFollowUp: followUpDate || l.nextFollowUp, history: [log, ...l.history] }; });
     setLeads(updated);
-    if (selectedLead && selectedLead.id === leadId) {
-      setSelectedLead(prev => ({ ...prev, status: outcome || prev.status, history: [log, ...prev.history] }));
-    }
+    if (selectedLead && selectedLead.id === leadId) { setSelectedLead(prev => ({ ...prev, status: outcome || prev.status, history: [log, ...prev.history] })); }
     triggerToastAlert("Call feedback saved.");
   };
 
-  // Count active reset requests
   const activeResetCount = useMemo(() => resetRequests.filter(r => r.expiresAt > Date.now() && !r.consumed).length, [resetRequests]);
 
   const navItems = [
@@ -1343,9 +1054,7 @@ export default function App() {
             <button onClick={()=>navigateTo("users")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab==="users"?"bg-orange-600 text-white shadow-lg":"text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
               <Users className="h-4 w-4"/>
               <span>SYSTEM CONTROL HUB</span>
-              {activeResetCount > 0 && (
-                <span className="ml-auto bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-pulse">{activeResetCount}</span>
-              )}
+              {activeResetCount > 0 && <span className="ml-auto bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-pulse">{activeResetCount}</span>}
             </button>
           )}
         </nav>
@@ -1362,7 +1071,6 @@ export default function App() {
     </>
   );
 
-  // ── LOADING ───────────────────────────────────────────────────────────────
   if (!storageReady) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4">
@@ -1372,19 +1080,10 @@ export default function App() {
     );
   }
 
-  // ── LOGIN ─────────────────────────────────────────────────────────────────
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
-        {showResetModal && (
-          <PasswordResetModal
-            users={users}
-            setUsers={setUsers}
-            resetRequests={resetRequests}
-            setResetRequests={setResetRequests}
-            onClose={() => setShowResetModal(false)}
-          />
-        )}
+        {showResetModal && <PasswordResetModal users={users} setUsers={setUsers} resetRequests={resetRequests} setResetRequests={setResetRequests} onClose={() => setShowResetModal(false)} />}
         <div className="sm:mx-auto w-full max-w-md text-center space-y-4">
           <div className="flex justify-center mb-2"><img src={DESAM_LOGO_ASSET} alt="Desam Developers Logo" className="h-16 w-auto object-contain drop-shadow-lg"/></div>
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Operational Control Platform</p>
@@ -1398,9 +1097,7 @@ export default function App() {
               <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg">Authorize Access</button>
             </form>
             <div className="pt-2 border-t border-slate-900 flex justify-center">
-              <button onClick={() => setShowResetModal(true)} className="flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-orange-400 transition-colors font-bold uppercase tracking-wide">
-                <KeyRound className="h-3.5 w-3.5" /> Forgot Password?
-              </button>
+              <button onClick={() => setShowResetModal(true)} className="flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-orange-400 transition-colors font-bold uppercase tracking-wide"><KeyRound className="h-3.5 w-3.5" /> Forgot Password?</button>
             </div>
           </div>
         </div>
@@ -1408,17 +1105,11 @@ export default function App() {
     );
   }
 
-  // ── MAIN APP ──────────────────────────────────────────────────────────────
   return (
     <div className="flex h-screen bg-slate-900 text-slate-100 font-sans antialiased overflow-hidden relative">
 
-      {/* Admin Login Reset Popup */}
       {showAdminLoginPopup && currentUser?.role === "Admin" && activeResetCount > 0 && (
-        <AdminLoginResetPopup
-          count={activeResetCount}
-          onGoToHub={() => { setShowAdminLoginPopup(false); navigateTo("users"); }}
-          onDismiss={() => setShowAdminLoginPopup(false)}
-        />
+        <AdminLoginResetPopup count={activeResetCount} onGoToHub={() => { setShowAdminLoginPopup(false); navigateTo("users"); }} onDismiss={() => setShowAdminLoginPopup(false)} />
       )}
 
       <aside className="hidden lg:flex w-64 bg-slate-950 border-r border-slate-800 flex-col justify-between h-full flex-shrink-0"><SidebarContent/></aside>
@@ -1484,15 +1175,8 @@ export default function App() {
                           <div className="mt-2"><span className="text-[9px] px-2 py-0.5 font-bold uppercase rounded" style={{backgroundColor:SC[l.status]?.bg||"rgba(255,255,255,0.05)",color:SC[l.status]?.text||"#FFF"}}>{l.status}</span></div>
                         </div>
                         <div className="flex gap-2">
-                          {/* Mobile call button on lead cards */}
                           {isMobile && ["Executive","Telecaller"].includes(currentUser.role) && (
-                            <MobileCallButton
-                              phone={l.phone}
-                              leadName={l.name}
-                              TODAY_STR={TODAY_STR}
-                              currentUser={currentUser}
-                              onFeedbackSaved={(fb) => handleCallFeedback(l.id, fb)}
-                            />
+                            <MobileCallButton phone={l.phone} leadName={l.name} TODAY_STR={TODAY_STR} currentUser={currentUser} onFeedbackSaved={(fb) => handleCallFeedback(l.id, fb)} />
                           )}
                           <button onClick={()=>setSelectedLead(l)} className="flex-1 bg-orange-600/10 hover:bg-orange-600 border border-orange-500/20 text-[10px] text-orange-400 hover:text-white font-black py-1.5 rounded-lg tracking-wide uppercase transition-all">{["Manager","Admin"].includes(currentUser.role)?"⚡ Delegate":"📝 Open Workspace"}</button>
                         </div>
@@ -1550,15 +1234,8 @@ export default function App() {
                             <div className="flex items-center gap-2 mt-0.5">
                               <p className="text-[11px] text-slate-500 font-mono">{l.phone}</p>
                               <button onClick={()=>copyToClipboard(l.phone)} className="text-slate-600 hover:text-orange-500"><Search className="h-3 w-3"/></button>
-                              {/* Mobile call button inline in leads table */}
                               {isMobile && ["Executive","Telecaller"].includes(currentUser.role) && (
-                                <MobileCallButton
-                                  phone={l.phone}
-                                  leadName={l.name}
-                                  TODAY_STR={TODAY_STR}
-                                  currentUser={currentUser}
-                                  onFeedbackSaved={(fb) => handleCallFeedback(l.id, fb)}
-                                />
+                                <MobileCallButton phone={l.phone} leadName={l.name} TODAY_STR={TODAY_STR} currentUser={currentUser} onFeedbackSaved={(fb) => handleCallFeedback(l.id, fb)} />
                               )}
                             </div>
                             {(new Date(TODAY_STR)-new Date(l.lastFollowUp||l.dateCreated))/(1000*3600*24)>7&&(<span className="text-[9px] bg-rose-500/10 text-rose-500 font-black px-1.5 py-0.5 rounded uppercase tracking-wider mt-1 block w-fit">Stale Lead</span>)}
@@ -1594,11 +1271,12 @@ export default function App() {
                   <div className="space-y-1"><label className="text-slate-500 font-bold uppercase text-[9px]">Call Status</label><select value={actFilterStatus} onChange={e=>setActFilterStatus(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none"><option value="All">All</option>{CALL_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
                 </div>
               </div>
+              {/* FIX: replaced <BookBook/> with <BookOpen/> — was crashing React and causing blank screen */}
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
                 <KpiTile label="Total Calls" value={activityKPIs.totalCalls.toLocaleString()} icon={<Phone/>} color="#ea580c"/>
                 <KpiTile label="Followups" value={activityKPIs.totalFollowups.toLocaleString()} icon={<PhoneCall/>} color="#3b82f6"/>
                 <KpiTile label="Site Visits" value={activityKPIs.totalSiteVisits} icon={<MapPin/>} color="#10b981"/>
-                <KpiTile label="Bookings" value={activityKPIs.totalBookings} icon={<BookBook/>} color="#8b5cf6"/>
+                <KpiTile label="Bookings" value={activityKPIs.totalBookings} icon={<BookOpen/>} color="#8b5cf6"/>
                 <KpiTile label="Registration" value={activityKPIs.totalRegistrations} icon={<UserCheck/>} color="#f59e0b"/>
                 <KpiTile label="Cancellation" value={activityKPIs.totalCancellations} icon={<XCircle/>} color="#ef4444"/>
                 <KpiTile label="Collection" value={`₹${activityKPIs.totalCollection}L`} icon={<Banknote/>} color="#06b6d4"/>
@@ -1706,21 +1384,12 @@ export default function App() {
           {/* ═══ SYSTEM CONTROL HUB ════════════════════════════════════ */}
           {activeTab==="users"&&currentUser.role==="Admin"&&(
             <div className="space-y-8">
-              {/* Password Reset Requests always at top of hub */}
-              <AdminResetRequestsPanel
-                resetRequests={resetRequests}
-                setResetRequests={setResetRequests}
-                triggerToastAlert={triggerToastAlert}
-              />
-
+              <AdminResetRequestsPanel resetRequests={resetRequests} setResetRequests={setResetRequests} triggerToastAlert={triggerToastAlert} />
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
                 <div>
                   <h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider"><Users className="h-4 w-4"/> Active Corporate Roster</h3>
                   <p className="text-xs text-slate-400">Manage, modify, or revoke access for deployed team members.</p>
-                  <div className="mt-2 bg-blue-950/30 border border-blue-500/20 rounded-xl p-2.5 flex items-start gap-2">
-                    <Info className="h-3.5 w-3.5 text-blue-400 mt-0.5 shrink-0"/>
-                    <p className="text-[10px] text-blue-300/70">Admin accounts (Shaj, Digital Marketing) are managed separately and not editable here. All other user credentials are stored securely in the database.</p>
-                  </div>
+                  <div className="mt-2 bg-blue-950/30 border border-blue-500/20 rounded-xl p-2.5 flex items-start gap-2"><Info className="h-3.5 w-3.5 text-blue-400 mt-0.5 shrink-0"/><p className="text-[10px] text-blue-300/70">Admin accounts (Shaj, Digital Marketing) are managed separately and not editable here.</p></div>
                 </div>
                 <div className="overflow-x-auto w-full pt-2">
                   <table className="w-full text-left text-xs border-collapse">
@@ -1733,20 +1402,14 @@ export default function App() {
                             <td className="py-3 font-bold text-white">
                               <div className="flex items-center gap-3">
                                 <div className="h-8 w-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-black text-orange-400">{u.avatar}</div>
-                                <div>
-                                  <p>{u.name} {isHardcodedAdmin && <span className="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded font-black ml-1">SYSTEM</span>}</p>
-                                  <p className="text-[10px] text-slate-500 font-mono font-normal">ID: {u.id}</p>
-                                </div>
+                                <div><p>{u.name} {isHardcodedAdmin && <span className="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded font-black ml-1">SYSTEM</span>}</p><p className="text-[10px] text-slate-500 font-mono font-normal">ID: {u.id}</p></div>
                               </div>
                             </td>
                             <td className="py-3"><p className="font-semibold text-orange-400">{u.role}</p><p className="text-[10px] text-slate-400 font-mono">{u.branch}</p></td>
                             <td className="py-3 font-mono text-slate-400"><p>{u.phone}</p><p className="text-[10px]">{u.email}</p></td>
                             <td className="py-3 text-right space-x-2">
                               {!isHardcodedAdmin ? (
-                                <>
-                                  <button onClick={()=>openEditUserModal(u)} className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded border border-slate-800 transition-colors"><Edit2 className="h-3.5 w-3.5"/></button>
-                                  <button onClick={()=>handleDeleteUser(u.id)} className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded border border-rose-500/20 transition-colors"><Trash2 className="h-3.5 w-3.5"/></button>
-                                </>
+                                <><button onClick={()=>openEditUserModal(u)} className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded border border-slate-800 transition-colors"><Edit2 className="h-3.5 w-3.5"/></button><button onClick={()=>handleDeleteUser(u.id)} className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded border border-rose-500/20 transition-colors"><Trash2 className="h-3.5 w-3.5"/></button></>
                               ) : (
                                 <span className="text-[9px] text-slate-600 font-bold uppercase tracking-wider px-2">Protected</span>
                               )}
@@ -1824,16 +1487,7 @@ export default function App() {
                 <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-lg border border-slate-800">
                   <span className="text-slate-500 font-mono font-bold text-[9px] uppercase">Primary:</span>
                   <span className="font-mono font-bold text-orange-400">{selectedLead.phone}</span>
-                  {/* Mobile call button in lead detail */}
-                  {isMobile && (
-                    <MobileCallButton
-                      phone={selectedLead.phone}
-                      leadName={selectedLead.name}
-                      TODAY_STR={TODAY_STR}
-                      currentUser={currentUser}
-                      onFeedbackSaved={(fb) => handleCallFeedback(selectedLead.id, fb)}
-                    />
-                  )}
+                  {isMobile && (<MobileCallButton phone={selectedLead.phone} leadName={selectedLead.name} TODAY_STR={TODAY_STR} currentUser={currentUser} onFeedbackSaved={(fb) => handleCallFeedback(selectedLead.id, fb)} />)}
                 </div>
                 <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-lg border border-slate-800"><span className="text-slate-500 font-mono font-bold text-[9px] uppercase">Alt:</span><span className="font-mono text-slate-300">{selectedLead.altPhone||"—"}</span></div>
                 <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-lg border border-slate-800 col-span-2"><span className="text-slate-500 font-mono font-bold text-[9px] uppercase">Email:</span><span className="font-medium text-slate-300 truncate">{selectedLead.email||"—"}</span></div>

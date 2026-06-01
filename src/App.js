@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import * as XLSX from "xlsx";
 import {
   Users, ShieldAlert, BarChart3, Building2, Briefcase,
   Layers, PhoneCall, Calendar, Search, Plus, TrendingUp,
@@ -6,7 +7,8 @@ import {
   Mail, CheckCircle2, UserPlus, Trash2, Edit2, X, Bell,
   AlertTriangle, Download, Upload, Info, FileSpreadsheet, Check,
   Menu, ArrowRight, Home, FileText, ArrowLeft, ClipboardList,
-  Phone, UserCheck, BookOpen, Banknote, XCircle, Activity
+  Phone, UserCheck, BookOpen, Banknote, XCircle, Activity,
+  Table2, Eye, RefreshCw, AlertCircle
 } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
@@ -63,7 +65,6 @@ const INITIAL_LEADS = [
   { id: 1004, name: "Meena Selvam", phone: "9640044567", altPhone: "9640044568", email: "meena@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Fairland", budget: 95, source: "Walk-In", assignedTo: "Unassigned", assignedByRole: "", status: "Booking Confirmed", notes: "Token collected cleanly.", dateCreated: "2026-04-20", lastFollowUp: "2026-05-20", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-20", by: "Priyadarshini", action: "Initial walkthrough context established." }], bookingUnit: "Villa 12", bookingAmount: 500000, bookingMode: "Cheque", bookingDate: "2026-05-20", regPending: true, regCompleted: false, siteVisitTentativeDate: "" },
 ];
 
-// ── SAMPLE DAILY ACTIVITY LOGS (mirrors Excel "Data" sheet) ────────────────
 const INITIAL_ACTIVITY_LOGS = [
   { id: 2001, date: "2026-05-01", executive: "Muthulakshmi", project: "Fairland", source: "Walk-in", callsMade: 0, callStatus: "Warm", followup: 0, siteVisit: 1, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "Followed by muthulakshmi" },
   { id: 2002, date: "2026-05-01", executive: "Muthulakshmi", project: "Fairland", source: "Own Leads", callsMade: 1, callStatus: "Warm", followup: 1, siteVisit: 1, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "Site Visit Done Followed muthulakshmi" },
@@ -75,16 +76,6 @@ const INITIAL_ACTIVITY_LOGS = [
   { id: 2008, date: "2026-05-02", executive: "Priya", project: "Desam Garden", source: "Own Leads", callsMade: 0, callStatus: "Warm", followup: 1, siteVisit: 0, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "Follow Up" },
   { id: 2009, date: "2026-05-02", executive: "Sumathi", project: "Fairland", source: "Office Leads", callsMade: 40, callStatus: "Warm", followup: 2, siteVisit: 0, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "Follow Up" },
   { id: 2010, date: "2026-05-02", executive: "AryaLakshmi", project: "Vishal Virinchi", source: "Own Leads", callsMade: 9, callStatus: "Warm", followup: 2, siteVisit: 0, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "Follow Up" },
-  { id: 2011, date: "2026-05-04", executive: "Rohini", project: "Alagar Homes", source: "Meta Ads", callsMade: 1, callStatus: "Warm", followup: 1, siteVisit: 0, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "MEDIATOR / GK SHARE / TUESDAY SITE VISIT" },
-  { id: 2012, date: "2026-05-04", executive: "Rohini", project: "Alagar Homes", source: "99acres", callsMade: 3, callStatus: "Warm", followup: 3, siteVisit: 0, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "BUSY ,NO RESPONSE , NO RESPONSE" },
-  { id: 2013, date: "2026-05-04", executive: "Rohini", project: "Fairland", source: "Just Dial", callsMade: 4, callStatus: "Warm", followup: 1, siteVisit: 0, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "THAMRUTHI CAPITAL ,DETAILS SENT, CHATHRA" },
-  { id: 2014, date: "2026-05-10", executive: "Rohini", project: "Vishal Virinchi", source: "Office Leads", callsMade: 5, callStatus: "Warm", followup: 2, siteVisit: 1, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "Site visit done" },
-  { id: 2015, date: "2026-05-15", executive: "Priya", project: "Fairland", source: "Own Leads", callsMade: 12, callStatus: "Warm", followup: 3, siteVisit: 1, booking: 1, registration: 0, cancellation: 0, collection: 0, remark: "Booking done" },
-  { id: 2016, date: "2026-05-20", executive: "AryaLakshmi", project: "Desam Garden", source: "99acres", callsMade: 8, callStatus: "Warm", followup: 2, siteVisit: 0, booking: 0, registration: 1, cancellation: 0, collection: 0, remark: "Registration completed" },
-  { id: 2017, date: "2026-05-22", executive: "Sumathi", project: "Fairland", source: "Office Leads", callsMade: 45, callStatus: "Warm", followup: 5, siteVisit: 2, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "Multiple follow ups done" },
-  { id: 2018, date: "2026-05-25", executive: "Kowshika", project: "Desam Garden", source: "Own Leads", callsMade: 22, callStatus: "Warm", followup: 4, siteVisit: 0, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "Follow Up" },
-  { id: 2019, date: "2026-05-28", executive: "Shakila", project: "Fairland", source: "Meta Ads", callsMade: 15, callStatus: "Warm", followup: 3, siteVisit: 1, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "Site visit planned" },
-  { id: 2020, date: "2026-05-29", executive: "Rohini", project: "Alagar Homes", source: "99acres", callsMade: 6, callStatus: "Warm", followup: 2, siteVisit: 0, booking: 0, registration: 1, cancellation: 0, collection: 0, remark: "Registration done" },
 ];
 
 const SC = {
@@ -111,12 +102,100 @@ const PSC = {
 
 const PIE_COLORS = ['#ea580c', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#f59e0b', '#64748b', '#14b8a6', '#ef4444', '#06b6d4', '#a3e635', '#fb923c'];
 
-// ── KPI TILE COMPONENT ────────────────────────────────────────────────────
+// ─── EXCEL DATE PARSER ──────────────────────────────────────────────────────
+// Handles: "01-May", "01-May-26", "2026-05-01", Excel serial numbers, JS Date objects
+const MONTH_MAP = {
+  jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
+  jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12"
+};
+
+function parseExcelDate(raw, defaultYear = "2026") {
+  if (!raw && raw !== 0) return "";
+  // Excel serial number
+  if (typeof raw === "number") {
+    try {
+      const d = XLSX.SSF.parse_date_code(raw);
+      if (d) {
+        const yr = d.y || parseInt(defaultYear);
+        const mo = String(d.m).padStart(2, "0");
+        const dy = String(d.d).padStart(2, "0");
+        return `${yr}-${mo}-${dy}`;
+      }
+    } catch (_) {}
+    return "";
+  }
+  const str = String(raw).trim();
+  // Already ISO: 2026-05-01
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  // DD-MMM or DD-MMM-YY or DD-MMM-YYYY
+  const m1 = str.match(/^(\d{1,2})[-\/\s]([A-Za-z]+)(?:[-\/\s](\d{2,4}))?$/);
+  if (m1) {
+    const day = String(m1[1]).padStart(2, "0");
+    const monKey = m1[2].toLowerCase().slice(0, 3);
+    const mon = MONTH_MAP[monKey] || "01";
+    let yr = defaultYear;
+    if (m1[3]) {
+      yr = m1[3].length === 2 ? "20" + m1[3] : m1[3];
+    }
+    return `${yr}-${mon}-${day}`;
+  }
+  // MMM-DD or MMM DD
+  const m2 = str.match(/^([A-Za-z]+)[-\/\s](\d{1,2})(?:[-\/\s](\d{2,4}))?$/);
+  if (m2) {
+    const monKey = m2[1].toLowerCase().slice(0, 3);
+    const mon = MONTH_MAP[monKey] || "01";
+    const day = String(m2[2]).padStart(2, "0");
+    let yr = defaultYear;
+    if (m2[3]) yr = m2[3].length === 2 ? "20" + m2[3] : m2[3];
+    return `${yr}-${mon}-${day}`;
+  }
+  // DD/MM/YYYY
+  const m3 = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (m3) {
+    const yr = m3[3].length === 2 ? "20" + m3[3] : m3[3];
+    return `${yr}-${String(m3[2]).padStart(2, "0")}-${String(m3[1]).padStart(2, "0")}`;
+  }
+  return str;
+}
+
+// Normalise source string to match known sources (fuzzy)
+function normaliseSource(raw) {
+  if (!raw) return "Own Leads";
+  const s = String(raw).trim();
+  const lower = s.toLowerCase();
+  if (lower.includes("walk")) return "Walk-In";
+  if (lower.includes("99")) return "99acres";
+  if (lower.includes("just")) return "Just Dial";
+  if (lower.includes("meta") || lower.includes("fb") || lower.includes("facebook")) return "Meta Ads";
+  if (lower.includes("google")) return "Google Ads";
+  if (lower.includes("website")) return "Website";
+  if (lower.includes("olx")) return "Olx";
+  if (lower.includes("office")) return "Office Leads";
+  if (lower.includes("whatsapp")) return "WhatsApp Campaign";
+  if (lower.includes("portal")) return "Property Portals";
+  if (lower.includes("expo") || lower.includes("event")) return "Expo / Event";
+  if (lower.includes("direct") || lower.includes("enquiry")) return "Direct Enquiry";
+  if (lower.includes("reference") || lower.includes("ref")) return "Reference";
+  if (lower.includes("924")) return "924000";
+  return s || "Own Leads";
+}
+
+// Normalise call status
+function normaliseCallStatus(raw) {
+  if (!raw) return "Warm";
+  const s = String(raw).trim().toLowerCase();
+  if (s.includes("cold")) return "Cold";
+  if (s.includes("not") || s.includes("reach")) return "Not Reachable";
+  if (s.includes("call") || s.includes("back")) return "Callback Requested";
+  return "Warm";
+}
+
+// ─── KPI TILE ────────────────────────────────────────────────────────────
 const KpiTile = ({ label, value, icon, color, sub }) => (
-  <div className={`bg-slate-950 border border-slate-800 p-4 rounded-xl flex flex-col gap-1`}>
+  <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex flex-col gap-1">
     <div className="flex justify-between items-start">
       <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider leading-tight">{label}</p>
-      <div className={`p-1.5 rounded-lg`} style={{ backgroundColor: `${color}20` }}>
+      <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${color}20` }}>
         {React.cloneElement(icon, { className: "h-3.5 w-3.5", style: { color } })}
       </div>
     </div>
@@ -125,10 +204,339 @@ const KpiTile = ({ label, value, icon, color, sub }) => (
   </div>
 );
 
+// ─── EXCEL IMPORT PANEL (replaces the broken paste-import) ───────────────
+function ExcelImportPanel({ activityLogs, setActivityLogs, triggerToastAlert }) {
+  const fileRef = useRef(null);
+  const [importMode, setImportMode] = useState("activity"); // "activity" | "leads_paste"
+  const [preview, setPreview] = useState(null);          // parsed rows before confirm
+  const [parseErrors, setParseErrors] = useState([]);
+  const [yearOverride, setYearOverride] = useState("2026");
+  const [replaceMode, setReplaceMode] = useState("append"); // "append" | "replace"
+  const [isDragging, setIsDragging] = useState(false);
+
+  const resetState = () => {
+    setPreview(null);
+    setParseErrors([]);
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  // ── Map a raw worksheet row → activity log object ──────────────────────
+  // Column order from the Excel screenshot:
+  // A=Date  B=Executive/Tel  C=Project  D=Source  E=Calls made
+  // F=Status(callStatus)  G=Followup  H=Site visit  I=Booking
+  // J=Registration  K=Cancellation  L=Collection  M=Remark
+  const mapRowToLog = useCallback((row, idx) => {
+    const errors = [];
+    // Accept both array-indexed and header-keyed rows
+    const get = (arrIdx, ...keys) => {
+      if (Array.isArray(row)) return row[arrIdx];
+      for (const k of keys) {
+        if (row[k] !== undefined && row[k] !== null && row[k] !== "") return row[k];
+      }
+      return undefined;
+    };
+
+    const rawDate = get(0, "Date", "DATE", "date");
+    const dateStr = parseExcelDate(rawDate, yearOverride);
+    if (!dateStr) errors.push(`Row ${idx + 2}: date "${rawDate}" could not be parsed`);
+
+    const executive = String(get(1, "Executive/Tel", "Executive", "EXECUTIVE", "Tel", "executive") || "").trim();
+    if (!executive) errors.push(`Row ${idx + 2}: executive name is blank`);
+
+    const project = String(get(2, "Project", "PROJECT", "project") || "").trim();
+    const source = normaliseSource(get(3, "Source", "SOURCE", "source"));
+    const callsMade = parseInt(get(4, "Calls made", "Calls Made", "CALLS MADE", "calls_made", "callsMade") || 0) || 0;
+    const callStatus = normaliseCallStatus(get(5, "Status", "Call Status", "CALL STATUS", "callStatus", "status"));
+    const followup = parseInt(get(6, "Followup", "Follow up", "FOLLOWUP", "followup") || 0) || 0;
+    const siteVisit = parseInt(get(7, "Site visit", "Site Visit", "SITE VISIT", "siteVisit") || 0) || 0;
+    const booking = parseInt(get(8, "Booking", "BOOKING", "booking") || 0) || 0;
+    const registration = parseInt(get(9, "Registration", "REGISTRATION", "registration") || 0) || 0;
+    const cancellation = parseInt(get(10, "Cancellation", "CANCELLATION", "cancellation") || 0) || 0;
+    const collection = parseInt(get(11, "Collection", "COLLECTION", "collection") || 0) || 0;
+    const remark = String(get(12, "Remark", "REMARK", "remark", "Remarks", "REMARKS") || "").trim();
+
+    return {
+      log: {
+        id: Date.now() + idx + Math.floor(Math.random() * 9999),
+        date: dateStr,
+        executive,
+        project,
+        source,
+        callsMade,
+        callStatus,
+        followup,
+        siteVisit,
+        booking,
+        registration,
+        cancellation,
+        collection,
+        remark,
+      },
+      errors,
+    };
+  }, [yearOverride]);
+
+  const parseFile = useCallback((file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type: "array", cellDates: false });
+
+        // Try to find a sheet named "Data" first, else use first sheet
+        let sheetName = wb.SheetNames[0];
+        for (const sn of wb.SheetNames) {
+          if (sn.toLowerCase() === "data") { sheetName = sn; break; }
+        }
+        const ws = wb.Sheets[sheetName];
+
+        // Read as array of arrays (raw), skip header row (row 1)
+        const rawRows = XLSX.utils.sheet_to_json(ws, {
+          header: 1,
+          raw: true,
+          defval: "",
+          blankrows: false,
+        });
+
+        if (rawRows.length < 2) {
+          setParseErrors(["File appears empty or has only a header row."]);
+          setPreview(null);
+          return;
+        }
+
+        // Detect if row 0 is a header by checking if col A is non-numeric string
+        const headerRow = rawRows[0];
+        const firstCellIsHeader = typeof headerRow[0] === "string" &&
+          isNaN(headerRow[0]) &&
+          !/^\d{1,2}[-\/]/.test(String(headerRow[0]).trim());
+
+        const dataRows = firstCellIsHeader ? rawRows.slice(1) : rawRows;
+
+        const allErrors = [];
+        const parsed = [];
+        dataRows.forEach((row, idx) => {
+          // Skip completely empty rows
+          if (row.every(c => c === "" || c === null || c === undefined)) return;
+          const { log, errors } = mapRowToLog(row, idx);
+          allErrors.push(...errors);
+          if (log.executive && log.date) parsed.push(log);
+        });
+
+        setParseErrors(allErrors.slice(0, 20)); // cap at 20 shown
+        setPreview({ rows: parsed, sheetName, totalRaw: dataRows.length });
+      } catch (err) {
+        setParseErrors([`Failed to read file: ${err.message}`]);
+        setPreview(null);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }, [mapRowToLog]);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) parseFile(file);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) parseFile(file);
+  };
+
+  const confirmImport = () => {
+    if (!preview || preview.rows.length === 0) return;
+    if (replaceMode === "replace") {
+      setActivityLogs(preview.rows);
+      triggerToastAlert(`Replaced all activity logs with ${preview.rows.length} imported records.`);
+    } else {
+      // Append — deduplicate by (date + executive + project + source + callsMade)
+      const existingKeys = new Set(
+        activityLogs.map(l => `${l.date}|${l.executive}|${l.project}|${l.source}|${l.callsMade}`)
+      );
+      const newRows = preview.rows.filter(r => {
+        const key = `${r.date}|${r.executive}|${r.project}|${r.source}|${r.callsMade}`;
+        return !existingKeys.has(key);
+      });
+      setActivityLogs([...activityLogs, ...newRows]);
+      const skipped = preview.rows.length - newRows.length;
+      triggerToastAlert(`Imported ${newRows.length} records${skipped ? `, skipped ${skipped} duplicates` : ""}.`);
+    }
+    resetState();
+  };
+
+  return (
+    <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-5 shadow-2xl">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider">
+            <FileSpreadsheet className="h-4 w-4" /> Excel Database Import
+          </h3>
+          <p className="text-[10px] text-slate-500 mt-0.5">Upload your Activity Log Excel file (.xlsx / .xls / .csv) — auto-detects the "Data" sheet</p>
+        </div>
+        {preview && (
+          <button onClick={resetState} className="text-xs text-slate-500 hover:text-white flex items-center gap-1 border border-slate-800 px-3 py-1.5 rounded-lg bg-slate-900 transition-colors">
+            <RefreshCw className="h-3.5 w-3.5" /> Reset
+          </button>
+        )}
+      </div>
+
+      {/* Year + mode controls */}
+      <div className="grid grid-cols-2 gap-3 text-xs">
+        <div className="space-y-1">
+          <label className="text-slate-500 font-bold uppercase text-[9px] tracking-wider">Default Year (for dates without year)</label>
+          <select value={yearOverride} onChange={e => setYearOverride(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
+            {["2024", "2025", "2026", "2027"].map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-slate-500 font-bold uppercase text-[9px] tracking-wider">Import Mode</label>
+          <select value={replaceMode} onChange={e => setReplaceMode(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
+            <option value="append">Append (skip duplicates)</option>
+            <option value="replace">⚠️ Replace all existing logs</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Drop zone */}
+      {!preview && (
+        <div
+          onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => fileRef.current?.click()}
+          className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
+            isDragging
+              ? "border-orange-500 bg-orange-500/5"
+              : "border-slate-700 hover:border-orange-500/60 hover:bg-slate-900/60"
+          }`}
+        >
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-14 w-14 bg-orange-500/10 border border-orange-500/20 rounded-2xl flex items-center justify-center">
+              <Upload className="h-6 w-6 text-orange-400" />
+            </div>
+            <div>
+              <p className="text-sm font-black text-white">Drop your Excel file here</p>
+              <p className="text-[11px] text-slate-500 mt-1">or click to browse — supports .xlsx, .xls, .csv</p>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-[10px] text-slate-400 font-mono">
+              Expected columns: Date · Executive/Tel · Project · Source · Calls made · Status · Followup · Site visit · Booking · Registration · Cancellation · Collection · Remark
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Parse errors */}
+      {parseErrors.length > 0 && (
+        <div className="bg-amber-950/30 border border-amber-500/30 rounded-xl p-4 space-y-1.5">
+          <p className="text-[10px] font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" /> Parse Warnings ({parseErrors.length})
+          </p>
+          {parseErrors.map((e, i) => (
+            <p key={i} className="text-[10px] text-amber-200/70 font-mono pl-2">{e}</p>
+          ))}
+          <p className="text-[10px] text-slate-500 italic">Rows with blank executive/date are skipped. Others still imported.</p>
+        </div>
+      )}
+
+      {/* Preview Table */}
+      {preview && preview.rows.length > 0 && (
+        <div className="space-y-3">
+          {/* Summary bar */}
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black px-3 py-1 rounded-lg">
+              ✓ {preview.rows.length} rows ready to import
+            </span>
+            <span className="text-slate-500">from sheet: <span className="text-slate-300 font-bold">"{preview.sheetName}"</span></span>
+            <span className="text-slate-500">({preview.totalRaw} total data rows scanned)</span>
+          </div>
+
+          {/* Preview table — show first 10 rows */}
+          <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/40">
+            <table className="w-full text-[10px] border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800 text-slate-500 uppercase font-bold">
+                  <th className="p-2 text-left">Date</th>
+                  <th className="p-2 text-left">Executive</th>
+                  <th className="p-2 text-left">Project</th>
+                  <th className="p-2 text-left">Source</th>
+                  <th className="p-2 text-center">Calls</th>
+                  <th className="p-2 text-center">Status</th>
+                  <th className="p-2 text-center">FU</th>
+                  <th className="p-2 text-center">SV</th>
+                  <th className="p-2 text-center">BK</th>
+                  <th className="p-2 text-center">Reg</th>
+                  <th className="p-2 text-left min-w-[140px]">Remark</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-900">
+                {preview.rows.slice(0, 10).map((r, i) => (
+                  <tr key={i} className="hover:bg-slate-900/60">
+                    <td className="p-2 font-mono text-slate-400">{r.date}</td>
+                    <td className="p-2 font-bold text-white">{r.executive}</td>
+                    <td className="p-2 text-orange-400">{r.project}</td>
+                    <td className="p-2 text-slate-400">{r.source}</td>
+                    <td className="p-2 text-center font-mono font-bold text-white">{r.callsMade}</td>
+                    <td className="p-2 text-center">
+                      <span className={`px-1.5 py-0.5 rounded font-black ${r.callStatus === "Warm" ? "bg-amber-500/10 text-amber-400" : "bg-slate-700/30 text-slate-400"}`}>
+                        {r.callStatus}
+                      </span>
+                    </td>
+                    <td className="p-2 text-center text-blue-400">{r.followup || ""}</td>
+                    <td className="p-2 text-center text-emerald-400">{r.siteVisit || ""}</td>
+                    <td className="p-2 text-center text-purple-400">{r.booking || ""}</td>
+                    <td className="p-2 text-center text-amber-400">{r.registration || ""}</td>
+                    <td className="p-2 text-slate-400 max-w-[140px] truncate" title={r.remark}>{r.remark}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {preview.rows.length > 10 && (
+              <p className="text-center text-[10px] text-slate-500 py-2 border-t border-slate-800">
+                … and {preview.rows.length - 10} more rows (showing first 10 preview)
+              </p>
+            )}
+          </div>
+
+          {/* Confirm / cancel */}
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={resetState} className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors">
+              ✕ Cancel
+            </button>
+            <button onClick={confirmImport} className={`py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg text-white ${replaceMode === "replace" ? "bg-rose-600 hover:bg-rose-700" : "bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700"}`}>
+              {replaceMode === "replace" ? `⚠️ Replace with ${preview.rows.length} Records` : `✓ Import ${preview.rows.length} Records`}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {preview && preview.rows.length === 0 && (
+        <div className="bg-rose-950/30 border border-rose-500/30 rounded-xl p-4 text-center">
+          <AlertCircle className="h-6 w-6 text-rose-400 mx-auto mb-2" />
+          <p className="text-xs font-bold text-rose-400">No valid rows found in the file.</p>
+          <p className="text-[10px] text-slate-500 mt-1">Check that Date and Executive columns are present and not empty.</p>
+          <button onClick={resetState} className="mt-3 text-xs text-orange-400 hover:text-orange-300 font-bold">Try another file</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN APP
+// ─────────────────────────────────────────────────────────────────────────────
 export default function App() {
   const TODAY_STR = "2026-05-31";
 
-  // ─── STATES ───────────────────────────────────────────────────────────────
   const [currentUser, setCurrentUser] = useState(null);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -149,7 +557,6 @@ export default function App() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  // Activity log filters
   const [actFilterExec, setActFilterExec] = useState("All");
   const [actFilterProject, setActFilterProject] = useState("All");
   const [actFilterSource, setActFilterSource] = useState("All");
@@ -193,7 +600,7 @@ export default function App() {
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [editUserForm, setEditUserForm] = useState(null);
 
-  // ─── NAVIGATION ───────────────────────────────────────────────────────────
+  // ─── NAVIGATION ─────────────────────────────────────────────────────────
   const navigateTo = useCallback((tab) => {
     setNavHistory(prev => [...prev, activeTab]);
     setActiveTab(tab);
@@ -227,7 +634,6 @@ export default function App() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [navHistory]);
 
-  // ─── UTILITY ──────────────────────────────────────────────────────────────
   const stripPhone = (val) => {
     if (!val) return "";
     return val.toString().replace(/\s+/g, "").replace(/\D/g, "");
@@ -243,7 +649,7 @@ export default function App() {
     setTimeout(() => setToastNotification({ isVisible: false, message: "" }), 3500);
   };
 
-  // ─── MEMOIZED DATA ────────────────────────────────────────────────────────
+  // ─── MEMOIZED DATA ──────────────────────────────────────────────────────
   const visibleProjects = useMemo(() => {
     if (!currentUser) return [];
     if (currentUser.role === "Admin") return projects;
@@ -274,7 +680,6 @@ export default function App() {
     return result;
   }, [leads, currentUser, globalSearch, filterSource, filterStatus, filterProject, filterExecutive, startDate, endDate]);
 
-  // ── FILTERED ACTIVITY LOGS ────────────────────────────────────────────────
   const filteredActivityLogs = useMemo(() => {
     let logs = activityLogs;
     if (currentUser && currentUser.role !== "Admin" && currentUser.role !== "Manager") {
@@ -289,7 +694,6 @@ export default function App() {
     return logs.sort((a, b) => b.date.localeCompare(a.date));
   }, [activityLogs, currentUser, actFilterExec, actFilterProject, actFilterSource, actFilterStatus, actStartDate, actEndDate]);
 
-  // ── AGGREGATE KPIs from activity logs ─────────────────────────────────────
   const activityKPIs = useMemo(() => {
     const totalCalls = filteredActivityLogs.reduce((s, l) => s + (l.callsMade || 0), 0);
     const totalFollowups = filteredActivityLogs.reduce((s, l) => s + (l.followup || 0), 0);
@@ -302,7 +706,6 @@ export default function App() {
     return { totalCalls, totalFollowups, totalSiteVisits, totalBookings, totalRegistrations, totalCancellations, totalCollection, convRate };
   }, [filteredActivityLogs]);
 
-  // ── CALLS TREND (daily) ───────────────────────────────────────────────────
   const callsTrendData = useMemo(() => {
     const map = {};
     filteredActivityLogs.forEach(l => {
@@ -315,7 +718,6 @@ export default function App() {
     return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
   }, [filteredActivityLogs]);
 
-  // ── PROJECT PERFORMANCE (from activity logs) ──────────────────────────────
   const projectPerfData = useMemo(() => {
     const map = {};
     filteredActivityLogs.forEach(l => {
@@ -328,7 +730,6 @@ export default function App() {
     return Object.values(map).sort((a, b) => b.calls - a.calls);
   }, [filteredActivityLogs]);
 
-  // ── SOURCEWISE (from activity logs) ──────────────────────────────────────
   const sourcewisePieData = useMemo(() => {
     const map = {};
     filteredActivityLogs.forEach(l => {
@@ -338,7 +739,6 @@ export default function App() {
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [filteredActivityLogs]);
 
-  // ── EXECUTIVEWISE PERFORMANCE ─────────────────────────────────────────────
   const execPerfChartData = useMemo(() => {
     const map = {};
     filteredActivityLogs.forEach(l => {
@@ -351,7 +751,6 @@ export default function App() {
     return Object.values(map).sort((a, b) => b.calls - a.calls);
   }, [filteredActivityLogs]);
 
-  // ── EXECUTIVEWISE DETAILED REPORT (matrix) ────────────────────────────────
   const execDetailedMatrix = useMemo(() => {
     const map = {};
     filteredActivityLogs.forEach(l => {
@@ -370,7 +769,6 @@ export default function App() {
     return Object.values(map).sort((a, b) => b.calls - a.calls);
   }, [filteredActivityLogs]);
 
-  // ── REPORT SUMMARY MATRIX (projects × metrics) ───────────────────────────
   const reportSummaryMatrix = useMemo(() => {
     const projectNames = [...new Set(filteredActivityLogs.map(l => l.project))].sort();
     const metrics = ["Calls made", "Followup", "Site Visit", "Booking", "Registration", "Cancellation"];
@@ -387,7 +785,6 @@ export default function App() {
     return { metrics, projectNames, data };
   }, [filteredActivityLogs]);
 
-  // ── SOURCEWISE MATRIX (per executive) ────────────────────────────────────
   const sourcewiseMatrix = useMemo(() => {
     const execNames = [...new Set(filteredActivityLogs.map(l => l.executive))].sort();
     const srcNames = [...new Set(filteredActivityLogs.map(l => l.source))].sort();
@@ -401,7 +798,6 @@ export default function App() {
     return { execNames, srcNames, data, srcTotals };
   }, [filteredActivityLogs]);
 
-  // ── PROJECTWISE MATRIX (per executive) ───────────────────────────────────
   const projectwiseMatrix = useMemo(() => {
     const execNames = [...new Set(filteredActivityLogs.map(l => l.executive))].sort();
     const projNames = [...new Set(filteredActivityLogs.map(l => l.project))].sort();
@@ -415,7 +811,6 @@ export default function App() {
     return { execNames, projNames, data, projTotals };
   }, [filteredActivityLogs]);
 
-  // ── EXISTING DASHBOARD DATA ───────────────────────────────────────────────
   const dashboardActionQueueLeads = useMemo(() => {
     if (!currentUser) return [];
     if (currentUser.role === "Admin") return leads.filter(l => l.assignedTo === "Unassigned" || l.status === "Site Visit Planned");
@@ -502,7 +897,7 @@ export default function App() {
     return Object.entries(data);
   }, [processedLeads]);
 
-  // ─── HANDLERS ─────────────────────────────────────────────────────────────
+  // ─── HANDLERS ───────────────────────────────────────────────────────────
   const handlePhoneInputChange = (val, isAlt = false) => {
     const clean = stripPhone(val);
     if (isAlt) { setNewLeadForm({ ...newLeadForm, altPhone: clean }); return; }
@@ -537,23 +932,18 @@ export default function App() {
   };
 
   const executeDataExportSequence = (formatType) => {
-    if (filteredActivityLogs.length === 0 && processedLeads.length === 0) { triggerToastAlert("No data available to export."); return; }
+    if (filteredActivityLogs.length === 0) { triggerToastAlert("No data available to export."); return; }
     const headers = ["Date", "Executive", "Project", "Source", "Calls Made", "Call Status", "Followup", "Site Visit", "Booking", "Registration", "Cancellation", "Collection", "Remark"];
     const rows = filteredActivityLogs.map(l => [l.date, l.executive, l.project, l.source, l.callsMade, l.callStatus, l.followup, l.siteVisit, l.booking, l.registration, l.cancellation, l.collection, l.remark]);
-    let buffer = "";
-    let mime = "text/csv;charset=utf-8;";
-    let ext = "csv";
     const fmtCell = (val) => { const s = val === null ? "" : String(val); return s.includes(",") || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
-    buffer = [headers.map(fmtCell).join(","), ...rows.map(r => r.map(fmtCell).join(","))].join("\n");
-    if (formatType === "excel") ext = "xlsx";
-    try {
-      const blob = new Blob([buffer], { type: mime });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.setAttribute("download", `Desam_Activity_Report_${TODAY_STR}.${ext}`);
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      triggerToastAlert(`Exported as .${ext.toUpperCase()}`);
-    } catch (err) { alert(err.message); }
+    const buffer = [headers.map(fmtCell).join(","), ...rows.map(r => r.map(fmtCell).join(","))].join("\n");
+    const ext = formatType === "excel" ? "xlsx" : "csv";
+    const blob = new Blob([buffer], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.setAttribute("download", `Desam_Activity_Report_${TODAY_STR}.${ext}`);
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    triggerToastAlert(`Exported as .${ext.toUpperCase()}`);
   };
 
   const handleLoginSubmit = (e) => {
@@ -694,7 +1084,7 @@ export default function App() {
     setSelectedLead(null); triggerToastAlert("Booking logged.");
   };
 
-  // ─── SIDEBAR ──────────────────────────────────────────────────────────────
+  // ─── SIDEBAR ────────────────────────────────────────────────────────────
   const navItems = [
     { id: "dashboard", icon: <Layers />, label: "DASHBOARD" },
     { id: "leads", icon: <PhoneCall />, label: "LEAD CHANNELS" },
@@ -737,7 +1127,7 @@ export default function App() {
     </>
   );
 
-  // ─── LOGIN ─────────────────────────────────────────────────────────────────
+  // ─── LOGIN ──────────────────────────────────────────────────────────────
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
@@ -767,7 +1157,7 @@ export default function App() {
     );
   }
 
-  // ─── MAIN APP ──────────────────────────────────────────────────────────────
+  // ─── MAIN APP ────────────────────────────────────────────────────────────
   return (
     <div className="flex h-screen bg-slate-900 text-slate-100 font-sans antialiased overflow-hidden relative">
       {/* Desktop Sidebar */}
@@ -805,9 +1195,7 @@ export default function App() {
 
         <main className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-8 w-full">
 
-          {/* ══════════════════════════════════════════════════════════════
-              VIEWPORT 1: DASHBOARD
-          ══════════════════════════════════════════════════════════════ */}
+          {/* ═══ DASHBOARD ═══════════════════════════════════════════════ */}
           {activeTab === "dashboard" && (
             <div className="space-y-8">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-950 p-6 border border-slate-800 rounded-2xl">
@@ -827,7 +1215,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* ── EXCEL-STYLE KPI ROW ── */}
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
                 <KpiTile label="Total Calls" value={activityKPIs.totalCalls.toLocaleString()} icon={<Phone />} color="#ea580c" />
                 <KpiTile label="Followups" value={activityKPIs.totalFollowups.toLocaleString()} icon={<PhoneCall />} color="#3b82f6" />
@@ -839,7 +1226,6 @@ export default function App() {
                 <KpiTile label="Conversion %" value={`${activityKPIs.convRate}%`} icon={<TrendingUp />} color="#a3e635" />
               </div>
 
-              {/* Lead pipeline quick stats */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Scoped Leads <Briefcase className="h-4 w-4 text-orange-400" /></p><p className="text-3xl font-black text-white mt-1">{processedLeads.length}</p></div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Conversions <CheckCircle2 className="h-4 w-4 text-emerald-400" /></p><p className="text-3xl font-black text-emerald-400 mt-1">{processedLeads.filter(l => ["Booking Confirmed", "Closed"].includes(l.status)).length}</p></div>
@@ -848,7 +1234,6 @@ export default function App() {
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Site Visits <Calendar className="h-4 w-4 text-amber-400" /></p><p className="text-3xl font-black text-amber-400 mt-1">{processedLeads.filter(l => l.status === "Site Visit Completed").length}</p></div>
               </div>
 
-              {/* Action Queue */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 space-y-4">
                 <h2 className="text-xs font-black text-orange-400 uppercase tracking-widest flex items-center gap-2"><Bell className="h-4 w-4" />{["Executive", "Telecaller"].includes(currentUser.role) ? "MY ACTIVE PIPELINE" : "DEPLOYMENT QUEUE / SITE VISITS"}</h2>
                 {dashboardActionQueueLeads.length > 0 ? (
@@ -877,9 +1262,7 @@ export default function App() {
                 )}
               </div>
 
-              {/* ── CHARTS ROW 1: Calls Trend + Project Performance + Sourcewise ── */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                {/* Calls Trend */}
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl col-span-1 lg:col-span-2 shadow-xl">
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Calls Trend (Daily)</h3>
                   <div className="h-[260px] w-full">
@@ -898,8 +1281,6 @@ export default function App() {
                     </ResponsiveContainer>
                   </div>
                 </div>
-
-                {/* Sourcewise Donut */}
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl shadow-xl flex flex-col">
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Sourcewise Analysis</h3>
                   <div className="h-[200px] w-full relative">
@@ -923,9 +1304,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ── CHARTS ROW 2: Project Performance + Executive Performance ── */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                {/* Project Performance */}
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl shadow-xl">
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Project Performance</h3>
                   <div className="h-[260px] w-full">
@@ -941,8 +1320,6 @@ export default function App() {
                     </ResponsiveContainer>
                   </div>
                 </div>
-
-                {/* Executive Performance MTD */}
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl shadow-xl">
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Executive Performance — MTD</h3>
                   <div className="h-[260px] w-full">
@@ -961,7 +1338,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Executivewise Detailed Report (mini table on dashboard) */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Executivewise Detailed Report</h3>
                 <div className="overflow-x-auto">
@@ -1004,9 +1380,7 @@ export default function App() {
             </div>
           )}
 
-          {/* ══════════════════════════════════════════════════════════════
-              VIEWPORT 2: LEADS (unchanged)
-          ══════════════════════════════════════════════════════════════ */}
+          {/* ═══ LEADS ═══════════════════════════════════════════════════ */}
           {activeTab === "leads" && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -1080,9 +1454,7 @@ export default function App() {
             </div>
           )}
 
-          {/* ══════════════════════════════════════════════════════════════
-              VIEWPORT 3: ACTIVITY LOGS (NEW — mirrors Excel "Data" sheet)
-          ══════════════════════════════════════════════════════════════ */}
+          {/* ═══ ACTIVITY LOGS ═══════════════════════════════════════════ */}
           {activeTab === "activity" && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -1095,51 +1467,19 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Filters */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-5 shadow-xl">
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
-                  <div className="space-y-1">
-                    <label className="text-slate-500 font-bold uppercase text-[9px]">From Date</label>
-                    <input type="date" value={actStartDate} onChange={e => setActStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-orange-500 font-mono" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-slate-500 font-bold uppercase text-[9px]">To Date</label>
-                    <input type="date" value={actEndDate} onChange={e => setActEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-orange-500 font-mono" />
-                  </div>
+                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase text-[9px]">From Date</label><input type="date" value={actStartDate} onChange={e => setActStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-orange-500 font-mono" /></div>
+                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase text-[9px]">To Date</label><input type="date" value={actEndDate} onChange={e => setActEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-orange-500 font-mono" /></div>
                   {["Admin", "Manager"].includes(currentUser.role) && (
-                    <div className="space-y-1">
-                      <label className="text-slate-500 font-bold uppercase text-[9px]">Executive</label>
-                      <select value={actFilterExec} onChange={e => setActFilterExec(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
-                        <option value="All">All</option>
-                        {[...new Set(activityLogs.map(l => l.executive))].sort().map(e => <option key={e} value={e}>{e}</option>)}
-                      </select>
-                    </div>
+                    <div className="space-y-1"><label className="text-slate-500 font-bold uppercase text-[9px]">Executive</label><select value={actFilterExec} onChange={e => setActFilterExec(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none"><option value="All">All</option>{[...new Set(activityLogs.map(l => l.executive))].sort().map(e => <option key={e} value={e}>{e}</option>)}</select></div>
                   )}
-                  <div className="space-y-1">
-                    <label className="text-slate-500 font-bold uppercase text-[9px]">Project</label>
-                    <select value={actFilterProject} onChange={e => setActFilterProject(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
-                      <option value="All">All</option>
-                      {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-slate-500 font-bold uppercase text-[9px]">Source</label>
-                    <select value={actFilterSource} onChange={e => setActFilterSource(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
-                      <option value="All">All</option>
-                      {sources.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-slate-500 font-bold uppercase text-[9px]">Call Status</label>
-                    <select value={actFilterStatus} onChange={e => setActFilterStatus(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
-                      <option value="All">All</option>
-                      {CALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
+                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase text-[9px]">Project</label><select value={actFilterProject} onChange={e => setActFilterProject(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none"><option value="All">All</option>{projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
+                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase text-[9px]">Source</label><select value={actFilterSource} onChange={e => setActFilterSource(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none"><option value="All">All</option>{sources.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase text-[9px]">Call Status</label><select value={actFilterStatus} onChange={e => setActFilterStatus(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none"><option value="All">All</option>{CALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
                 </div>
               </div>
 
-              {/* KPI summary row for filtered logs */}
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
                 <KpiTile label="Total Calls" value={activityKPIs.totalCalls.toLocaleString()} icon={<Phone />} color="#ea580c" />
                 <KpiTile label="Followups" value={activityKPIs.totalFollowups.toLocaleString()} icon={<PhoneCall />} color="#3b82f6" />
@@ -1151,24 +1491,15 @@ export default function App() {
                 <KpiTile label="Conversion %" value={`${activityKPIs.convRate}%`} icon={<TrendingUp />} color="#a3e635" />
               </div>
 
-              {/* Data Table */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl w-full">
                 <div className="overflow-x-auto w-full">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-slate-900 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                        <th className="p-3">Date</th>
-                        <th className="p-3">Executive/Tel</th>
-                        <th className="p-3">Project</th>
-                        <th className="p-3">Source</th>
-                        <th className="p-3 text-center">Calls</th>
-                        <th className="p-3">Status</th>
-                        <th className="p-3 text-center">Followup</th>
-                        <th className="p-3 text-center">Site Visit</th>
-                        <th className="p-3 text-center">Booking</th>
-                        <th className="p-3 text-center">Regist.</th>
-                        <th className="p-3 text-center">Cancel.</th>
-                        <th className="p-3 min-w-[200px]">Remark</th>
+                        <th className="p-3">Date</th><th className="p-3">Executive/Tel</th><th className="p-3">Project</th><th className="p-3">Source</th>
+                        <th className="p-3 text-center">Calls</th><th className="p-3">Status</th><th className="p-3 text-center">Followup</th>
+                        <th className="p-3 text-center">Site Visit</th><th className="p-3 text-center">Booking</th><th className="p-3 text-center">Regist.</th>
+                        <th className="p-3 text-center">Cancel.</th><th className="p-3 min-w-[200px]">Remark</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-900 text-slate-300">
@@ -1181,9 +1512,7 @@ export default function App() {
                           <td className="p-3 text-orange-400 font-semibold">{l.project}</td>
                           <td className="p-3"><span className="bg-slate-900 border border-slate-800 text-slate-400 px-1.5 py-0.5 rounded text-[10px] font-mono">{l.source}</span></td>
                           <td className="p-3 text-center font-mono font-bold text-white">{l.callsMade}</td>
-                          <td className="p-3">
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase ${l.callStatus === "Warm" ? "bg-amber-500/10 text-amber-400" : "bg-slate-700/30 text-slate-400"}`}>{l.callStatus}</span>
-                          </td>
+                          <td className="p-3"><span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase ${l.callStatus === "Warm" ? "bg-amber-500/10 text-amber-400" : "bg-slate-700/30 text-slate-400"}`}>{l.callStatus}</span></td>
                           <td className="p-3 text-center font-mono text-blue-400">{l.followup || ""}</td>
                           <td className="p-3 text-center font-mono text-emerald-400">{l.siteVisit || ""}</td>
                           <td className="p-3 text-center font-mono text-purple-400">{l.booking || ""}</td>
@@ -1214,9 +1543,7 @@ export default function App() {
             </div>
           )}
 
-          {/* ══════════════════════════════════════════════════════════════
-              VIEWPORT 4: PROJECTS (unchanged)
-          ══════════════════════════════════════════════════════════════ */}
+          {/* ═══ PROJECTS ════════════════════════════════════════════════ */}
           {activeTab === "projects" && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -1260,9 +1587,7 @@ export default function App() {
             </div>
           )}
 
-          {/* ══════════════════════════════════════════════════════════════
-              VIEWPORT 5: REPORTS (ENHANCED with Excel-style matrices)
-          ══════════════════════════════════════════════════════════════ */}
+          {/* ═══ REPORTS ═════════════════════════════════════════════════ */}
           {activeTab === "reports" && (
             <div className="space-y-8 pb-20">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start md:items-center gap-4 w-full">
@@ -1280,54 +1605,22 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ── FILTERS (mirrors Excel Report sheet) ── */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 space-y-4 shadow-xl">
                 <h3 className="text-xs font-black text-orange-400 uppercase tracking-widest">Filter Panel</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pb-4 border-b border-slate-800/60">
-                  <div className="space-y-1">
-                    <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-orange-500" /> From Date</label>
-                    <input type="date" value={actStartDate} onChange={e => setActStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono cursor-pointer" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-orange-500" /> To Date</label>
-                    <input type="date" value={actEndDate} onChange={e => setActEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono cursor-pointer" />
-                  </div>
+                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-orange-500" /> From Date</label><input type="date" value={actStartDate} onChange={e => setActStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono cursor-pointer" /></div>
+                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-orange-500" /> To Date</label><input type="date" value={actEndDate} onChange={e => setActEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono cursor-pointer" /></div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                   {["Admin", "Manager"].includes(currentUser.role) && (
-                    <div className="space-y-1">
-                      <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Executive</label>
-                      <select value={actFilterExec} onChange={e => setActFilterExec(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
-                        <option value="All">All Executives</option>
-                        {[...new Set(activityLogs.map(l => l.executive))].sort().map(e => <option key={e} value={e}>{e}</option>)}
-                      </select>
-                    </div>
+                    <div className="space-y-1"><label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Executive</label><select value={actFilterExec} onChange={e => setActFilterExec(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none"><option value="All">All Executives</option>{[...new Set(activityLogs.map(l => l.executive))].sort().map(e => <option key={e} value={e}>{e}</option>)}</select></div>
                   )}
-                  <div className="space-y-1">
-                    <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Project</label>
-                    <select value={actFilterProject} onChange={e => setActFilterProject(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
-                      <option value="All">All Projects</option>
-                      {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Source</label>
-                    <select value={actFilterSource} onChange={e => setActFilterSource(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
-                      <option value="All">All Sources</option>
-                      {sources.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Call Status</label>
-                    <select value={actFilterStatus} onChange={e => setActFilterStatus(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none">
-                      <option value="All">All Status</option>
-                      {CALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
+                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Project</label><select value={actFilterProject} onChange={e => setActFilterProject(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none"><option value="All">All Projects</option>{projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
+                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Source</label><select value={actFilterSource} onChange={e => setActFilterSource(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none"><option value="All">All Sources</option>{sources.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Call Status</label><select value={actFilterStatus} onChange={e => setActFilterStatus(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none"><option value="All">All Status</option>{CALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
                 </div>
               </div>
 
-              {/* ── KPI TILES ── */}
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
                 <KpiTile label="Total Calls" value={activityKPIs.totalCalls.toLocaleString()} icon={<Phone />} color="#ea580c" />
                 <KpiTile label="Followups" value={activityKPIs.totalFollowups.toLocaleString()} icon={<PhoneCall />} color="#3b82f6" />
@@ -1339,18 +1632,12 @@ export default function App() {
                 <KpiTile label="Conversion %" value={`${activityKPIs.convRate}%`} icon={<TrendingUp />} color="#a3e635" />
               </div>
 
-              {/* ── SUMMARY MATRIX (Excel "Report" sheet — project columns × metric rows) ── */}
+              {/* Summary Matrix */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl">
                 <h3 className="text-sm font-black text-orange-400 mb-4 uppercase tracking-widest">Summary — Projectwise Metrics</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px]">
-                        <th className="p-3 min-w-[130px] bg-slate-900/50">Metric</th>
-                        {reportSummaryMatrix.projectNames.map(p => <th key={p} className="p-3 text-center min-w-[100px] bg-slate-900/50">{p}</th>)}
-                        <th className="p-3 text-center bg-slate-900/80 text-white font-black">TOTAL</th>
-                      </tr>
-                    </thead>
+                    <thead><tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px]"><th className="p-3 min-w-[130px] bg-slate-900/50">Metric</th>{reportSummaryMatrix.projectNames.map(p => <th key={p} className="p-3 text-center min-w-[100px] bg-slate-900/50">{p}</th>)}<th className="p-3 text-center bg-slate-900/80 text-white font-black">TOTAL</th></tr></thead>
                     <tbody className="divide-y divide-slate-900">
                       {reportSummaryMatrix.metrics.map((metric, mi) => {
                         const rowTotal = reportSummaryMatrix.projectNames.reduce((s, p) => s + (reportSummaryMatrix.data[metric]?.[p] || 0), 0);
@@ -1358,9 +1645,7 @@ export default function App() {
                         return (
                           <tr key={metric} className="hover:bg-slate-900/30">
                             <td className={`p-3 font-black uppercase tracking-wide text-[10px] ${colors[mi % colors.length]}`}>{metric}</td>
-                            {reportSummaryMatrix.projectNames.map(p => (
-                              <td key={p} className="p-3 text-center font-mono text-slate-300">{reportSummaryMatrix.data[metric]?.[p] || ""}</td>
-                            ))}
+                            {reportSummaryMatrix.projectNames.map(p => <td key={p} className="p-3 text-center font-mono text-slate-300">{reportSummaryMatrix.data[metric]?.[p] || ""}</td>)}
                             <td className={`p-3 text-center font-mono font-black ${colors[mi % colors.length]}`}>{rowTotal || ""}</td>
                           </tr>
                         );
@@ -1370,27 +1655,14 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ── EXECUTIVEWISE MATRIX (Excel "Executivewise" sheet — top section) ── */}
+              {/* Executivewise Matrix */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl">
                 <h3 className="text-sm font-black text-blue-400 mb-4 uppercase tracking-widest">Executivewise Performance Matrix</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px]">
-                        <th className="p-3 bg-slate-900/50 min-w-[120px]">Metric</th>
-                        {execDetailedMatrix.map(e => <th key={e.name} className="p-3 text-center bg-slate-900/50 min-w-[90px]">{e.name}</th>)}
-                        <th className="p-3 text-center bg-slate-900/80 text-white font-black">TOTAL</th>
-                      </tr>
-                    </thead>
+                    <thead><tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px]"><th className="p-3 bg-slate-900/50 min-w-[120px]">Metric</th>{execDetailedMatrix.map(e => <th key={e.name} className="p-3 text-center bg-slate-900/50 min-w-[90px]">{e.name}</th>)}<th className="p-3 text-center bg-slate-900/80 text-white font-black">TOTAL</th></tr></thead>
                     <tbody className="divide-y divide-slate-900">
-                      {[
-                        { key: "calls", label: "Calls made", color: "text-orange-400" },
-                        { key: "followups", label: "Followup", color: "text-blue-400" },
-                        { key: "siteVisits", label: "Site visit", color: "text-emerald-400" },
-                        { key: "bookings", label: "Booking", color: "text-purple-400" },
-                        { key: "registrations", label: "Registration", color: "text-amber-400" },
-                        { key: "cancellations", label: "Cancellation", color: "text-rose-400" },
-                      ].map(row => (
+                      {[{ key: "calls", label: "Calls made", color: "text-orange-400" }, { key: "followups", label: "Followup", color: "text-blue-400" }, { key: "siteVisits", label: "Site visit", color: "text-emerald-400" }, { key: "bookings", label: "Booking", color: "text-purple-400" }, { key: "registrations", label: "Registration", color: "text-amber-400" }, { key: "cancellations", label: "Cancellation", color: "text-rose-400" }].map(row => (
                         <tr key={row.key} className="hover:bg-slate-900/30">
                           <td className={`p-3 font-black uppercase tracking-wide text-[10px] ${row.color}`}>{row.label}</td>
                           {execDetailedMatrix.map(e => <td key={e.name} className="p-3 text-center font-mono text-slate-300">{e[row.key] || ""}</td>)}
@@ -1402,18 +1674,12 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ── SOURCEWISE MATRIX (Excel "Executivewise" — sourcewise section) ── */}
+              {/* Sourcewise Matrix */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl">
                 <h3 className="text-sm font-black text-emerald-400 mb-4 uppercase tracking-widest">Sourcewise — Calls by Executive</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px]">
-                        <th className="p-3 bg-slate-900/50 min-w-[120px]">Source</th>
-                        {sourcewiseMatrix.execNames.map(e => <th key={e} className="p-3 text-center bg-slate-900/50 min-w-[80px]">{e}</th>)}
-                        <th className="p-3 text-center bg-slate-900/80 text-white font-black">TOTAL</th>
-                      </tr>
-                    </thead>
+                    <thead><tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px]"><th className="p-3 bg-slate-900/50 min-w-[120px]">Source</th>{sourcewiseMatrix.execNames.map(e => <th key={e} className="p-3 text-center bg-slate-900/50 min-w-[80px]">{e}</th>)}<th className="p-3 text-center bg-slate-900/80 text-white font-black">TOTAL</th></tr></thead>
                     <tbody className="divide-y divide-slate-900">
                       {sourcewiseMatrix.srcNames.map(src => (
                         <tr key={src} className="hover:bg-slate-900/30">
@@ -1432,18 +1698,12 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ── PROJECTWISE MATRIX (Excel "Executivewise" — projectwise section) ── */}
+              {/* Projectwise Matrix */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl">
                 <h3 className="text-sm font-black text-amber-400 mb-4 uppercase tracking-widest">Projectwise — Calls by Executive</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px]">
-                        <th className="p-3 bg-slate-900/50 min-w-[130px]">Project</th>
-                        {projectwiseMatrix.execNames.map(e => <th key={e} className="p-3 text-center bg-slate-900/50 min-w-[80px]">{e}</th>)}
-                        <th className="p-3 text-center bg-slate-900/80 text-white font-black">TOTAL</th>
-                      </tr>
-                    </thead>
+                    <thead><tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px]"><th className="p-3 bg-slate-900/50 min-w-[130px]">Project</th>{projectwiseMatrix.execNames.map(e => <th key={e} className="p-3 text-center bg-slate-900/50 min-w-[80px]">{e}</th>)}<th className="p-3 text-center bg-slate-900/80 text-white font-black">TOTAL</th></tr></thead>
                     <tbody className="divide-y divide-slate-900">
                       {projectwiseMatrix.projNames.map(proj => (
                         <tr key={proj} className="hover:bg-slate-900/30">
@@ -1462,85 +1722,42 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Existing: Sourcewise Analysis from Leads */}
+              {/* Lead Source + Project Conversion */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
                 <h3 className="text-sm font-black text-orange-400 mb-4 uppercase tracking-widest">Lead Source Performance (from Leads)</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-800 text-slate-500 uppercase">
-                        <th className="p-3">Source</th>
-                        <th className="p-3 text-center">Lead Count</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-900">
-                      {sourcewiseAnalysis.map(([src, stats]) => (
-                        <tr key={src} className="hover:bg-slate-900/50">
-                          <td className="p-3 font-bold text-white">{src}</td>
-                          <td className="p-3 text-center font-mono font-bold text-lg">{stats.total}</td>
-                        </tr>
-                      ))}
-                    </tbody>
+                    <thead><tr className="border-b border-slate-800 text-slate-500 uppercase"><th className="p-3">Source</th><th className="p-3 text-center">Lead Count</th></tr></thead>
+                    <tbody className="divide-y divide-slate-900">{sourcewiseAnalysis.map(([src, stats]) => <tr key={src} className="hover:bg-slate-900/50"><td className="p-3 font-bold text-white">{src}</td><td className="p-3 text-center font-mono font-bold text-lg">{stats.total}</td></tr>)}</tbody>
                   </table>
                 </div>
               </div>
-
-              {/* Existing: Project Conversion */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
                 <h3 className="text-sm font-black text-emerald-400 mb-4 uppercase tracking-widest">Project Conversion Efficiency (from Leads)</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {projectwiseAnalysis.map(([proj, stats]) => (
                     <div key={proj} className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
                       <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">{proj}</p>
-                      <div className="flex justify-between items-end">
-                        <span className="text-2xl font-black text-white">{stats.converted}/{stats.total}</span>
-                        <span className="text-[10px] font-mono text-emerald-500 font-bold">{stats.total > 0 ? Math.round((stats.converted / stats.total) * 100) : 0}% Conv.</span>
-                      </div>
+                      <div className="flex justify-between items-end"><span className="text-2xl font-black text-white">{stats.converted}/{stats.total}</span><span className="text-[10px] font-mono text-emerald-500 font-bold">{stats.total > 0 ? Math.round((stats.converted / stats.total) * 100) : 0}% Conv.</span></div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Existing: Executive Pipeline Summary */}
+              {/* Executive Pipeline Summary */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl w-full">
                 <h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider mb-4"><BarChart3 className="h-4 w-4" /> Executive Pipeline Summary (from Leads)</h3>
                 <div className="overflow-x-auto w-full">
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="text-slate-500 font-bold border-b border-slate-900 uppercase">
-                        <th className="pb-2 pl-2">Executive</th>
-                        <th className="pb-2 text-center text-blue-400">Total</th>
-                        <th className="pb-2 text-center">Untouched</th>
-                        <th className="pb-2 text-center text-amber-400">Active</th>
-                        <th className="pb-2 text-center text-purple-400">Site Visits</th>
-                        <th className="pb-2 text-center text-emerald-400">Bookings</th>
-                        <th className="pb-2 text-center text-rose-400">Dead</th>
-                      </tr>
-                    </thead>
+                    <thead><tr className="text-slate-500 font-bold border-b border-slate-900 uppercase"><th className="pb-2 pl-2">Executive</th><th className="pb-2 text-center text-blue-400">Total</th><th className="pb-2 text-center">Untouched</th><th className="pb-2 text-center text-amber-400">Active</th><th className="pb-2 text-center text-purple-400">Site Visits</th><th className="pb-2 text-center text-emerald-400">Bookings</th><th className="pb-2 text-center text-rose-400">Dead</th></tr></thead>
                     <tbody className="divide-y divide-slate-900 text-slate-300">
                       {executiveSummaryData.map((exec, idx) => (
-                        <tr key={idx} className="hover:bg-slate-900/20">
-                          <td className="py-3 pl-2 font-bold text-white">{exec.name}</td>
-                          <td className="py-3 text-center font-mono font-bold text-blue-400">{exec.total}</td>
-                          <td className="py-3 text-center font-mono">{exec.new}</td>
-                          <td className="py-3 text-center font-mono text-amber-400/80">{exec.active}</td>
-                          <td className="py-3 text-center font-mono text-purple-400/80">{exec.siteVisits}</td>
-                          <td className="py-3 text-center font-mono font-black text-emerald-400">{exec.bookings}</td>
-                          <td className="py-3 text-center font-mono text-rose-400/80">{exec.dead}</td>
-                        </tr>
+                        <tr key={idx} className="hover:bg-slate-900/20"><td className="py-3 pl-2 font-bold text-white">{exec.name}</td><td className="py-3 text-center font-mono font-bold text-blue-400">{exec.total}</td><td className="py-3 text-center font-mono">{exec.new}</td><td className="py-3 text-center font-mono text-amber-400/80">{exec.active}</td><td className="py-3 text-center font-mono text-purple-400/80">{exec.siteVisits}</td><td className="py-3 text-center font-mono font-black text-emerald-400">{exec.bookings}</td><td className="py-3 text-center font-mono text-rose-400/80">{exec.dead}</td></tr>
                       ))}
                     </tbody>
                     {executiveSummaryData.length > 0 && (
                       <tfoot className="bg-slate-900/50 border-t border-slate-800 font-black">
-                        <tr>
-                          <td className="py-3 pl-2 text-white">TOTALS</td>
-                          <td className="py-3 text-center font-mono text-blue-400">{executiveSummaryData.reduce((a, c) => a + c.total, 0)}</td>
-                          <td className="py-3 text-center font-mono">{executiveSummaryData.reduce((a, c) => a + c.new, 0)}</td>
-                          <td className="py-3 text-center font-mono text-amber-400/80">{executiveSummaryData.reduce((a, c) => a + c.active, 0)}</td>
-                          <td className="py-3 text-center font-mono text-purple-400/80">{executiveSummaryData.reduce((a, c) => a + c.siteVisits, 0)}</td>
-                          <td className="py-3 text-center font-mono text-emerald-400">{executiveSummaryData.reduce((a, c) => a + c.bookings, 0)}</td>
-                          <td className="py-3 text-center font-mono text-rose-400/80">{executiveSummaryData.reduce((a, c) => a + c.dead, 0)}</td>
-                        </tr>
+                        <tr><td className="py-3 pl-2 text-white">TOTALS</td><td className="py-3 text-center font-mono text-blue-400">{executiveSummaryData.reduce((a, c) => a + c.total, 0)}</td><td className="py-3 text-center font-mono">{executiveSummaryData.reduce((a, c) => a + c.new, 0)}</td><td className="py-3 text-center font-mono text-amber-400/80">{executiveSummaryData.reduce((a, c) => a + c.active, 0)}</td><td className="py-3 text-center font-mono text-purple-400/80">{executiveSummaryData.reduce((a, c) => a + c.siteVisits, 0)}</td><td className="py-3 text-center font-mono text-emerald-400">{executiveSummaryData.reduce((a, c) => a + c.bookings, 0)}</td><td className="py-3 text-center font-mono text-rose-400/80">{executiveSummaryData.reduce((a, c) => a + c.dead, 0)}</td></tr>
                       </tfoot>
                     )}
                   </table>
@@ -1549,11 +1766,10 @@ export default function App() {
             </div>
           )}
 
-          {/* ══════════════════════════════════════════════════════════════
-              VIEWPORT 6: ADMIN HUB (unchanged)
-          ══════════════════════════════════════════════════════════════ */}
+          {/* ═══ ADMIN / SYSTEM CONTROL HUB ════════════════════════════ */}
           {activeTab === "users" && currentUser.role === "Admin" && (
             <div className="space-y-8">
+              {/* Active Roster */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
                 <div className="space-y-0.5">
                   <h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider"><Users className="h-4 w-4" /> Active Corporate Roster</h3>
@@ -1561,20 +1777,11 @@ export default function App() {
                 </div>
                 <div className="overflow-x-auto w-full pt-2">
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="text-slate-500 font-bold border-b border-slate-900 uppercase">
-                        <th className="pb-2">Personnel</th><th className="pb-2">Role & Branch</th><th className="pb-2">Contact</th><th className="pb-2 text-right">Actions</th>
-                      </tr>
-                    </thead>
+                    <thead><tr className="text-slate-500 font-bold border-b border-slate-900 uppercase"><th className="pb-2">Personnel</th><th className="pb-2">Role & Branch</th><th className="pb-2">Contact</th><th className="pb-2 text-right">Actions</th></tr></thead>
                     <tbody className="divide-y divide-slate-900 text-slate-300">
                       {users.map(u => (
                         <tr key={u.id} className="hover:bg-slate-900/20 transition-all">
-                          <td className="py-3 font-bold text-white">
-                            <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-black text-orange-400">{u.avatar}</div>
-                              <div><p>{u.name}</p><p className="text-[10px] text-slate-500 font-mono font-normal">ID: {u.id}</p></div>
-                            </div>
-                          </td>
+                          <td className="py-3 font-bold text-white"><div className="flex items-center gap-3"><div className="h-8 w-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-black text-orange-400">{u.avatar}</div><div><p>{u.name}</p><p className="text-[10px] text-slate-500 font-mono font-normal">ID: {u.id}</p></div></div></td>
                           <td className="py-3"><p className="font-semibold text-orange-400">{u.role}</p><p className="text-[10px] text-slate-400 font-mono">{u.branch}</p></td>
                           <td className="py-3 font-mono text-slate-400"><p>{u.phone}</p><p className="text-[10px]">{u.email}</p></td>
                           <td className="py-3 text-right space-x-2">
@@ -1589,6 +1796,7 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Deploy New Profile */}
                 <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl h-fit">
                   <h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider"><UserPlus className="h-4 w-4" /> Deploy New Profile</h3>
                   <form onSubmit={handleCreateUserSubmit} className="space-y-4 text-xs pt-1">
@@ -1609,18 +1817,28 @@ export default function App() {
                   </form>
                 </div>
 
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl h-fit">
-                  <h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider"><Upload className="h-4 w-4" /> Excel/CSV Bulk Import</h3>
-                  <form onSubmit={handleDataImportSubmit} className="space-y-4 pt-1">
-                    <textarea rows={5} value={importText} onChange={e => setImportText(e.target.value)} placeholder={"Name\tPhone\tEmail\tProject\tLocation\tBudget"} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-orange-500 font-mono leading-relaxed" />
-                    <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-3 flex gap-3 items-start text-xs text-slate-400">
-                      <Info className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
-                      <p>Tab-separated paste from Excel. Columns: Name, Phone, Email, Project, Location, Budget, Source</p>
-                    </div>
-                    <button type="submit" className="w-full flex justify-center items-center gap-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-lg">
-                      <FileSpreadsheet className="h-4 w-4" /> Import Leads
-                    </button>
-                  </form>
+                {/* ── REPLACED: Excel Import Panel ── */}
+                <div className="space-y-6">
+                  <ExcelImportPanel
+                    activityLogs={activityLogs}
+                    setActivityLogs={setActivityLogs}
+                    triggerToastAlert={triggerToastAlert}
+                  />
+
+                  {/* Legacy lead paste import (kept intact as backup) */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
+                    <h3 className="text-sm font-black text-slate-500 flex items-center gap-2 uppercase tracking-wider"><Upload className="h-4 w-4" /> Lead Paste Import (Tab-Separated)</h3>
+                    <form onSubmit={handleDataImportSubmit} className="space-y-4 pt-1">
+                      <textarea rows={4} value={importText} onChange={e => setImportText(e.target.value)} placeholder={"Name\tPhone\tEmail\tProject\tLocation\tBudget\tSource"} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-orange-500 font-mono leading-relaxed" />
+                      <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-3 flex gap-3 items-start text-xs text-slate-400">
+                        <Info className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
+                        <p>Tab-separated paste from Excel. Columns: Name, Phone, Email, Project, Location, Budget, Source</p>
+                      </div>
+                      <button type="submit" className="w-full flex justify-center items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-black px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all">
+                        <FileSpreadsheet className="h-4 w-4" /> Import Leads (paste)
+                      </button>
+                    </form>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1682,7 +1900,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ── LEAD DETAIL MODAL (unchanged) ── */}
+      {/* ── LEAD DETAIL MODAL ── */}
       {selectedLead && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedLead(null)}>
           <div className="bg-slate-950 border border-slate-800 w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl p-6 space-y-6 shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -1868,7 +2086,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ── ADD ACTIVITY LOG MODAL (NEW) ── */}
+      {/* ── ADD ACTIVITY LOG MODAL ── */}
       {isActivityLogModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-2xl space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -1900,14 +2118,7 @@ export default function App() {
                 <div className="space-y-1"><label className="text-slate-400 font-bold">Call Status</label><select value={newActivityForm.callStatus} onChange={e => setNewActivityForm({ ...newActivityForm, callStatus: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none">{CALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                {[
-                  { key: "followup", label: "Followup", color: "text-blue-400" },
-                  { key: "siteVisit", label: "Site Visit", color: "text-emerald-400" },
-                  { key: "booking", label: "Booking", color: "text-purple-400" },
-                  { key: "registration", label: "Registration", color: "text-amber-400" },
-                  { key: "cancellation", label: "Cancellation", color: "text-rose-400" },
-                  { key: "collection", label: "Collection (₹L)", color: "text-cyan-400" },
-                ].map(f => (
+                {[{ key: "followup", label: "Followup", color: "text-blue-400" }, { key: "siteVisit", label: "Site Visit", color: "text-emerald-400" }, { key: "booking", label: "Booking", color: "text-purple-400" }, { key: "registration", label: "Registration", color: "text-amber-400" }, { key: "cancellation", label: "Cancellation", color: "text-rose-400" }, { key: "collection", label: "Collection (₹L)", color: "text-cyan-400" }].map(f => (
                   <div key={f.key} className="space-y-1">
                     <label className={`font-bold text-[10px] uppercase ${f.color}`}>{f.label}</label>
                     <input type="number" min="0" value={newActivityForm[f.key]} onChange={e => setNewActivityForm({ ...newActivityForm, [f.key]: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 font-mono focus:outline-none focus:border-orange-500" />

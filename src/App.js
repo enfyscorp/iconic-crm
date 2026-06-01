@@ -9,7 +9,7 @@ import {
   Menu, ArrowRight, Home, FileText, ArrowLeft, ClipboardList,
   Phone, UserCheck, BookOpen, Banknote, XCircle, Activity,
   Table2, Eye, RefreshCw, AlertCircle, HelpCircle, KeyRound,
-  ShieldCheck, RotateCcw, Send
+  ShieldCheck, RotateCcw, Send, PhoneOff, Star, MessageSquare
 } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
@@ -46,10 +46,15 @@ const PROJECT_TYPES = ["Apartment","Villa","Plot"];
 const CALL_STATUSES = ["Warm","Cold","Not Reachable","Callback Requested"];
 const PIE_COLORS = ['#ea580c','#3b82f6','#10b981','#8b5cf6','#ec4899','#f59e0b','#64748b','#14b8a6','#ef4444','#06b6d4','#a3e635','#fb923c'];
 
-// ─── DEFAULT BOOTSTRAP DATA ───────────────────────────────────────────────
-const BOOTSTRAP_USERS = [
+// ─── ADMIN CREDENTIALS (hardcoded — never stored in DB) ───────────────────
+// Only these two admins are kept in code. All other users come from storage.
+const HARDCODED_ADMINS = [
   { id: 101, name: "Shaj", email: "admin@desam", pass: "saamrat@123", role: "Admin", branch: "All Branches", phone: "9840000001", active: true, avatar: "S" },
   { id: 110, name: "Digital Marketing", email: "dm@desam", pass: "m@rketing", role: "Admin", branch: "All Branches", phone: "9840000001", active: true, avatar: "D" },
+];
+
+// ─── BOOTSTRAP NON-ADMIN USERS (loaded once into storage if empty) ────────
+const BOOTSTRAP_NON_ADMIN_USERS = [
   { id: 102, name: "Jibril", email: "jibril@desam", pass: "angel@26", role: "Manager", branch: "Madurai Desk", phone: "9840000002", active: true, avatar: "J" },
   { id: 103, name: "AryaLakshmi", email: "arya@lakshmi", pass: "manager123", role: "Manager", branch: "Madurai Desk", phone: "9840000003", active: true, avatar: "A" },
   { id: 104, name: "Rohini", email: "rohini@desam", pass: "rohu@desam", role: "Executive", branch: "Madurai Desk", phone: "9840000004", active: true, avatar: "R" },
@@ -59,6 +64,7 @@ const BOOTSTRAP_USERS = [
   { id: 108, name: "Shakila", email: "shakila@desam", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "9840000008", active: true, avatar: "S" },
   { id: 109, name: "Gowshika", email: "gowshika@desam", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "9840000009", active: true, avatar: "G" },
 ];
+
 const BOOTSTRAP_PROJECTS = [
   { id: 1, name: "Desam Garden", location: "Madurai Bypass", branch: "Madurai Desk", type: "Plot", price: 25, units: 80, sold: 15, status: "Ongoing" },
   { id: 2, name: "Fairland", location: "Uthangudi, Madurai", branch: "Madurai Desk", type: "Villa", price: 95, units: 35, sold: 8, status: "Ongoing" },
@@ -70,7 +76,7 @@ const BOOTSTRAP_PROJECTS = [
 
 // ─── STORAGE HELPERS ──────────────────────────────────────────────────────
 const SK = {
-  users: "desam_crm_users",
+  nonAdminUsers: "desam_crm_non_admin_users",  // Only non-admin users in storage
   projects: "desam_crm_projects",
   leads: "desam_crm_leads",
   activityLogs: "desam_crm_activity_logs",
@@ -143,6 +149,21 @@ function normaliseCallStatus(raw) {
   return "Warm";
 }
 
+// ─── MOBILE DETECTION ────────────────────────────────────────────────────
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(
+      /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+      window.innerWidth <= 768
+    );
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return isMobile;
+}
+
 // ─── KPI TILE ─────────────────────────────────────────────────────────────
 const KpiTile = ({ label, value, icon, color, sub }) => (
   <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex flex-col gap-1">
@@ -156,6 +177,173 @@ const KpiTile = ({ label, value, icon, color, sub }) => (
     {sub && <p className="text-[9px] text-slate-500 font-medium">{sub}</p>}
   </div>
 );
+
+// ─── MOBILE CALL BUTTON + FEEDBACK POPUP ─────────────────────────────────
+function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY_STR }) {
+  const [callState, setCallState] = useState("idle"); // idle | calling | feedback
+  const [callDuration, setCallDuration] = useState(0);
+  const [feedback, setFeedback] = useState({ rating: 0, notes: "", outcome: "Contacted", followUpDate: "" });
+  const timerRef = useRef(null);
+
+  const startCall = () => {
+    if (!phone) return;
+    // Initiate phone call
+    window.location.href = `tel:${phone}`;
+    setCallState("calling");
+    setCallDuration(0);
+    // Start a timer to track how long since call was initiated
+    timerRef.current = setInterval(() => setCallDuration(d => d + 1), 1000);
+  };
+
+  const endCall = () => {
+    clearInterval(timerRef.current);
+    setCallState("feedback");
+  };
+
+  const saveFeedback = () => {
+    if (onFeedbackSaved) {
+      onFeedbackSaved({
+        ...feedback,
+        callDuration,
+        calledAt: new Date().toISOString(),
+        phone,
+        leadName,
+      });
+    }
+    setCallState("idle");
+    setFeedback({ rating: 0, notes: "", outcome: "Contacted", followUpDate: "" });
+    setCallDuration(0);
+  };
+
+  const dismiss = () => {
+    clearInterval(timerRef.current);
+    setCallState("idle");
+    setFeedback({ rating: 0, notes: "", outcome: "Contacted", followUpDate: "" });
+    setCallDuration(0);
+  };
+
+  const formatDur = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+  return (
+    <>
+      {/* Call Button */}
+      <button
+        onClick={callState === "idle" ? startCall : endCall}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all shadow-md ${
+          callState === "calling"
+            ? "bg-rose-600 hover:bg-rose-700 text-white animate-pulse"
+            : "bg-emerald-600/20 hover:bg-emerald-600 border border-emerald-500/30 text-emerald-400 hover:text-white"
+        }`}
+        title={callState === "calling" ? "End call & give feedback" : `Call ${phone}`}
+      >
+        {callState === "calling" ? (
+          <><PhoneOff className="h-3.5 w-3.5" /> End Call {callDuration > 0 && `(${formatDur(callDuration)})`}</>
+        ) : (
+          <><Phone className="h-3.5 w-3.5" /> Call</>
+        )}
+      </button>
+
+      {/* Post-Call Feedback Popup */}
+      {callState === "feedback" && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[300] flex items-end sm:items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-emerald-900/40 to-slate-900 border-b border-slate-800 p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                  <MessageSquare className="h-4 w-4 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">Call Feedback</h3>
+                  <p className="text-[10px] text-slate-500 font-mono">
+                    {leadName} • {phone}
+                    {callDuration > 0 && <span className="text-emerald-400 ml-1">• {formatDur(callDuration)}</span>}
+                  </p>
+                </div>
+              </div>
+              <button onClick={dismiss} className="text-slate-500 hover:text-white p-1.5 hover:bg-slate-900 rounded-lg transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Star Rating */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Call Quality</label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <button
+                      key={star}
+                      onClick={() => setFeedback(f => ({ ...f, rating: star }))}
+                      className="transition-transform hover:scale-110"
+                    >
+                      <Star
+                        className={`h-7 w-7 transition-colors ${
+                          feedback.rating >= star ? "text-amber-400 fill-amber-400" : "text-slate-700"
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Outcome */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Call Outcome</label>
+                <select
+                  value={feedback.outcome}
+                  onChange={e => setFeedback(f => ({ ...f, outcome: e.target.value }))}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                >
+                  {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+
+              {/* Follow-up date */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Next Follow-up Date</label>
+                <input
+                  type="date"
+                  value={feedback.followUpDate}
+                  min={TODAY_STR}
+                  onChange={e => setFeedback(f => ({ ...f, followUpDate: e.target.value }))}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                />
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Notes</label>
+                <textarea
+                  rows={2}
+                  value={feedback.notes}
+                  onChange={e => setFeedback(f => ({ ...f, notes: e.target.value }))}
+                  placeholder="What was discussed? Any next steps?"
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  onClick={dismiss}
+                  className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors"
+                >
+                  Skip
+                </button>
+                <button
+                  onClick={saveFeedback}
+                  className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 text-white transition-all shadow-lg"
+                >
+                  Save Feedback
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 // ─── EXCEL IMPORT PANEL ───────────────────────────────────────────────────
 function ExcelImportPanel({ activityLogs, setActivityLogs, triggerToastAlert }) {
@@ -303,13 +491,10 @@ function ExcelImportPanel({ activityLogs, setActivityLogs, triggerToastAlert }) 
 }
 
 // ─── ADMIN RESET REQUESTS PANEL ───────────────────────────────────────────
-// This panel lives in the Admin → System Control Hub.
-// It shows all pending OTP reset requests and lets admin enter the destination
-// email to "send" the code (simulated dispatch — no real SMTP).
+// Shows pending reset requests. Admin can see user info + generated OTP to
+// hand over in-person or by phone. No email needed.
 function AdminResetRequestsPanel({ resetRequests, setResetRequests, triggerToastAlert }) {
-  const [sendToEmail, setSendToEmail] = useState({});
-  const [sentStatus, setSentStatus] = useState({});
-
+  const [copiedId, setCopiedId] = useState(null);
   const now = Date.now();
   const active = resetRequests.filter(r => r.expiresAt > now && !r.consumed);
   const expired = resetRequests.filter(r => r.expiresAt <= now || r.consumed);
@@ -320,17 +505,11 @@ function AdminResetRequestsPanel({ resetRequests, setResetRequests, triggerToast
     return `${String(Math.floor(left/60)).padStart(2,"0")}:${String(left%60).padStart(2,"0")}`;
   };
 
-  const handleSend = (req) => {
-    const email = sendToEmail[req.id]?.trim();
-    if (!email || !email.includes("@")) {
-      triggerToastAlert("Please enter a valid email address.");
-      return;
-    }
-    // In production this would call an email API.
-    // Here we simulate success and log to console.
-    console.info(`[DESAM CRM] OTP ${req.otp} for ${req.userName} dispatched to: ${email}`);
-    setSentStatus(prev => ({ ...prev, [req.id]: email }));
-    triggerToastAlert(`OTP sent to ${email} (simulated)`);
+  const copyOtp = (req) => {
+    navigator.clipboard.writeText(req.otp);
+    setCopiedId(req.id);
+    triggerToastAlert("OTP copied to clipboard!");
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   const handleClearExpired = () => {
@@ -362,7 +541,7 @@ function AdminResetRequestsPanel({ resetRequests, setResetRequests, triggerToast
           <KeyRound className="h-4 w-4" /> Password Reset Requests
           {active.length > 0 && (
             <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-pulse">
-              {active.length} LIVE
+              {active.length} PENDING
             </span>
           )}
         </h3>
@@ -373,13 +552,21 @@ function AdminResetRequestsPanel({ resetRequests, setResetRequests, triggerToast
         )}
       </div>
 
-      {/* ── ACTIVE REQUESTS ── */}
+      {/* Instructions banner */}
+      {active.length > 0 && (
+        <div className="bg-amber-950/30 border border-amber-500/20 rounded-xl p-3 flex items-start gap-2">
+          <Info className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+          <p className="text-[11px] text-amber-300/80 leading-relaxed">
+            Share the OTP below with the user <span className="font-black text-amber-200">directly (in-person or by phone)</span>. They will enter it in the password reset screen. No email required.
+          </p>
+        </div>
+      )}
+
+      {/* Active Requests */}
       {active.length > 0 && (
         <div className="space-y-4">
-          <p className="text-[10px] font-black text-emerald-400 uppercase tracking-wider">Active — Enter admin email to dispatch OTP</p>
           {active.map(req => (
             <div key={req.id} className="bg-slate-900/60 border border-orange-500/20 rounded-xl p-4 space-y-3">
-              {/* Request header */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="h-9 w-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center font-black text-orange-400 text-sm flex-shrink-0">
@@ -388,6 +575,7 @@ function AdminResetRequestsPanel({ resetRequests, setResetRequests, triggerToast
                   <div>
                     <p className="text-xs font-black text-white">{req.userName}</p>
                     <p className="text-[10px] text-slate-500 font-mono">{req.userEmail}</p>
+                    <p className="text-[9px] text-slate-600 mt-0.5 font-bold uppercase tracking-wider">{req.userRole}</p>
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">
@@ -396,59 +584,24 @@ function AdminResetRequestsPanel({ resetRequests, setResetRequests, triggerToast
                 </div>
               </div>
 
-              {/* OTP display */}
-              <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+              {/* OTP Display — large and prominent */}
+              <div className="bg-slate-950 border-2 border-orange-500/30 rounded-xl p-4 flex items-center justify-between">
                 <div>
-                  <p className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">One-Time Password</p>
-                  <p className="text-2xl font-black text-white tracking-[0.3em] font-mono mt-0.5">{req.otp}</p>
+                  <p className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">One-Time Password — Share with user</p>
+                  <p className="text-3xl font-black text-white tracking-[0.4em] font-mono mt-1">{req.otp}</p>
                 </div>
                 <button
-                  onClick={() => { navigator.clipboard.writeText(req.otp); triggerToastAlert("OTP copied!"); }}
-                  className="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
+                  onClick={() => copyOtp(req)}
+                  className={`p-2.5 rounded-xl border transition-all ${
+                    copiedId === req.id
+                      ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
+                      : "bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-400 hover:text-white"
+                  }`}
                   title="Copy OTP"
                 >
-                  <FileText className="h-4 w-4" />
+                  {copiedId === req.id ? <Check className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
                 </button>
               </div>
-
-              {/* ── EMAIL FIELD ── */}
-              {sentStatus[req.id] ? (
-                <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-xl p-3 flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                  <div>
-                    <p className="text-[10px] font-black text-emerald-400">OTP dispatched</p>
-                    <p className="text-[10px] text-emerald-300/70 font-mono mt-0.5">Sent to: {sentStatus[req.id]}</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <label className="text-[9px] text-slate-500 font-black uppercase tracking-wider block">
-                    Admin email to send OTP to *
-                  </label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Mail className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-500" />
-                      <input
-                        type="email"
-                        value={sendToEmail[req.id] || ""}
-                        onChange={e => setSendToEmail(prev => ({ ...prev, [req.id]: e.target.value }))}
-                        placeholder="admin@yourcompany.com"
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-orange-500 font-mono placeholder-slate-600"
-                      />
-                    </div>
-                    <button
-                      onClick={() => handleSend(req)}
-                      disabled={!sendToEmail[req.id]?.trim() || !sendToEmail[req.id]?.includes("@")}
-                      className="flex items-center gap-1.5 bg-orange-600 hover:bg-orange-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black px-4 py-2 rounded-xl text-[10px] uppercase tracking-wider transition-colors"
-                    >
-                      <Send className="h-3.5 w-3.5" /> Send
-                    </button>
-                  </div>
-                  <p className="text-[9px] text-slate-600 italic">
-                    Enter the admin email address where the OTP should be forwarded. The user will then contact you to receive it.
-                  </p>
-                </div>
-              )}
 
               <p className="text-[9px] text-slate-600 font-mono">
                 Requested: {new Date(req.requestedAt).toLocaleString()}
@@ -458,7 +611,7 @@ function AdminResetRequestsPanel({ resetRequests, setResetRequests, triggerToast
         </div>
       )}
 
-      {/* ── EXPIRED / CONSUMED ── */}
+      {/* Expired / Consumed */}
       {expired.length > 0 && (
         <div className="space-y-2">
           <p className="text-[10px] font-black text-slate-600 uppercase tracking-wider">Expired / Used</p>
@@ -482,15 +635,57 @@ function AdminResetRequestsPanel({ resetRequests, setResetRequests, triggerToast
   );
 }
 
+// ─── ADMIN LOGIN RESET POPUP ─────────────────────────────────────────────
+// Shown when admin logs in and there are pending reset requests
+function AdminLoginResetPopup({ count, onGoToHub, onDismiss }) {
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[500] flex items-center justify-center p-4">
+      <div className="bg-slate-950 border border-orange-500/30 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-orange-900/30 to-slate-900 border-b border-slate-800 p-5 flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center animate-pulse">
+            <KeyRound className="h-5 w-5 text-rose-400" />
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-white uppercase tracking-wide">Reset Requests Pending</h3>
+            <p className="text-[10px] text-slate-400 mt-0.5">Requires your attention</p>
+          </div>
+        </div>
+        <div className="p-5 space-y-4">
+          <div className="bg-rose-950/30 border border-rose-500/20 rounded-xl p-4 text-center space-y-2">
+            <p className="text-4xl font-black text-rose-400">{count}</p>
+            <p className="text-xs font-bold text-slate-300">
+              {count === 1 ? "user has" : "users have"} requested a password reset.
+            </p>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Go to System Control Hub to view the OTPs and share them with the users directly.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={onDismiss}
+              className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors"
+            >
+              Later
+            </button>
+            <button
+              onClick={onGoToHub}
+              className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white transition-all shadow-lg flex items-center justify-center gap-1.5"
+            >
+              <ArrowRight className="h-3.5 w-3.5" /> Go to Hub
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── PASSWORD RESET MODAL ─────────────────────────────────────────────────
-// Secure 3-step flow. Step 2 now asks admin to enter destination email
-// before the OTP request is pushed to the Admin panel.
+// Simplified: Step 1 = username, Step 2 = OTP (get from admin directly), Step 3 = new pass, Step 4 = done
+// No email/phone OTP dispatch — request goes straight to admin panel.
 function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, onClose }) {
-  const [step, setStep] = useState(1); // 1=username, 2=admin-email+otp, 3=newpass, 4=done
+  const [step, setStep] = useState(1); // 1=username, 2=wait+enter OTP, 3=newpass, 4=done
   const [email, setEmail] = useState("");
-  // Admin email to send OTP to (entered by user on step 2)
-  const [adminEmailInput, setAdminEmailInput] = useState("");
-  const [adminEmailSubmitted, setAdminEmailSubmitted] = useState(false);
   const [currentReqId, setCurrentReqId] = useState(null);
   const [otp, setOtp] = useState("");
   const [otpTimeLeft, setOtpTimeLeft] = useState(300);
@@ -513,7 +708,7 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
 
   const formatTime = (s) => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
 
-  // Step 1: verify username
+  // Step 1: verify username — pushes request to admin panel immediately
   const handleEmailSubmit = (e) => {
     e.preventDefault();
     setError("");
@@ -521,26 +716,18 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
     const found = users.find(u => u.email.toLowerCase() === trimmed && u.active);
     if (!found) { setError("No active account found with this username."); return; }
     setTargetUser(found);
-    setStep(2);
-  };
 
-  // Step 2a: submit admin email + push OTP request
-  const handleAdminEmailSubmit = (e) => {
-    e.preventDefault();
-    setError("");
-    const dest = adminEmailInput.trim();
-    if (!dest || !dest.includes("@")) { setError("Please enter a valid email address."); return; }
-
+    // Generate OTP & push to admin panel right away
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiry = Date.now() + 5 * 60 * 1000;
     const reqId = Date.now();
 
     const newReq = {
       id: reqId,
-      userName: targetUser.name,
-      userEmail: targetUser.email,
+      userName: found.name,
+      userEmail: found.email,
+      userRole: found.role,
       otp: code,
-      adminEmailTarget: dest,
       requestedAt: Date.now(),
       expiresAt: expiry,
       consumed: false,
@@ -550,19 +737,16 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
     setCurrentReqId(reqId);
     setOtpExpiry(expiry);
     setOtpTimeLeft(300);
-    setAdminEmailSubmitted(true);
-    console.info(`[DESAM CRM] OTP ${code} for ${targetUser.name} — admin email target: ${dest}`);
+    setStep(2);
   };
 
-  // Step 2b: verify OTP
+  // Step 2: verify OTP the user received from admin
   const handleOtpSubmit = (e) => {
     e.preventDefault();
     setError("");
     if (otpTimeLeft === 0) { setError("OTP has expired. Please start over."); return; }
-    // Find the matching live request
     const req = resetRequests.find(r => r.id === currentReqId);
-    if (!req || req.otp !== otp.trim()) { setError("Incorrect OTP. Please check and try again."); return; }
-    // Mark consumed
+    if (!req || req.otp !== otp.trim()) { setError("Incorrect OTP. Please check with your admin and try again."); return; }
     setResetRequests(prev => prev.map(r => r.id === currentReqId ? { ...r, consumed: true } : r));
     setStep(3);
   };
@@ -571,13 +755,12 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiry = Date.now() + 5 * 60 * 1000;
     const reqId = Date.now();
-
     const newReq = {
       id: reqId,
       userName: targetUser.name,
       userEmail: targetUser.email,
+      userRole: targetUser.role,
       otp: code,
-      adminEmailTarget: adminEmailInput.trim(),
       requestedAt: Date.now(),
       expiresAt: expiry,
       consumed: false,
@@ -588,7 +771,6 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
     setOtpTimeLeft(300);
     setOtp("");
     setError("");
-    console.info(`[DESAM CRM] Resent OTP ${code} for ${targetUser.name} → ${adminEmailInput.trim()}`);
   };
 
   // Step 3: new password
@@ -614,7 +796,7 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
               <h3 className="text-sm font-black text-white uppercase tracking-wide">Password Reset</h3>
               <p className="text-[10px] text-slate-500 mt-0.5">
                 {step === 1 && "Enter your account username"}
-                {step === 2 && (adminEmailSubmitted ? "Enter the OTP from admin" : "Provide admin email for OTP delivery")}
+                {step === 2 && "Contact admin for your OTP"}
                 {step === 3 && "Set a new password"}
                 {step === 4 && "Reset complete"}
               </p>
@@ -647,7 +829,7 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
               <div className="bg-blue-950/30 border border-blue-500/20 rounded-xl p-3 flex items-start gap-2">
                 <Info className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
                 <p className="text-[11px] text-blue-300/80 leading-relaxed">
-                  Enter your <span className="font-black text-blue-200">account username</span>. You will then provide an admin email so the OTP can be dispatched.
+                  Enter your <span className="font-black text-blue-200">account username</span>. A one-time code will be sent to your <span className="font-black text-blue-200">system admin</span> — contact them to receive it.
                 </p>
               </div>
               <div className="space-y-1.5">
@@ -664,120 +846,74 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
               </div>
               {error && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 flex items-center gap-2"><AlertCircle className="h-4 w-4 shrink-0" />{error}</p>}
               <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg text-xs">
-                Continue
+                Request Reset
               </button>
             </form>
           )}
 
-          {/* ── STEP 2: Admin Email Entry + OTP ── */}
+          {/* ── STEP 2: Wait for admin + enter OTP ── */}
           {step === 2 && (
-            <div className="space-y-4 text-xs">
+            <form onSubmit={handleOtpSubmit} className="space-y-4 text-xs">
+              {/* User card */}
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center gap-3">
+                <div className="h-7 w-7 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center font-bold text-orange-400 text-xs flex-shrink-0">
+                  {targetUser?.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold text-white">Reset requested for: <span className="text-orange-400">{targetUser?.name}</span></p>
+                  <p className="text-[10px] text-slate-500 font-mono">{targetUser?.email}</p>
+                </div>
+              </div>
 
-              {/* 2a — Enter admin email first */}
-              {!adminEmailSubmitted ? (
-                <form onSubmit={handleAdminEmailSubmit} className="space-y-4">
-                  <div className="bg-amber-950/30 border border-amber-500/20 rounded-xl p-3 flex items-start gap-2">
-                    <Info className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
-                    <p className="text-[11px] text-amber-300/80 leading-relaxed">
-                      A one-time code will be sent to your <span className="font-black text-amber-200">system administrator's email</span>. Enter that email address below so the OTP can be dispatched.
-                    </p>
+              {/* Admin notification banner */}
+              <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-xl p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
                   </div>
+                  <p className="text-[11px] text-emerald-200 font-bold">
+                    Request forwarded to Admin Panel
+                  </p>
+                </div>
+                <p className="text-[10px] text-emerald-400/70 pl-9 leading-relaxed">
+                  Your admin has been notified. <span className="font-black text-emerald-300">Contact your System Administrator</span> to get the 6-digit OTP code. Expires in:
+                </p>
+                <div className={`pl-9 font-mono font-black text-lg ${otpTimeLeft < 60 ? "text-rose-400 animate-pulse" : "text-emerald-300"}`}>
+                  {formatTime(otpTimeLeft)}
+                </div>
+              </div>
 
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center gap-3">
-                    <div className="h-7 w-7 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center font-bold text-orange-400 text-xs flex-shrink-0">
-                      {targetUser?.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-bold text-white">Requesting reset for: <span className="text-orange-400">{targetUser?.name}</span></p>
-                      <p className="text-[10px] text-slate-500 font-mono">{targetUser?.email}</p>
-                    </div>
-                  </div>
+              <div className="space-y-1.5">
+                <label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">6-Digit OTP (from Admin)</label>
+                <input
+                  type="text" required maxLength={6}
+                  value={otp}
+                  onChange={e => { setOtp(e.target.value.replace(/\D/g,"")); setError(""); }}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-orange-500 font-mono font-black text-center text-2xl tracking-[0.5em]"
+                  placeholder="——————"
+                  autoComplete="one-time-code"
+                />
+              </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-slate-400 font-bold uppercase tracking-wide text-[10px] flex items-center gap-1.5">
-                      <Mail className="h-3.5 w-3.5 text-orange-400" /> Admin Email Address *
-                    </label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                      <input
-                        type="email" required
-                        value={adminEmailInput}
-                        onChange={e => { setAdminEmailInput(e.target.value); setError(""); }}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono"
-                        placeholder="admin@yourcompany.com"
-                        autoComplete="off"
-                      />
-                    </div>
-                    <p className="text-[9px] text-slate-600 italic pl-1">
-                      The OTP will be sent to this address. Contact your admin to receive it.
-                    </p>
-                  </div>
+              {error && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 flex items-center gap-2"><AlertCircle className="h-4 w-4 shrink-0" />{error}</p>}
 
-                  {error && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 flex items-center gap-2"><AlertCircle className="h-4 w-4 shrink-0" />{error}</p>}
+              <button type="submit" disabled={otp.length < 6 || otpTimeLeft === 0} className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg text-xs">
+                Verify OTP
+              </button>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <button type="button" onClick={() => { setStep(1); setError(""); }} className="flex items-center justify-center gap-1 py-2.5 rounded-xl font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors">
-                      <ArrowLeft className="h-3 w-3" /> Back
-                    </button>
-                    <button type="submit" className="py-2.5 rounded-xl font-black uppercase tracking-wider bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white transition-all shadow-lg flex items-center justify-center gap-1.5">
-                      <Send className="h-3.5 w-3.5" /> Send OTP
-                    </button>
-                  </div>
-                </form>
-
-              ) : (
-                /* 2b — OTP was dispatched, now enter it */
-                <form onSubmit={handleOtpSubmit} className="space-y-4">
-                  <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-xl p-4 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="h-7 w-7 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                        <Send className="h-3.5 w-3.5 text-emerald-400" />
-                      </div>
-                      <p className="text-[11px] text-emerald-200 font-bold">
-                        OTP dispatched to: <span className="font-mono text-emerald-300">{adminEmailInput.trim()}</span>
-                      </p>
-                    </div>
-                    <p className="text-[10px] text-emerald-400/70 pl-9">
-                      Contact your <span className="font-black text-emerald-300">System Administrator</span> to get the 6-digit code. Expires in:
-                    </p>
-                    <div className={`pl-9 font-mono font-black text-lg ${otpTimeLeft < 60 ? "text-rose-400 animate-pulse" : "text-emerald-300"}`}>
-                      {formatTime(otpTimeLeft)}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">6-Digit Verification Code</label>
-                    <input
-                      type="text" required maxLength={6}
-                      value={otp}
-                      onChange={e => { setOtp(e.target.value.replace(/\D/g,"")); setError(""); }}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-orange-500 font-mono font-black text-center text-2xl tracking-[0.5em]"
-                      placeholder="——————"
-                      autoComplete="one-time-code"
-                    />
-                  </div>
-
-                  {error && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 flex items-center gap-2"><AlertCircle className="h-4 w-4 shrink-0" />{error}</p>}
-
-                  <button type="submit" disabled={otp.length < 6 || otpTimeLeft === 0} className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg text-xs">
-                    Verify Code
+              <div className="flex items-center justify-between pt-1">
+                <button type="button" onClick={() => { setStep(1); setError(""); setOtp(""); }} className="text-slate-500 hover:text-slate-300 text-[11px] font-bold flex items-center gap-1 transition-colors">
+                  <ArrowLeft className="h-3 w-3" /> Back
+                </button>
+                {otpTimeLeft === 0 ? (
+                  <button type="button" onClick={handleResendOtp} className="text-orange-400 hover:text-orange-300 text-[11px] font-black flex items-center gap-1 transition-colors">
+                    <RotateCcw className="h-3 w-3" /> Request New OTP
                   </button>
-
-                  <div className="flex items-center justify-between pt-1">
-                    <button type="button" onClick={() => { setAdminEmailSubmitted(false); setError(""); setOtp(""); }} className="text-slate-500 hover:text-slate-300 text-[11px] font-bold flex items-center gap-1 transition-colors">
-                      <ArrowLeft className="h-3 w-3" /> Change Email
-                    </button>
-                    {otpTimeLeft === 0 ? (
-                      <button type="button" onClick={handleResendOtp} className="text-orange-400 hover:text-orange-300 text-[11px] font-black flex items-center gap-1 transition-colors">
-                        <RotateCcw className="h-3 w-3" /> Resend OTP
-                      </button>
-                    ) : (
-                      <span className="text-slate-600 text-[10px] font-mono">Resend after expiry</span>
-                    )}
-                  </div>
-                </form>
-              )}
-            </div>
+                ) : (
+                  <span className="text-slate-600 text-[10px] font-mono">Resend after expiry</span>
+                )}
+              </div>
+            </form>
           )}
 
           {/* ── STEP 3: New Password ── */}
@@ -846,6 +982,7 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function App() {
   const TODAY_STR = new Date().toISOString().slice(0,10);
+  const isMobile = useIsMobile();
 
   const [storageReady, setStorageReady] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -853,6 +990,8 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [showResetModal, setShowResetModal] = useState(false);
+  // Admin login popup — shown once after admin logs in if there are pending reset requests
+  const [showAdminLoginPopup, setShowAdminLoginPopup] = useState(false);
 
   const [activeTab, setActiveTab] = useState("dashboard");
   const [navHistory, setNavHistory] = useState([]);
@@ -874,13 +1013,25 @@ export default function App() {
   const [actEndDate, setActEndDate] = useState("");
 
   const [leads, setLeadsState] = useState([]);
-  const [users, setUsersState] = useState([]);
+  // nonAdminUsers: all non-admin users from storage
+  const [nonAdminUsers, setNonAdminUsersState] = useState([]);
   const [projects, setProjectsState] = useState([]);
   const [activityLogs, setActivityLogsState] = useState([]);
   const [resetRequests, setResetRequestsState] = useState([]);
 
+  // ── Merged users view: hardcoded admins + DB non-admins ──────────────────
+  const users = useMemo(() => [...HARDCODED_ADMINS, ...nonAdminUsers], [nonAdminUsers]);
+
   const setLeads = useCallback((val) => { const data = typeof val === "function" ? val(leads) : val; setLeadsState(data); storageSet(SK.leads, data); }, [leads]);
-  const setUsers = useCallback((val) => { const data = typeof val === "function" ? val(users) : val; setUsersState(data); storageSet(SK.users, data); }, [users]);
+
+  // setUsers: only persists the non-admin subset; admins stay in code
+  const setUsers = useCallback((val) => {
+    const allData = typeof val === "function" ? val(users) : val;
+    const nonAdmins = allData.filter(u => u.role !== "Admin");
+    setNonAdminUsersState(nonAdmins);
+    storageSet(SK.nonAdminUsers, nonAdmins);
+  }, [users]);
+
   const setProjects = useCallback((val) => { const data = typeof val === "function" ? val(projects) : val; setProjectsState(data); storageSet(SK.projects, data); }, [projects]);
   const setActivityLogs = useCallback((val) => { const data = typeof val === "function" ? val(activityLogs) : val; setActivityLogsState(data); storageSet(SK.activityLogs, data); }, [activityLogs]);
   const setResetRequests = useCallback((val) => {
@@ -891,21 +1042,36 @@ export default function App() {
     });
   }, []);
 
+  // Bootstrap: load non-admin users from storage (or seed from bootstrap)
   useEffect(() => {
     (async () => {
-      let u = await storageGet(SK.users);
+      let nonAdmins = await storageGet(SK.nonAdminUsers);
+      // Migration: if old key "desam_crm_users" exists, migrate non-admins from it
+      if (!nonAdmins) {
+        const oldUsers = await storageGet("desam_crm_users");
+        if (oldUsers) {
+          nonAdmins = oldUsers.filter(u => u.role !== "Admin");
+        } else {
+          nonAdmins = BOOTSTRAP_NON_ADMIN_USERS;
+        }
+        await storageSet(SK.nonAdminUsers, nonAdmins);
+      }
+
       let p = await storageGet(SK.projects);
       let l = await storageGet(SK.leads);
       let a = await storageGet(SK.activityLogs);
       let r = await storageGet(SK.resetRequests);
 
-      if (!u) { u = BOOTSTRAP_USERS; await storageSet(SK.users, u); }
       if (!p) { p = BOOTSTRAP_PROJECTS; await storageSet(SK.projects, p); }
       if (!l) { l = []; await storageSet(SK.leads, l); }
       if (!a) { a = []; await storageSet(SK.activityLogs, a); }
       if (!r) { r = []; await storageSet(SK.resetRequests, r); }
 
-      setUsersState(u); setProjectsState(p); setLeadsState(l); setActivityLogsState(a); setResetRequestsState(r);
+      setNonAdminUsersState(nonAdmins);
+      setProjectsState(p);
+      setLeadsState(l);
+      setActivityLogsState(a);
+      setResetRequestsState(r);
       setStorageReady(true);
     })();
   }, []);
@@ -1064,7 +1230,25 @@ export default function App() {
     triggerToastAlert(`Exported as .${ext.toUpperCase()}`);
   };
 
-  const handleLoginSubmit=(e)=>{ e.preventDefault(); const acc=users.find(u=>u.email.toLowerCase()===loginEmail.toLowerCase().trim()&&u.pass===loginPassword&&u.active); if(acc){setCurrentUser(acc);setLoginError("");triggerToastAlert(`Welcome, ${acc.name}!`);}else setLoginError("Invalid credentials."); };
+  // ── LOGIN: admins checked against hardcoded list first, then storage users ──
+  const handleLoginSubmit = (e) => {
+    e.preventDefault();
+    const allUsers = [...HARDCODED_ADMINS, ...nonAdminUsers];
+    const acc = allUsers.find(u => u.email.toLowerCase() === loginEmail.toLowerCase().trim() && u.pass === loginPassword && u.active);
+    if (acc) {
+      setCurrentUser(acc);
+      setLoginError("");
+      triggerToastAlert(`Welcome, ${acc.name}!`);
+      // Show popup to admin if there are pending reset requests
+      if (acc.role === "Admin") {
+        const pendingCount = resetRequests.filter(r => r.expiresAt > Date.now() && !r.consumed).length;
+        if (pendingCount > 0) setShowAdminLoginPopup(true);
+      }
+    } else {
+      setLoginError("Invalid credentials.");
+    }
+  };
+
   const handleLogout=()=>{ setCurrentUser(null);setLoginEmail("");setLoginPassword("");setGlobalSearch("");setActiveTab("dashboard");setNavHistory([]);setIsMobileMenuOpen(false); };
 
   const requestStatusTransitionPopup=(leadId,nextStatus)=>{ const t=leads.find(l=>l.id===leadId); if(!t)return; setCustomPopup({isOpen:true,leadId,targetValue:nextStatus,type:"status",title:"Confirm Status Shift",message:`Transition "${t.name}" to "${nextStatus}"?`}); };
@@ -1080,10 +1264,25 @@ export default function App() {
   const handleDataImportSubmit=(e)=>{ e.preventDefault(); if(!importText.trim())return; try{ const lines=importText.split("\n").map(l=>l.trim()).filter(Boolean); const newLeads=[]; lines.forEach(line=>{const cols=line.split("\t"); if(cols.length>=4){const matchedProj=projects.find(p=>p.name.toLowerCase()===(cols[3]||"").toLowerCase().trim()); const branchHome=matchedProj?matchedProj.branch:"Madurai Desk"; newLeads.push({id:Date.now()+Math.floor(Math.random()*10000),name:cols[0]||"Lead",phone:stripPhone(cols[1]||"00000"),email:cols[2]||"",project:cols[3]||"",location:cols[4]||"Inbound",budget:parseInt(cols[5])||25,source:cols[6]||"Website",assignedTo:"Unassigned",assignedByRole:"",status:"New",branch:branchHome,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,history:[{date:TODAY_STR,by:currentUser.name,action:"Imported via paste."}],siteVisitTentativeDate:"",bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false});}});if(newLeads.length>0){setLeads([...newLeads,...leads]);triggerToastAlert(`Imported ${newLeads.length} leads.`);setImportText("");}
   }catch(err){alert(err.message);} };
 
-  const handleCreateUserSubmit=(e)=>{ e.preventDefault(); const prefix=newUserForm.emailPrefix.trim().toLowerCase(); const u={id:Date.now(),name:newUserForm.name.trim(),email:`${prefix}@desam`,pass:newUserForm.pass,role:newUserForm.role,branch:newUserForm.role==="Admin"?"All Branches":newUserForm.branch,phone:stripPhone(newUserForm.phone)||"9840000000",active:true,avatar:newUserForm.name.charAt(0).toUpperCase()}; setUsers([...users,u]); setNewUserForm({name:"",emailPrefix:"",pass:"",role:"Executive",branch:"Madurai Desk",phone:""}); triggerToastAlert(`Profile for ${u.name} created.`); };
-  const handleDeleteUser=(userId)=>{ if(userId===currentUser.id){triggerToastAlert("Cannot delete your own account.");return;} setUsers(users.filter(u=>u.id!==userId)); triggerToastAlert("Profile removed."); };
-  const openEditUserModal=(user)=>{ setEditUserForm({...user}); setIsEditUserModalOpen(true); };
-  const handleUpdateUserSubmit=(e)=>{ e.preventDefault(); const prefix=editUserForm.email.split('@')[0].trim().toLowerCase(); const u={...editUserForm,name:editUserForm.name.trim(),email:`${prefix}@desam`,branch:editUserForm.role==="Admin"?"All Branches":editUserForm.branch,phone:stripPhone(editUserForm.phone)||"9840000000",avatar:editUserForm.name.charAt(0).toUpperCase()}; setUsers(users.map(x=>x.id===u.id?u:x)); setIsEditUserModalOpen(false);setEditUserForm(null); triggerToastAlert(`Profile for ${u.name} updated.`); };
+  // Create user: only allow non-admin; admins are hardcoded
+  const handleCreateUserSubmit=(e)=>{ e.preventDefault(); const prefix=newUserForm.emailPrefix.trim().toLowerCase(); const role = newUserForm.role; if (role === "Admin") { triggerToastAlert("Admin accounts cannot be created here."); return; } const u={id:Date.now(),name:newUserForm.name.trim(),email:`${prefix}@desam`,pass:newUserForm.pass,role,branch:newUserForm.branch,phone:stripPhone(newUserForm.phone)||"9840000000",active:true,avatar:newUserForm.name.charAt(0).toUpperCase()}; setNonAdminUsersState(prev => { const updated = [...prev, u]; storageSet(SK.nonAdminUsers, updated); return updated; }); setNewUserForm({name:"",emailPrefix:"",pass:"",role:"Executive",branch:"Madurai Desk",phone:""}); triggerToastAlert(`Profile for ${u.name} created.`); };
+
+  const handleDeleteUser=(userId)=>{
+    if(userId===currentUser.id){triggerToastAlert("Cannot delete your own account.");return;}
+    // Check if it's a hardcoded admin
+    if(HARDCODED_ADMINS.some(a=>a.id===userId)){triggerToastAlert("Admin accounts cannot be deleted here.");return;}
+    setNonAdminUsersState(prev => { const updated = prev.filter(u => u.id !== userId); storageSet(SK.nonAdminUsers, updated); return updated; });
+    triggerToastAlert("Profile removed.");
+  };
+
+  const openEditUserModal=(user)=>{
+    if(HARDCODED_ADMINS.some(a=>a.id===user.id)){triggerToastAlert("Admin credentials are managed separately.");return;}
+    setEditUserForm({...user}); setIsEditUserModalOpen(true);
+  };
+
+  const handleUpdateUserSubmit=(e)=>{ e.preventDefault(); const prefix=editUserForm.email.split('@')[0].trim().toLowerCase(); const u={...editUserForm,name:editUserForm.name.trim(),email:`${prefix}@desam`,branch:editUserForm.role==="Admin"?"All Branches":editUserForm.branch,phone:stripPhone(editUserForm.phone)||"9840000000",avatar:editUserForm.name.charAt(0).toUpperCase()};
+    setNonAdminUsersState(prev => { const updated = prev.map(x => x.id === u.id ? u : x); storageSet(SK.nonAdminUsers, updated); return updated; });
+    setIsEditUserModalOpen(false);setEditUserForm(null); triggerToastAlert(`Profile for ${u.name} updated.`); };
 
   const commitManualFollowUpReport=(e)=>{ e.preventDefault(); if(!followUpNotes.trim()||!nextFollowUpDate)return; const updated=leads.map(l=>{ if(l.id===selectedLead.id){const obj={...l,status:"Contacted",lastFollowUp:TODAY_STR,nextFollowUp:nextFollowUpDate,history:[{date:TODAY_STR,by:currentUser.name,action:`[Follow-Up]: ${followUpNotes.trim()} (Next: ${nextFollowUpDate})`},...l.history]};setSelectedLead(obj);return obj;}return l;}); setLeads(updated); setFollowUpNotes("");setNextFollowUpDate(""); triggerToastAlert("Follow-up logged."); };
 
@@ -1094,7 +1293,32 @@ export default function App() {
   const commitSiteWalkthroughLog=()=>{ const updated=leads.map(l=>l.id===selectedLead.id?{...l,status:"Site Visit Completed",history:[{date:svDate,by:currentUser.name,action:`[Site Visit]: Family: ${svFamily}. Feedback: ${svFeedback}`},...l.history]}:l); setLeads(updated); setSelectedLead(null); triggerToastAlert("Site visit logged."); };
   const commitFinancialBookingLog=()=>{ const updated=leads.map(l=>l.id===selectedLead.id?{...l,status:"Booking Confirmed",bookingUnit:bkUnit,history:[{date:TODAY_STR,by:currentUser.name,action:`[Booking]: Unit [${bkUnit}] booked.`},...l.history]}:l); setLeads(updated); setSelectedLead(null); triggerToastAlert("Booking logged."); };
 
-  // Count active (unexpired, not consumed) reset requests for badge
+  // Handle mobile call feedback: logs as a follow-up on the lead
+  const handleCallFeedback = (leadId, feedbackData) => {
+    const { notes, outcome, followUpDate, callDuration, leadName } = feedbackData;
+    const log = {
+      date: TODAY_STR,
+      by: currentUser.name,
+      action: `[Mobile Call]: Duration ${Math.floor(callDuration/60)}m${callDuration%60}s. Outcome: ${outcome}.${notes ? ` Notes: ${notes}` : ""}${followUpDate ? ` Next follow-up: ${followUpDate}` : ""}`
+    };
+    const updated = leads.map(l => {
+      if (l.id !== leadId) return l;
+      return {
+        ...l,
+        status: outcome || l.status,
+        lastFollowUp: TODAY_STR,
+        nextFollowUp: followUpDate || l.nextFollowUp,
+        history: [log, ...l.history]
+      };
+    });
+    setLeads(updated);
+    if (selectedLead && selectedLead.id === leadId) {
+      setSelectedLead(prev => ({ ...prev, status: outcome || prev.status, history: [log, ...prev.history] }));
+    }
+    triggerToastAlert("Call feedback saved.");
+  };
+
+  // Count active reset requests
   const activeResetCount = useMemo(() => resetRequests.filter(r => r.expiresAt > Date.now() && !r.consumed).length, [resetRequests]);
 
   const navItems = [
@@ -1187,6 +1411,16 @@ export default function App() {
   // ── MAIN APP ──────────────────────────────────────────────────────────────
   return (
     <div className="flex h-screen bg-slate-900 text-slate-100 font-sans antialiased overflow-hidden relative">
+
+      {/* Admin Login Reset Popup */}
+      {showAdminLoginPopup && currentUser?.role === "Admin" && activeResetCount > 0 && (
+        <AdminLoginResetPopup
+          count={activeResetCount}
+          onGoToHub={() => { setShowAdminLoginPopup(false); navigateTo("users"); }}
+          onDismiss={() => setShowAdminLoginPopup(false)}
+        />
+      )}
+
       <aside className="hidden lg:flex w-64 bg-slate-950 border-r border-slate-800 flex-col justify-between h-full flex-shrink-0"><SidebarContent/></aside>
       {isMobileMenuOpen&&(<div className="fixed inset-0 z-50 flex lg:hidden bg-black/60 backdrop-blur-sm"><aside className="w-64 bg-slate-950 border-r border-slate-800 flex-col justify-between h-full flex"><SidebarContent/></aside><div className="flex-1" onClick={()=>setIsMobileMenuOpen(false)}></div></div>)}
 
@@ -1249,7 +1483,19 @@ export default function App() {
                           <p className="text-[11px] font-semibold text-orange-400 mt-0.5">{l.project}</p>
                           <div className="mt-2"><span className="text-[9px] px-2 py-0.5 font-bold uppercase rounded" style={{backgroundColor:SC[l.status]?.bg||"rgba(255,255,255,0.05)",color:SC[l.status]?.text||"#FFF"}}>{l.status}</span></div>
                         </div>
-                        <button onClick={()=>setSelectedLead(l)} className="w-full bg-orange-600/10 hover:bg-orange-600 border border-orange-500/20 text-[10px] text-orange-400 hover:text-white font-black py-1.5 rounded-lg tracking-wide uppercase transition-all">{["Manager","Admin"].includes(currentUser.role)?"⚡ Delegate":"📝 Open Workspace"}</button>
+                        <div className="flex gap-2">
+                          {/* Mobile call button on lead cards */}
+                          {isMobile && ["Executive","Telecaller"].includes(currentUser.role) && (
+                            <MobileCallButton
+                              phone={l.phone}
+                              leadName={l.name}
+                              TODAY_STR={TODAY_STR}
+                              currentUser={currentUser}
+                              onFeedbackSaved={(fb) => handleCallFeedback(l.id, fb)}
+                            />
+                          )}
+                          <button onClick={()=>setSelectedLead(l)} className="flex-1 bg-orange-600/10 hover:bg-orange-600 border border-orange-500/20 text-[10px] text-orange-400 hover:text-white font-black py-1.5 rounded-lg tracking-wide uppercase transition-all">{["Manager","Admin"].includes(currentUser.role)?"⚡ Delegate":"📝 Open Workspace"}</button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1299,7 +1545,24 @@ export default function App() {
                     <tbody className="divide-y divide-slate-900 text-slate-300">
                       {processedLeads.length===0?(<tr><td colSpan={6} className="p-12 text-center text-slate-500 italic">No leads found.</td></tr>):processedLeads.map(l=>(
                         <tr key={l.id} className="hover:bg-slate-900/30 transition-all">
-                          <td className="p-4"><p className="font-bold text-white text-sm cursor-pointer hover:text-orange-400 transition-colors" onClick={()=>setSelectedLead(l)}>{l.name}</p><div className="flex items-center gap-2 mt-0.5"><p className="text-[11px] text-slate-500 font-mono">{l.phone}</p><button onClick={()=>copyToClipboard(l.phone)} className="text-slate-600 hover:text-orange-500"><Search className="h-3 w-3"/></button></div>{(new Date(TODAY_STR)-new Date(l.lastFollowUp||l.dateCreated))/(1000*3600*24)>7&&(<span className="text-[9px] bg-rose-500/10 text-rose-500 font-black px-1.5 py-0.5 rounded uppercase tracking-wider mt-1 block w-fit">Stale Lead</span>)}</td>
+                          <td className="p-4">
+                            <p className="font-bold text-white text-sm cursor-pointer hover:text-orange-400 transition-colors" onClick={()=>setSelectedLead(l)}>{l.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className="text-[11px] text-slate-500 font-mono">{l.phone}</p>
+                              <button onClick={()=>copyToClipboard(l.phone)} className="text-slate-600 hover:text-orange-500"><Search className="h-3 w-3"/></button>
+                              {/* Mobile call button inline in leads table */}
+                              {isMobile && ["Executive","Telecaller"].includes(currentUser.role) && (
+                                <MobileCallButton
+                                  phone={l.phone}
+                                  leadName={l.name}
+                                  TODAY_STR={TODAY_STR}
+                                  currentUser={currentUser}
+                                  onFeedbackSaved={(fb) => handleCallFeedback(l.id, fb)}
+                                />
+                              )}
+                            </div>
+                            {(new Date(TODAY_STR)-new Date(l.lastFollowUp||l.dateCreated))/(1000*3600*24)>7&&(<span className="text-[9px] bg-rose-500/10 text-rose-500 font-black px-1.5 py-0.5 rounded uppercase tracking-wider mt-1 block w-fit">Stale Lead</span>)}
+                          </td>
                           <td className="p-4"><p className="font-semibold text-slate-200">{l.project}</p><p className="text-[11px] text-slate-500 mt-0.5 font-mono">{l.dateCreated}</p></td>
                           <td className="p-4"><span className="bg-slate-900 border border-slate-800 text-slate-400 px-2 py-0.5 rounded text-[10px] font-bold font-mono">{l.source}</span></td>
                           <td className="p-4">{["Admin","Manager"].includes(currentUser.role)?(<select value={l.assignedTo} onChange={e=>requestOwnerAssignmentPopup(l.id,e.target.value)} className="bg-slate-900 border border-slate-800 text-slate-200 rounded px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:border-orange-500 cursor-pointer max-w-[170px]"><option value="Unassigned">⚠️ Select Staff</option><optgroup label="Managers">{users.filter(u=>u.role==="Manager").map(u=><option key={u.id} value={u.name}>{u.name} (Mgr)</option>)}</optgroup><optgroup label="Staff">{users.filter(u=>["Executive","Telecaller"].includes(u.role)).map(u=><option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}</optgroup></select>):(<span className="font-semibold text-slate-400 flex items-center gap-1"><Shield className="h-3.5 w-3.5 text-slate-600"/> {l.assignedTo}</span>)}</td>
@@ -1335,7 +1598,7 @@ export default function App() {
                 <KpiTile label="Total Calls" value={activityKPIs.totalCalls.toLocaleString()} icon={<Phone/>} color="#ea580c"/>
                 <KpiTile label="Followups" value={activityKPIs.totalFollowups.toLocaleString()} icon={<PhoneCall/>} color="#3b82f6"/>
                 <KpiTile label="Site Visits" value={activityKPIs.totalSiteVisits} icon={<MapPin/>} color="#10b981"/>
-                <KpiTile label="Bookings" value={activityKPIs.totalBookings} icon={<BookOpen/>} color="#8b5cf6"/>
+                <KpiTile label="Bookings" value={activityKPIs.totalBookings} icon={<BookBook/>} color="#8b5cf6"/>
                 <KpiTile label="Registration" value={activityKPIs.totalRegistrations} icon={<UserCheck/>} color="#f59e0b"/>
                 <KpiTile label="Cancellation" value={activityKPIs.totalCancellations} icon={<XCircle/>} color="#ef4444"/>
                 <KpiTile label="Collection" value={`₹${activityKPIs.totalCollection}L`} icon={<Banknote/>} color="#06b6d4"/>
@@ -1443,29 +1706,54 @@ export default function App() {
           {/* ═══ SYSTEM CONTROL HUB ════════════════════════════════════ */}
           {activeTab==="users"&&currentUser.role==="Admin"&&(
             <div className="space-y-8">
-              {/* ── PASSWORD RESET REQUESTS (NEW) ── */}
-              {resetRequests.length > 0 && (
-                <AdminResetRequestsPanel
-                  resetRequests={resetRequests}
-                  setResetRequests={setResetRequests}
-                  triggerToastAlert={triggerToastAlert}
-                />
-              )}
+              {/* Password Reset Requests always at top of hub */}
+              <AdminResetRequestsPanel
+                resetRequests={resetRequests}
+                setResetRequests={setResetRequests}
+                triggerToastAlert={triggerToastAlert}
+              />
 
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
-                <div><h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider"><Users className="h-4 w-4"/> Active Corporate Roster</h3><p className="text-xs text-slate-400">Manage, modify, or revoke access for deployed team members.</p></div>
+                <div>
+                  <h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider"><Users className="h-4 w-4"/> Active Corporate Roster</h3>
+                  <p className="text-xs text-slate-400">Manage, modify, or revoke access for deployed team members.</p>
+                  <div className="mt-2 bg-blue-950/30 border border-blue-500/20 rounded-xl p-2.5 flex items-start gap-2">
+                    <Info className="h-3.5 w-3.5 text-blue-400 mt-0.5 shrink-0"/>
+                    <p className="text-[10px] text-blue-300/70">Admin accounts (Shaj, Digital Marketing) are managed separately and not editable here. All other user credentials are stored securely in the database.</p>
+                  </div>
+                </div>
                 <div className="overflow-x-auto w-full pt-2">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead><tr className="text-slate-500 font-bold border-b border-slate-900 uppercase"><th className="pb-2">Personnel</th><th className="pb-2">Role & Branch</th><th className="pb-2">Contact</th><th className="pb-2 text-right">Actions</th></tr></thead>
                     <tbody className="divide-y divide-slate-900 text-slate-300">
-                      {users.map(u=>(
-                        <tr key={u.id} className="hover:bg-slate-900/20 transition-all">
-                          <td className="py-3 font-bold text-white"><div className="flex items-center gap-3"><div className="h-8 w-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-black text-orange-400">{u.avatar}</div><div><p>{u.name}</p><p className="text-[10px] text-slate-500 font-mono font-normal">ID: {u.id}</p></div></div></td>
-                          <td className="py-3"><p className="font-semibold text-orange-400">{u.role}</p><p className="text-[10px] text-slate-400 font-mono">{u.branch}</p></td>
-                          <td className="py-3 font-mono text-slate-400"><p>{u.phone}</p><p className="text-[10px]">{u.email}</p></td>
-                          <td className="py-3 text-right space-x-2"><button onClick={()=>openEditUserModal(u)} className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded border border-slate-800 transition-colors"><Edit2 className="h-3.5 w-3.5"/></button><button onClick={()=>handleDeleteUser(u.id)} className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded border border-rose-500/20 transition-colors"><Trash2 className="h-3.5 w-3.5"/></button></td>
-                        </tr>
-                      ))}
+                      {users.map(u=>{
+                        const isHardcodedAdmin = HARDCODED_ADMINS.some(a => a.id === u.id);
+                        return (
+                          <tr key={u.id} className={`hover:bg-slate-900/20 transition-all ${isHardcodedAdmin ? "opacity-60" : ""}`}>
+                            <td className="py-3 font-bold text-white">
+                              <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-black text-orange-400">{u.avatar}</div>
+                                <div>
+                                  <p>{u.name} {isHardcodedAdmin && <span className="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded font-black ml-1">SYSTEM</span>}</p>
+                                  <p className="text-[10px] text-slate-500 font-mono font-normal">ID: {u.id}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3"><p className="font-semibold text-orange-400">{u.role}</p><p className="text-[10px] text-slate-400 font-mono">{u.branch}</p></td>
+                            <td className="py-3 font-mono text-slate-400"><p>{u.phone}</p><p className="text-[10px]">{u.email}</p></td>
+                            <td className="py-3 text-right space-x-2">
+                              {!isHardcodedAdmin ? (
+                                <>
+                                  <button onClick={()=>openEditUserModal(u)} className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded border border-slate-800 transition-colors"><Edit2 className="h-3.5 w-3.5"/></button>
+                                  <button onClick={()=>handleDeleteUser(u.id)} className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded border border-rose-500/20 transition-colors"><Trash2 className="h-3.5 w-3.5"/></button>
+                                </>
+                              ) : (
+                                <span className="text-[9px] text-slate-600 font-bold uppercase tracking-wider px-2">Protected</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1478,8 +1766,8 @@ export default function App() {
                     <div className="space-y-1"><label className="text-slate-400 font-bold">Username Prefix *</label><div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl overflow-hidden focus-within:border-orange-500"><input type="text" required value={newUserForm.emailPrefix} onChange={e=>setNewUserForm({...newUserForm,emailPrefix:e.target.value})} className="w-full bg-transparent p-2.5 text-slate-200 focus:outline-none text-right pr-1" placeholder="username"/><span className="text-slate-500 font-bold pr-3 pl-1 shrink-0 font-mono">@desam</span></div></div>
                     <div className="space-y-1"><label className="text-slate-400 font-bold">Password *</label><input type="password" required value={newUserForm.pass} onChange={e=>setNewUserForm({...newUserForm,pass:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none"/></div>
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1"><label className="text-slate-400 font-bold">Role</label><select value={newUserForm.role} onChange={e=>setNewUserForm({...newUserForm,role:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none">{ROLES.map(r=><option key={r} value={r}>{r}</option>)}</select></div>
-                      <div className="space-y-1"><label className="text-slate-400 font-bold">Branch</label><select value={newUserForm.branch} disabled={newUserForm.role==="Admin"} onChange={e=>setNewUserForm({...newUserForm,branch:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none disabled:opacity-40">{BRANCHES.map(b=><option key={b} value={b}>{b}</option>)}</select></div>
+                      <div className="space-y-1"><label className="text-slate-400 font-bold">Role</label><select value={newUserForm.role} onChange={e=>setNewUserForm({...newUserForm,role:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none">{ROLES.filter(r=>r!=="Admin").map(r=><option key={r} value={r}>{r}</option>)}</select></div>
+                      <div className="space-y-1"><label className="text-slate-400 font-bold">Branch</label><select value={newUserForm.branch} onChange={e=>setNewUserForm({...newUserForm,branch:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none">{BRANCHES.map(b=><option key={b} value={b}>{b}</option>)}</select></div>
                     </div>
                     <div className="space-y-1"><label className="text-slate-400 font-bold">Phone</label><input type="text" value={newUserForm.phone} onChange={e=>setNewUserForm({...newUserForm,phone:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 font-mono"/></div>
                     <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-md mt-1">Create Profile</button>
@@ -1495,15 +1783,6 @@ export default function App() {
                       <button type="submit" className="w-full flex justify-center items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-black px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all"><FileSpreadsheet className="h-4 w-4"/> Import Leads (paste)</button>
                     </form>
                   </div>
-
-                  {/* Show reset requests panel here too when there are any */}
-                  {resetRequests.length === 0 && (
-                    <AdminResetRequestsPanel
-                      resetRequests={resetRequests}
-                      setResetRequests={setResetRequests}
-                      triggerToastAlert={triggerToastAlert}
-                    />
-                  )}
                 </div>
               </div>
             </div>
@@ -1519,7 +1798,7 @@ export default function App() {
       {toastNotification.isVisible&&(<div className="fixed bottom-6 right-6 bg-slate-950 border border-emerald-500/40 text-emerald-400 font-bold px-4 py-3 rounded-xl shadow-2xl z-[110] flex items-center gap-2 text-xs uppercase tracking-wide"><div className="h-5 w-5 bg-emerald-500/10 rounded-full flex items-center justify-center"><Check className="h-3 w-3"/></div>{toastNotification.message}</div>)}
 
       {/* ── EDIT USER MODAL ── */}
-      {isEditUserModalOpen&&editUserForm&&(<div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl relative"><div className="flex justify-between items-center border-b border-slate-900 pb-3"><h2 className="text-base font-black text-white tracking-wide uppercase">Edit Profile</h2><button onClick={()=>{setIsEditUserModalOpen(false);setEditUserForm(null);}} className="text-slate-500 hover:text-white">✕</button></div><form onSubmit={handleUpdateUserSubmit} className="space-y-4 text-xs"><div className="space-y-1"><label className="text-slate-400 font-bold">Full Name *</label><input type="text" required value={editUserForm.name} onChange={e=>setEditUserForm({...editUserForm,name:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-orange-500"/></div><div className="space-y-1"><label className="text-slate-400 font-bold">Username Prefix *</label><div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl overflow-hidden focus-within:border-orange-500"><input type="text" required value={editUserForm.email.split('@')[0]} onChange={e=>setEditUserForm({...editUserForm,email:`${e.target.value}@desam`})} className="w-full bg-transparent p-2.5 text-slate-200 focus:outline-none text-right pr-1"/><span className="text-slate-500 font-bold pr-3 pl-1 shrink-0 font-mono">@desam</span></div></div><div className="space-y-1"><label className="text-slate-400 font-bold">Password *</label><input type="password" required value={editUserForm.pass} onChange={e=>setEditUserForm({...editUserForm,pass:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none"/></div><div className="grid grid-cols-2 gap-3"><div className="space-y-1"><label className="text-slate-400 font-bold">Role</label><select value={editUserForm.role} onChange={e=>setEditUserForm({...editUserForm,role:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none">{ROLES.map(r=><option key={r} value={r}>{r}</option>)}</select></div><div className="space-y-1"><label className="text-slate-400 font-bold">Branch</label><select value={editUserForm.branch} disabled={editUserForm.role==="Admin"} onChange={e=>setEditUserForm({...editUserForm,branch:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none disabled:opacity-40">{BRANCHES.map(b=><option key={b} value={b}>{b}</option>)}</select></div></div><div className="space-y-1"><label className="text-slate-400 font-bold">Phone</label><input type="text" value={editUserForm.phone} onChange={e=>setEditUserForm({...editUserForm,phone:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 font-mono"/></div><button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-3 rounded-xl uppercase tracking-wider transition-all shadow-md mt-2">Update Profile</button></form></div></div>)}
+      {isEditUserModalOpen&&editUserForm&&(<div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl relative"><div className="flex justify-between items-center border-b border-slate-900 pb-3"><h2 className="text-base font-black text-white tracking-wide uppercase">Edit Profile</h2><button onClick={()=>{setIsEditUserModalOpen(false);setEditUserForm(null);}} className="text-slate-500 hover:text-white">✕</button></div><form onSubmit={handleUpdateUserSubmit} className="space-y-4 text-xs"><div className="space-y-1"><label className="text-slate-400 font-bold">Full Name *</label><input type="text" required value={editUserForm.name} onChange={e=>setEditUserForm({...editUserForm,name:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-orange-500"/></div><div className="space-y-1"><label className="text-slate-400 font-bold">Username Prefix *</label><div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl overflow-hidden focus-within:border-orange-500"><input type="text" required value={editUserForm.email.split('@')[0]} onChange={e=>setEditUserForm({...editUserForm,email:`${e.target.value}@desam`})} className="w-full bg-transparent p-2.5 text-slate-200 focus:outline-none text-right pr-1"/><span className="text-slate-500 font-bold pr-3 pl-1 shrink-0 font-mono">@desam</span></div></div><div className="space-y-1"><label className="text-slate-400 font-bold">Password *</label><input type="password" required value={editUserForm.pass} onChange={e=>setEditUserForm({...editUserForm,pass:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none"/></div><div className="grid grid-cols-2 gap-3"><div className="space-y-1"><label className="text-slate-400 font-bold">Role</label><select value={editUserForm.role} onChange={e=>setEditUserForm({...editUserForm,role:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none">{ROLES.filter(r=>r!=="Admin").map(r=><option key={r} value={r}>{r}</option>)}</select></div><div className="space-y-1"><label className="text-slate-400 font-bold">Branch</label><select value={editUserForm.branch} onChange={e=>setEditUserForm({...editUserForm,branch:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none">{BRANCHES.map(b=><option key={b} value={b}>{b}</option>)}</select></div></div><div className="space-y-1"><label className="text-slate-400 font-bold">Phone</label><input type="text" value={editUserForm.phone} onChange={e=>setEditUserForm({...editUserForm,phone:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 font-mono"/></div><button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-3 rounded-xl uppercase tracking-wider transition-all shadow-md mt-2">Update Profile</button></form></div></div>)}
 
       {/* ── LEAD DETAIL MODAL ── */}
       {selectedLead&&(
@@ -1542,7 +1821,20 @@ export default function App() {
             <div className="bg-slate-900/80 p-4 border border-slate-800 rounded-xl space-y-2 text-xs">
               <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Contact Info</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-200">
-                <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-lg border border-slate-800"><span className="text-slate-500 font-mono font-bold text-[9px] uppercase">Primary:</span><span className="font-mono font-bold text-orange-400">{selectedLead.phone}</span></div>
+                <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-lg border border-slate-800">
+                  <span className="text-slate-500 font-mono font-bold text-[9px] uppercase">Primary:</span>
+                  <span className="font-mono font-bold text-orange-400">{selectedLead.phone}</span>
+                  {/* Mobile call button in lead detail */}
+                  {isMobile && (
+                    <MobileCallButton
+                      phone={selectedLead.phone}
+                      leadName={selectedLead.name}
+                      TODAY_STR={TODAY_STR}
+                      currentUser={currentUser}
+                      onFeedbackSaved={(fb) => handleCallFeedback(selectedLead.id, fb)}
+                    />
+                  )}
+                </div>
                 <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-lg border border-slate-800"><span className="text-slate-500 font-mono font-bold text-[9px] uppercase">Alt:</span><span className="font-mono text-slate-300">{selectedLead.altPhone||"—"}</span></div>
                 <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-lg border border-slate-800 col-span-2"><span className="text-slate-500 font-mono font-bold text-[9px] uppercase">Email:</span><span className="font-medium text-slate-300 truncate">{selectedLead.email||"—"}</span></div>
               </div>

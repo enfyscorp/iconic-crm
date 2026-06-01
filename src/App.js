@@ -9,7 +9,7 @@ import {
   Menu, ArrowRight, Home, FileText, ArrowLeft, ClipboardList,
   Phone, UserCheck, BookOpen, Banknote, XCircle, Activity,
   Table2, Eye, RefreshCw, AlertCircle, HelpCircle, KeyRound,
-  ShieldCheck, RotateCcw
+  ShieldCheck, RotateCcw, Send
 } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
@@ -20,7 +20,6 @@ import {
 // ─── BRAND ────────────────────────────────────────────────────────────────
 const DESAM_LOGO_ASSET = "/DESAM-NEW-LOGO.png";
 
-// Admin contact email shown during password reset (masked for display)
 const ADMIN_SUPPORT_EMAIL = "admin@desam";
 const maskEmail = (email) => {
   if (!email) return "••••@desam";
@@ -29,7 +28,7 @@ const maskEmail = (email) => {
   return `${local[0]}${"•".repeat(Math.max(local.length - 2, 2))}${local[local.length - 1]}@${domain}`;
 };
 
-// ─── STATIC CONSTANTS (structural only — no seed data) ───────────────────
+// ─── STATIC CONSTANTS ─────────────────────────────────────────────────────
 const ROLES = ["Admin", "Manager", "Executive", "Telecaller"];
 const SOURCES = [
   "Website","Meta Ads","Google Ads","Direct Enquiry","Walk-In",
@@ -75,6 +74,7 @@ const SK = {
   projects: "desam_crm_projects",
   leads: "desam_crm_leads",
   activityLogs: "desam_crm_activity_logs",
+  resetRequests: "desam_crm_reset_requests",
 };
 
 async function storageGet(key) {
@@ -302,23 +302,205 @@ function ExcelImportPanel({ activityLogs, setActivityLogs, triggerToastAlert }) 
   );
 }
 
+// ─── ADMIN RESET REQUESTS PANEL ───────────────────────────────────────────
+// This panel lives in the Admin → System Control Hub.
+// It shows all pending OTP reset requests and lets admin enter the destination
+// email to "send" the code (simulated dispatch — no real SMTP).
+function AdminResetRequestsPanel({ resetRequests, setResetRequests, triggerToastAlert }) {
+  const [sendToEmail, setSendToEmail] = useState({});
+  const [sentStatus, setSentStatus] = useState({});
+
+  const now = Date.now();
+  const active = resetRequests.filter(r => r.expiresAt > now && !r.consumed);
+  const expired = resetRequests.filter(r => r.expiresAt <= now || r.consumed);
+
+  const formatTimeLeft = (expiresAt) => {
+    const left = Math.max(0, Math.floor((expiresAt - now) / 1000));
+    if (left === 0) return "Expired";
+    return `${String(Math.floor(left/60)).padStart(2,"0")}:${String(left%60).padStart(2,"0")}`;
+  };
+
+  const handleSend = (req) => {
+    const email = sendToEmail[req.id]?.trim();
+    if (!email || !email.includes("@")) {
+      triggerToastAlert("Please enter a valid email address.");
+      return;
+    }
+    // In production this would call an email API.
+    // Here we simulate success and log to console.
+    console.info(`[DESAM CRM] OTP ${req.otp} for ${req.userName} dispatched to: ${email}`);
+    setSentStatus(prev => ({ ...prev, [req.id]: email }));
+    triggerToastAlert(`OTP sent to ${email} (simulated)`);
+  };
+
+  const handleClearExpired = () => {
+    const updated = resetRequests.filter(r => r.expiresAt > now && !r.consumed);
+    setResetRequests(updated);
+    triggerToastAlert("Expired/consumed requests cleared.");
+  };
+
+  if (resetRequests.length === 0) {
+    return (
+      <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+        <h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider mb-4">
+          <KeyRound className="h-4 w-4" /> Password Reset Requests
+        </h3>
+        <div className="flex flex-col items-center gap-2 py-6 text-center">
+          <div className="h-12 w-12 bg-slate-900 border border-slate-800 rounded-full flex items-center justify-center">
+            <ShieldCheck className="h-5 w-5 text-slate-600" />
+          </div>
+          <p className="text-xs text-slate-500 font-medium">No pending reset requests.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-5">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider">
+          <KeyRound className="h-4 w-4" /> Password Reset Requests
+          {active.length > 0 && (
+            <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-pulse">
+              {active.length} LIVE
+            </span>
+          )}
+        </h3>
+        {expired.length > 0 && (
+          <button onClick={handleClearExpired} className="text-[10px] text-slate-500 hover:text-white flex items-center gap-1 border border-slate-800 px-2.5 py-1.5 rounded-lg bg-slate-900 transition-colors">
+            <Trash2 className="h-3 w-3" /> Clear expired
+          </button>
+        )}
+      </div>
+
+      {/* ── ACTIVE REQUESTS ── */}
+      {active.length > 0 && (
+        <div className="space-y-4">
+          <p className="text-[10px] font-black text-emerald-400 uppercase tracking-wider">Active — Enter admin email to dispatch OTP</p>
+          {active.map(req => (
+            <div key={req.id} className="bg-slate-900/60 border border-orange-500/20 rounded-xl p-4 space-y-3">
+              {/* Request header */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center font-black text-orange-400 text-sm flex-shrink-0">
+                    {req.userName.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-white">{req.userName}</p>
+                    <p className="text-[10px] text-slate-500 font-mono">{req.userEmail}</p>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-[9px] text-slate-500 uppercase font-bold">Expires in</p>
+                  <p className="text-sm font-black text-amber-400 font-mono">{formatTimeLeft(req.expiresAt)}</p>
+                </div>
+              </div>
+
+              {/* OTP display */}
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+                <div>
+                  <p className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">One-Time Password</p>
+                  <p className="text-2xl font-black text-white tracking-[0.3em] font-mono mt-0.5">{req.otp}</p>
+                </div>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(req.otp); triggerToastAlert("OTP copied!"); }}
+                  className="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
+                  title="Copy OTP"
+                >
+                  <FileText className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* ── EMAIL FIELD ── */}
+              {sentStatus[req.id] ? (
+                <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-xl p-3 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-black text-emerald-400">OTP dispatched</p>
+                    <p className="text-[10px] text-emerald-300/70 font-mono mt-0.5">Sent to: {sentStatus[req.id]}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <label className="text-[9px] text-slate-500 font-black uppercase tracking-wider block">
+                    Admin email to send OTP to *
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Mail className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-500" />
+                      <input
+                        type="email"
+                        value={sendToEmail[req.id] || ""}
+                        onChange={e => setSendToEmail(prev => ({ ...prev, [req.id]: e.target.value }))}
+                        placeholder="admin@yourcompany.com"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-orange-500 font-mono placeholder-slate-600"
+                      />
+                    </div>
+                    <button
+                      onClick={() => handleSend(req)}
+                      disabled={!sendToEmail[req.id]?.trim() || !sendToEmail[req.id]?.includes("@")}
+                      className="flex items-center gap-1.5 bg-orange-600 hover:bg-orange-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black px-4 py-2 rounded-xl text-[10px] uppercase tracking-wider transition-colors"
+                    >
+                      <Send className="h-3.5 w-3.5" /> Send
+                    </button>
+                  </div>
+                  <p className="text-[9px] text-slate-600 italic">
+                    Enter the admin email address where the OTP should be forwarded. The user will then contact you to receive it.
+                  </p>
+                </div>
+              )}
+
+              <p className="text-[9px] text-slate-600 font-mono">
+                Requested: {new Date(req.requestedAt).toLocaleString()}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── EXPIRED / CONSUMED ── */}
+      {expired.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-black text-slate-600 uppercase tracking-wider">Expired / Used</p>
+          {expired.map(req => (
+            <div key={req.id} className="bg-slate-900/30 border border-slate-800/60 rounded-xl p-3 flex items-center gap-3 opacity-50">
+              <div className="h-7 w-7 rounded-lg bg-slate-800 flex items-center justify-center font-bold text-slate-500 text-xs flex-shrink-0">
+                {req.userName.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-bold text-slate-400">{req.userName}</p>
+                <p className="text-[10px] text-slate-600 font-mono">{req.userEmail}</p>
+              </div>
+              <span className="text-[9px] bg-slate-800 text-slate-500 px-2 py-0.5 rounded font-black uppercase">
+                {req.consumed ? "Used" : "Expired"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── PASSWORD RESET MODAL ─────────────────────────────────────────────────
-// Secure 3-step flow: Username → OTP (via Admin email) → New Password
-// OTP is time-limited (5 min), single-use, and shown only in Admin console.
-function PasswordResetModal({ users, setUsers, onClose }) {
-  const [step, setStep] = useState(1); // 1=username, 2=otp, 3=newpass, 4=done
+// Secure 3-step flow. Step 2 now asks admin to enter destination email
+// before the OTP request is pushed to the Admin panel.
+function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, onClose }) {
+  const [step, setStep] = useState(1); // 1=username, 2=admin-email+otp, 3=newpass, 4=done
   const [email, setEmail] = useState("");
+  // Admin email to send OTP to (entered by user on step 2)
+  const [adminEmailInput, setAdminEmailInput] = useState("");
+  const [adminEmailSubmitted, setAdminEmailSubmitted] = useState(false);
+  const [currentReqId, setCurrentReqId] = useState(null);
   const [otp, setOtp] = useState("");
-  const [generatedOtp, setGeneratedOtp] = useState("");
-  const [otpExpiry, setOtpExpiry] = useState(null);
   const [otpTimeLeft, setOtpTimeLeft] = useState(300);
+  const [otpExpiry, setOtpExpiry] = useState(null);
   const [newPass, setNewPass] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
   const [error, setError] = useState("");
   const [targetUser, setTargetUser] = useState(null);
-  const [adminEmail, setAdminEmail] = useState("");
 
-  // Countdown timer for OTP
+  // Live countdown
   useEffect(() => {
     if (step !== 2 || !otpExpiry) return;
     const interval = setInterval(() => {
@@ -331,44 +513,85 @@ function PasswordResetModal({ users, setUsers, onClose }) {
 
   const formatTime = (s) => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
 
-  // Step 1: Validate username
+  // Step 1: verify username
   const handleEmailSubmit = (e) => {
     e.preventDefault();
     setError("");
     const trimmed = email.trim().toLowerCase();
     const found = users.find(u => u.email.toLowerCase() === trimmed && u.active);
-    if (!found) {
-      setError("No active account found with this username.");
-      return;
-    }
-    // Find the admin email to display (first active Admin)
-    const adminUser = users.find(u => u.role === "Admin" && u.active);
-    const displayAdminEmail = adminUser ? maskEmail(adminUser.email) : maskEmail(ADMIN_SUPPORT_EMAIL);
-    setAdminEmail(displayAdminEmail);
-
-    // Generate 6-digit OTP
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    const expiry = Date.now() + 5 * 60 * 1000; // 5 minutes
-    setGeneratedOtp(code);
-    setOtpExpiry(expiry);
-    setOtpTimeLeft(300);
+    if (!found) { setError("No active account found with this username."); return; }
     setTargetUser(found);
     setStep(2);
-    // In production, this OTP would be emailed to the admin.
-    // Here it is logged to the Admin console only.
-    console.info(`[DESAM CRM] Password reset OTP for ${found.name}: ${code}`);
   };
 
-  // Step 2: Validate OTP
+  // Step 2a: submit admin email + push OTP request
+  const handleAdminEmailSubmit = (e) => {
+    e.preventDefault();
+    setError("");
+    const dest = adminEmailInput.trim();
+    if (!dest || !dest.includes("@")) { setError("Please enter a valid email address."); return; }
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const expiry = Date.now() + 5 * 60 * 1000;
+    const reqId = Date.now();
+
+    const newReq = {
+      id: reqId,
+      userName: targetUser.name,
+      userEmail: targetUser.email,
+      otp: code,
+      adminEmailTarget: dest,
+      requestedAt: Date.now(),
+      expiresAt: expiry,
+      consumed: false,
+    };
+
+    setResetRequests(prev => [newReq, ...prev]);
+    setCurrentReqId(reqId);
+    setOtpExpiry(expiry);
+    setOtpTimeLeft(300);
+    setAdminEmailSubmitted(true);
+    console.info(`[DESAM CRM] OTP ${code} for ${targetUser.name} — admin email target: ${dest}`);
+  };
+
+  // Step 2b: verify OTP
   const handleOtpSubmit = (e) => {
     e.preventDefault();
     setError("");
     if (otpTimeLeft === 0) { setError("OTP has expired. Please start over."); return; }
-    if (otp.trim() !== generatedOtp) { setError("Incorrect OTP. Please check and try again."); return; }
+    // Find the matching live request
+    const req = resetRequests.find(r => r.id === currentReqId);
+    if (!req || req.otp !== otp.trim()) { setError("Incorrect OTP. Please check and try again."); return; }
+    // Mark consumed
+    setResetRequests(prev => prev.map(r => r.id === currentReqId ? { ...r, consumed: true } : r));
     setStep(3);
   };
 
-  // Step 3: Set new password
+  const handleResendOtp = () => {
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const expiry = Date.now() + 5 * 60 * 1000;
+    const reqId = Date.now();
+
+    const newReq = {
+      id: reqId,
+      userName: targetUser.name,
+      userEmail: targetUser.email,
+      otp: code,
+      adminEmailTarget: adminEmailInput.trim(),
+      requestedAt: Date.now(),
+      expiresAt: expiry,
+      consumed: false,
+    };
+    setResetRequests(prev => [newReq, ...prev]);
+    setCurrentReqId(reqId);
+    setOtpExpiry(expiry);
+    setOtpTimeLeft(300);
+    setOtp("");
+    setError("");
+    console.info(`[DESAM CRM] Resent OTP ${code} for ${targetUser.name} → ${adminEmailInput.trim()}`);
+  };
+
+  // Step 3: new password
   const handlePasswordSubmit = (e) => {
     e.preventDefault();
     setError("");
@@ -376,17 +599,6 @@ function PasswordResetModal({ users, setUsers, onClose }) {
     if (newPass !== confirmPass) { setError("Passwords do not match."); return; }
     setUsers(users.map(u => u.id === targetUser.id ? { ...u, pass: newPass } : u));
     setStep(4);
-  };
-
-  const handleResendOtp = () => {
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    const expiry = Date.now() + 5 * 60 * 1000;
-    setGeneratedOtp(code);
-    setOtpExpiry(expiry);
-    setOtpTimeLeft(300);
-    setOtp("");
-    setError("");
-    console.info(`[DESAM CRM] Resent OTP for ${targetUser?.name}: ${code}`);
   };
 
   return (
@@ -402,15 +614,13 @@ function PasswordResetModal({ users, setUsers, onClose }) {
               <h3 className="text-sm font-black text-white uppercase tracking-wide">Password Reset</h3>
               <p className="text-[10px] text-slate-500 mt-0.5">
                 {step === 1 && "Enter your account username"}
-                {step === 2 && "Verify your identity"}
+                {step === 2 && (adminEmailSubmitted ? "Enter the OTP from admin" : "Provide admin email for OTP delivery")}
                 {step === 3 && "Set a new password"}
                 {step === 4 && "Reset complete"}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors p-1.5 hover:bg-slate-900 rounded-lg">
-            <X className="h-5 w-5" />
-          </button>
+          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors p-1.5 hover:bg-slate-900 rounded-lg"><X className="h-5 w-5" /></button>
         </div>
 
         {/* Step indicators */}
@@ -430,13 +640,14 @@ function PasswordResetModal({ users, setUsers, onClose }) {
         </div>
 
         <div className="p-6 space-y-5">
-          {/* ── STEP 1: Username Input ── */}
+
+          {/* ── STEP 1: Username ── */}
           {step === 1 && (
             <form onSubmit={handleEmailSubmit} className="space-y-4 text-xs">
               <div className="bg-blue-950/30 border border-blue-500/20 rounded-xl p-3 flex items-start gap-2">
                 <Info className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
                 <p className="text-[11px] text-blue-300/80 leading-relaxed">
-                  Enter your <span className="font-black text-blue-200">account username</span> (e.g. <span className="font-mono text-blue-200">rohini@desam</span>). A one-time verification code will be sent to the <span className="font-black text-blue-200">System Administrator's email</span>.
+                  Enter your <span className="font-black text-blue-200">account username</span>. You will then provide an admin email so the OTP can be dispatched.
                 </p>
               </div>
               <div className="space-y-1.5">
@@ -444,72 +655,129 @@ function PasswordResetModal({ users, setUsers, onClose }) {
                 <div className="relative">
                   <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
                   <input
-                    type="text"
-                    required
-                    value={email}
+                    type="text" required value={email}
                     onChange={e => { setEmail(e.target.value); setError(""); }}
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono"
-                    placeholder="username@desam"
-                    autoComplete="off"
+                    placeholder="username@desam" autoComplete="off"
                   />
                 </div>
               </div>
               {error && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 flex items-center gap-2"><AlertCircle className="h-4 w-4 shrink-0" />{error}</p>}
               <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg text-xs">
-                Send Verification Code
+                Continue
               </button>
             </form>
           )}
 
-          {/* ── STEP 2: OTP Verification ── */}
+          {/* ── STEP 2: Admin Email Entry + OTP ── */}
           {step === 2 && (
-            <form onSubmit={handleOtpSubmit} className="space-y-4 text-xs">
-              <div className="bg-amber-950/30 border border-amber-500/20 rounded-xl p-4 space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="h-7 w-7 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
-                    <Mail className="h-3.5 w-3.5 text-amber-400" />
+            <div className="space-y-4 text-xs">
+
+              {/* 2a — Enter admin email first */}
+              {!adminEmailSubmitted ? (
+                <form onSubmit={handleAdminEmailSubmit} className="space-y-4">
+                  <div className="bg-amber-950/30 border border-amber-500/20 rounded-xl p-3 flex items-start gap-2">
+                    <Info className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+                    <p className="text-[11px] text-amber-300/80 leading-relaxed">
+                      A one-time code will be sent to your <span className="font-black text-amber-200">system administrator's email</span>. Enter that email address below so the OTP can be dispatched.
+                    </p>
                   </div>
-                  <p className="text-[11px] text-amber-200 font-bold">
-                    OTP dispatched to Admin email: <span className="font-mono text-amber-300">{adminEmail}</span>
-                  </p>
-                </div>
-                <p className="text-[10px] text-amber-400/70 pl-9">
-                  Contact your <span className="font-black text-amber-300">System Administrator</span> to receive the 6-digit code from their email. Code expires in:
-                </p>
-                <div className={`pl-9 font-mono font-black text-lg ${otpTimeLeft < 60 ? "text-rose-400 animate-pulse" : "text-amber-300"}`}>
-                  {formatTime(otpTimeLeft)}
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">6-Digit Verification Code</label>
-                <input
-                  type="text"
-                  required
-                  maxLength={6}
-                  value={otp}
-                  onChange={e => { setOtp(e.target.value.replace(/\D/g,"")); setError(""); }}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-orange-500 font-mono font-black text-center text-2xl tracking-[0.5em]"
-                  placeholder="——————"
-                  autoComplete="one-time-code"
-                />
-              </div>
-              {error && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 flex items-center gap-2"><AlertCircle className="h-4 w-4 shrink-0" />{error}</p>}
-              <button type="submit" disabled={otp.length < 6 || otpTimeLeft === 0} className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg text-xs">
-                Verify Code
-              </button>
-              <div className="flex items-center justify-between pt-1">
-                <button type="button" onClick={() => { setStep(1); setError(""); setOtp(""); }} className="text-slate-500 hover:text-slate-300 text-[11px] font-bold flex items-center gap-1 transition-colors">
-                  <ArrowLeft className="h-3 w-3" /> Change Account
-                </button>
-                {otpTimeLeft === 0 ? (
-                  <button type="button" onClick={handleResendOtp} className="text-orange-400 hover:text-orange-300 text-[11px] font-black flex items-center gap-1 transition-colors">
-                    <RotateCcw className="h-3 w-3" /> Resend Code
+
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center gap-3">
+                    <div className="h-7 w-7 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center font-bold text-orange-400 text-xs flex-shrink-0">
+                      {targetUser?.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-bold text-white">Requesting reset for: <span className="text-orange-400">{targetUser?.name}</span></p>
+                      <p className="text-[10px] text-slate-500 font-mono">{targetUser?.email}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-slate-400 font-bold uppercase tracking-wide text-[10px] flex items-center gap-1.5">
+                      <Mail className="h-3.5 w-3.5 text-orange-400" /> Admin Email Address *
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                      <input
+                        type="email" required
+                        value={adminEmailInput}
+                        onChange={e => { setAdminEmailInput(e.target.value); setError(""); }}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono"
+                        placeholder="admin@yourcompany.com"
+                        autoComplete="off"
+                      />
+                    </div>
+                    <p className="text-[9px] text-slate-600 italic pl-1">
+                      The OTP will be sent to this address. Contact your admin to receive it.
+                    </p>
+                  </div>
+
+                  {error && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 flex items-center gap-2"><AlertCircle className="h-4 w-4 shrink-0" />{error}</p>}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" onClick={() => { setStep(1); setError(""); }} className="flex items-center justify-center gap-1 py-2.5 rounded-xl font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors">
+                      <ArrowLeft className="h-3 w-3" /> Back
+                    </button>
+                    <button type="submit" className="py-2.5 rounded-xl font-black uppercase tracking-wider bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white transition-all shadow-lg flex items-center justify-center gap-1.5">
+                      <Send className="h-3.5 w-3.5" /> Send OTP
+                    </button>
+                  </div>
+                </form>
+
+              ) : (
+                /* 2b — OTP was dispatched, now enter it */
+                <form onSubmit={handleOtpSubmit} className="space-y-4">
+                  <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-xl p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-7 w-7 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                        <Send className="h-3.5 w-3.5 text-emerald-400" />
+                      </div>
+                      <p className="text-[11px] text-emerald-200 font-bold">
+                        OTP dispatched to: <span className="font-mono text-emerald-300">{adminEmailInput.trim()}</span>
+                      </p>
+                    </div>
+                    <p className="text-[10px] text-emerald-400/70 pl-9">
+                      Contact your <span className="font-black text-emerald-300">System Administrator</span> to get the 6-digit code. Expires in:
+                    </p>
+                    <div className={`pl-9 font-mono font-black text-lg ${otpTimeLeft < 60 ? "text-rose-400 animate-pulse" : "text-emerald-300"}`}>
+                      {formatTime(otpTimeLeft)}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">6-Digit Verification Code</label>
+                    <input
+                      type="text" required maxLength={6}
+                      value={otp}
+                      onChange={e => { setOtp(e.target.value.replace(/\D/g,"")); setError(""); }}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-orange-500 font-mono font-black text-center text-2xl tracking-[0.5em]"
+                      placeholder="——————"
+                      autoComplete="one-time-code"
+                    />
+                  </div>
+
+                  {error && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 flex items-center gap-2"><AlertCircle className="h-4 w-4 shrink-0" />{error}</p>}
+
+                  <button type="submit" disabled={otp.length < 6 || otpTimeLeft === 0} className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg text-xs">
+                    Verify Code
                   </button>
-                ) : (
-                  <span className="text-slate-600 text-[10px] font-mono">Resend available after expiry</span>
-                )}
-              </div>
-            </form>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <button type="button" onClick={() => { setAdminEmailSubmitted(false); setError(""); setOtp(""); }} className="text-slate-500 hover:text-slate-300 text-[11px] font-bold flex items-center gap-1 transition-colors">
+                      <ArrowLeft className="h-3 w-3" /> Change Email
+                    </button>
+                    {otpTimeLeft === 0 ? (
+                      <button type="button" onClick={handleResendOtp} className="text-orange-400 hover:text-orange-300 text-[11px] font-black flex items-center gap-1 transition-colors">
+                        <RotateCcw className="h-3 w-3" /> Resend OTP
+                      </button>
+                    ) : (
+                      <span className="text-slate-600 text-[10px] font-mono">Resend after expiry</span>
+                    )}
+                  </div>
+                </form>
+              )}
+            </div>
           )}
 
           {/* ── STEP 3: New Password ── */}
@@ -525,29 +793,14 @@ function PasswordResetModal({ users, setUsers, onClose }) {
                 <label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">New Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                  <input
-                    type="password"
-                    required
-                    minLength={6}
-                    value={newPass}
-                    onChange={e => { setNewPass(e.target.value); setError(""); }}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500"
-                    placeholder="Min. 6 characters"
-                  />
+                  <input type="password" required minLength={6} value={newPass} onChange={e => { setNewPass(e.target.value); setError(""); }} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="Min. 6 characters" />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Confirm New Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                  <input
-                    type="password"
-                    required
-                    value={confirmPass}
-                    onChange={e => { setConfirmPass(e.target.value); setError(""); }}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500"
-                    placeholder="Re-enter password"
-                  />
+                  <input type="password" required value={confirmPass} onChange={e => { setConfirmPass(e.target.value); setError(""); }} className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="Re-enter password" />
                 </div>
                 {newPass && confirmPass && (
                   <p className={`text-[10px] font-bold flex items-center gap-1 ${newPass === confirmPass ? "text-emerald-400" : "text-rose-400"}`}>
@@ -581,6 +834,7 @@ function PasswordResetModal({ users, setUsers, onClose }) {
               </button>
             </div>
           )}
+
         </div>
       </div>
     </div>
@@ -594,7 +848,6 @@ export default function App() {
   const TODAY_STR = new Date().toISOString().slice(0,10);
 
   const [storageReady, setStorageReady] = useState(false);
-
   const [currentUser, setCurrentUser] = useState(null);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -624,27 +877,19 @@ export default function App() {
   const [users, setUsersState] = useState([]);
   const [projects, setProjectsState] = useState([]);
   const [activityLogs, setActivityLogsState] = useState([]);
+  const [resetRequests, setResetRequestsState] = useState([]);
 
-  const setLeads = useCallback((val) => {
-    const data = typeof val === "function" ? val(leads) : val;
-    setLeadsState(data);
-    storageSet(SK.leads, data);
-  }, [leads]);
-  const setUsers = useCallback((val) => {
-    const data = typeof val === "function" ? val(users) : val;
-    setUsersState(data);
-    storageSet(SK.users, data);
-  }, [users]);
-  const setProjects = useCallback((val) => {
-    const data = typeof val === "function" ? val(projects) : val;
-    setProjectsState(data);
-    storageSet(SK.projects, data);
-  }, [projects]);
-  const setActivityLogs = useCallback((val) => {
-    const data = typeof val === "function" ? val(activityLogs) : val;
-    setActivityLogsState(data);
-    storageSet(SK.activityLogs, data);
-  }, [activityLogs]);
+  const setLeads = useCallback((val) => { const data = typeof val === "function" ? val(leads) : val; setLeadsState(data); storageSet(SK.leads, data); }, [leads]);
+  const setUsers = useCallback((val) => { const data = typeof val === "function" ? val(users) : val; setUsersState(data); storageSet(SK.users, data); }, [users]);
+  const setProjects = useCallback((val) => { const data = typeof val === "function" ? val(projects) : val; setProjectsState(data); storageSet(SK.projects, data); }, [projects]);
+  const setActivityLogs = useCallback((val) => { const data = typeof val === "function" ? val(activityLogs) : val; setActivityLogsState(data); storageSet(SK.activityLogs, data); }, [activityLogs]);
+  const setResetRequests = useCallback((val) => {
+    setResetRequestsState(prev => {
+      const data = typeof val === "function" ? val(prev) : val;
+      storageSet(SK.resetRequests, data);
+      return data;
+    });
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -652,35 +897,30 @@ export default function App() {
       let p = await storageGet(SK.projects);
       let l = await storageGet(SK.leads);
       let a = await storageGet(SK.activityLogs);
+      let r = await storageGet(SK.resetRequests);
 
       if (!u) { u = BOOTSTRAP_USERS; await storageSet(SK.users, u); }
       if (!p) { p = BOOTSTRAP_PROJECTS; await storageSet(SK.projects, p); }
       if (!l) { l = []; await storageSet(SK.leads, l); }
       if (!a) { a = []; await storageSet(SK.activityLogs, a); }
+      if (!r) { r = []; await storageSet(SK.resetRequests, r); }
 
-      setUsersState(u);
-      setProjectsState(p);
-      setLeadsState(l);
-      setActivityLogsState(a);
+      setUsersState(u); setProjectsState(p); setLeadsState(l); setActivityLogsState(a); setResetRequestsState(r);
       setStorageReady(true);
     })();
   }, []);
 
   const [selectedLead, setSelectedLead] = useState(null);
   const [importText, setImportText] = useState("");
-
   const [customPopup, setCustomPopup] = useState({ isOpen:false, leadId:null, targetValue:"", type:"status", title:"", message:"" });
   const [toastNotification, setToastNotification] = useState({ isVisible:false, message:"" });
-
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isActivityLogModalOpen, setIsActivityLogModalOpen] = useState(false);
-
   const [newLeadForm, setNewLeadForm] = useState({ name:"", phone:"", altPhone:"", email:"", location:"", project:"", budget:25, source:"Website", assignedTo:"Unassigned", notes:"" });
   const [newProjectForm, setNewProjectForm] = useState({ name:"", location:"", branch:"Madurai Desk", type:"Plot", price:30, units:50, sold:0, status:"Pre-Launch" });
   const [newUserForm, setNewUserForm] = useState({ name:"", emailPrefix:"", pass:"", role:"Executive", branch:"Madurai Desk", phone:"" });
   const [newActivityForm, setNewActivityForm] = useState({ date:TODAY_STR, executive:"", project:"", source:"Own Leads", callsMade:0, callStatus:"Warm", followup:0, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0, remark:"" });
-
   const [duplicateConflictRecord, setDuplicateConflictRecord] = useState(null);
   const [followUpNotes, setFollowUpNotes] = useState("");
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
@@ -848,13 +1088,14 @@ export default function App() {
   const commitManualFollowUpReport=(e)=>{ e.preventDefault(); if(!followUpNotes.trim()||!nextFollowUpDate)return; const updated=leads.map(l=>{ if(l.id===selectedLead.id){const obj={...l,status:"Contacted",lastFollowUp:TODAY_STR,nextFollowUp:nextFollowUpDate,history:[{date:TODAY_STR,by:currentUser.name,action:`[Follow-Up]: ${followUpNotes.trim()} (Next: ${nextFollowUpDate})`},...l.history]};setSelectedLead(obj);return obj;}return l;}); setLeads(updated); setFollowUpNotes("");setNextFollowUpDate(""); triggerToastAlert("Follow-up logged."); };
 
   const handleCreateLead=(e)=>{ e.preventDefault(); const phone=stripPhone(newLeadForm.phone); const dup=leads.find(l=>stripPhone(l.phone)===phone); if(dup){setDuplicateConflictRecord(dup);return;} const projBranch=projects.find(p=>p.name===newLeadForm.project)?.branch||currentUser.branch||"Madurai Desk"; const created={...newLeadForm,id:Date.now(),phone,altPhone:stripPhone(newLeadForm.altPhone),branch:projBranch,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,assignedByRole:"",bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false,siteVisitTentativeDate:"",status:newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?"Assigned":"New",history:[{date:TODAY_STR,by:currentUser.name,action:"Lead captured."+(newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?` Assigned to ${newLeadForm.assignedTo}.`:"")}]}; setLeads([created,...leads]); setIsLeadModalOpen(false); setNewLeadForm({name:"",phone:"",altPhone:"",email:"",location:"",project:projects[0]?.name||"",budget:25,source:"Website",assignedTo:"Unassigned",notes:""}); triggerToastAlert("Lead created."); };
-
   const handleCreateProject=(e)=>{ e.preventDefault(); const p={...newProjectForm,id:Date.now(),price:parseInt(newProjectForm.price)||0,units:parseInt(newProjectForm.units)||0,sold:parseInt(newProjectForm.sold)||0}; setProjects([p,...projects]); setIsProjectModalOpen(false); setNewProjectForm({name:"",location:"",branch:"Madurai Desk",type:"Plot",price:30,units:50,sold:0,status:"Pre-Launch"}); triggerToastAlert(`Project "${p.name}" added.`); };
-
   const handleCreateActivityLog=(e)=>{ e.preventDefault(); const log={...newActivityForm,id:Date.now(),executive:["Admin","Manager"].includes(currentUser.role)?newActivityForm.executive:currentUser.name,callsMade:parseInt(newActivityForm.callsMade)||0,followup:parseInt(newActivityForm.followup)||0,siteVisit:parseInt(newActivityForm.siteVisit)||0,booking:parseInt(newActivityForm.booking)||0,registration:parseInt(newActivityForm.registration)||0,cancellation:parseInt(newActivityForm.cancellation)||0,collection:parseInt(newActivityForm.collection)||0}; setActivityLogsWrapped(prev=>[log,...prev]); setIsActivityLogModalOpen(false); setNewActivityForm({date:TODAY_STR,executive:"",project:projects[0]?.name||"",source:"Own Leads",callsMade:0,callStatus:"Warm",followup:0,siteVisit:0,booking:0,registration:0,cancellation:0,collection:0,remark:""}); triggerToastAlert("Activity log saved."); };
 
   const commitSiteWalkthroughLog=()=>{ const updated=leads.map(l=>l.id===selectedLead.id?{...l,status:"Site Visit Completed",history:[{date:svDate,by:currentUser.name,action:`[Site Visit]: Family: ${svFamily}. Feedback: ${svFeedback}`},...l.history]}:l); setLeads(updated); setSelectedLead(null); triggerToastAlert("Site visit logged."); };
   const commitFinancialBookingLog=()=>{ const updated=leads.map(l=>l.id===selectedLead.id?{...l,status:"Booking Confirmed",bookingUnit:bkUnit,history:[{date:TODAY_STR,by:currentUser.name,action:`[Booking]: Unit [${bkUnit}] booked.`},...l.history]}:l); setLeads(updated); setSelectedLead(null); triggerToastAlert("Booking logged."); };
+
+  // Count active (unexpired, not consumed) reset requests for badge
+  const activeResetCount = useMemo(() => resetRequests.filter(r => r.expiresAt > Date.now() && !r.consumed).length, [resetRequests]);
 
   const navItems = [
     {id:"dashboard",icon:<Layers/>,label:"DASHBOARD"},
@@ -876,7 +1117,11 @@ export default function App() {
           ))}
           {currentUser?.role==="Admin"&&(
             <button onClick={()=>navigateTo("users")} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab==="users"?"bg-orange-600 text-white shadow-lg":"text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
-              <Users className="h-4 w-4"/> SYSTEM CONTROL HUB
+              <Users className="h-4 w-4"/>
+              <span>SYSTEM CONTROL HUB</span>
+              {activeResetCount > 0 && (
+                <span className="ml-auto bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-pulse">{activeResetCount}</span>
+              )}
             </button>
           )}
         </nav>
@@ -893,7 +1138,7 @@ export default function App() {
     </>
   );
 
-  // ── LOADING SCREEN ────────────────────────────────────────────────────────
+  // ── LOADING ───────────────────────────────────────────────────────────────
   if (!storageReady) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4">
@@ -911,6 +1156,8 @@ export default function App() {
           <PasswordResetModal
             users={users}
             setUsers={setUsers}
+            resetRequests={resetRequests}
+            setResetRequests={setResetRequests}
             onClose={() => setShowResetModal(false)}
           />
         )}
@@ -927,10 +1174,7 @@ export default function App() {
               <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg">Authorize Access</button>
             </form>
             <div className="pt-2 border-t border-slate-900 flex justify-center">
-              <button
-                onClick={() => setShowResetModal(true)}
-                className="flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-orange-400 transition-colors font-bold uppercase tracking-wide"
-              >
+              <button onClick={() => setShowResetModal(true)} className="flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-orange-400 transition-colors font-bold uppercase tracking-wide">
                 <KeyRound className="h-3.5 w-3.5" /> Forgot Password?
               </button>
             </div>
@@ -953,7 +1197,16 @@ export default function App() {
             {navHistory.length>0&&(<button onClick={navigateBack} className="flex items-center gap-1.5 p-2 bg-slate-900 hover:bg-slate-800 rounded-xl border border-slate-800 text-slate-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-wide"><ArrowLeft className="h-4 w-4"/><span className="hidden sm:inline">Back</span></button>)}
             <div className="relative w-48 sm:w-80 hidden sm:block"><Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500"/><input type="text" value={globalSearch} onChange={e=>setGlobalSearch(e.target.value)} placeholder="Search leads..." className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500"/></div>
           </div>
-          <div className="text-xs text-slate-300 font-bold bg-slate-900 px-3 sm:px-4 py-2 border border-slate-800 rounded-xl shadow-inner truncate max-w-[200px] sm:max-w-none">Welcome, <span className="text-orange-400 font-black">{currentUser.name}</span></div>
+          <div className="flex items-center gap-3">
+            {currentUser.role === "Admin" && activeResetCount > 0 && (
+              <button onClick={() => navigateTo("users")} className="relative flex items-center gap-1.5 text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-xl hover:bg-rose-500/20 transition-colors">
+                <KeyRound className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{activeResetCount} Reset{activeResetCount > 1 ? "s" : ""} Pending</span>
+                <span className="absolute -top-1 -right-1 h-2 w-2 bg-rose-500 rounded-full animate-ping" />
+              </button>
+            )}
+            <div className="text-xs text-slate-300 font-bold bg-slate-900 px-3 sm:px-4 py-2 border border-slate-800 rounded-xl shadow-inner truncate max-w-[200px] sm:max-w-none">Welcome, <span className="text-orange-400 font-black">{currentUser.name}</span></div>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-8 w-full">
@@ -1155,7 +1408,6 @@ export default function App() {
                 </div>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-                {/* ── FIX: was <BookBook/> which doesn't exist — now correctly <BookOpen/> ── */}
                 <KpiTile label="Total Calls" value={activityKPIs.totalCalls.toLocaleString()} icon={<Phone/>} color="#ea580c"/>
                 <KpiTile label="Followups" value={activityKPIs.totalFollowups.toLocaleString()} icon={<PhoneCall/>} color="#3b82f6"/>
                 <KpiTile label="Site Visits" value={activityKPIs.totalSiteVisits} icon={<MapPin/>} color="#10b981"/>
@@ -1191,6 +1443,15 @@ export default function App() {
           {/* ═══ SYSTEM CONTROL HUB ════════════════════════════════════ */}
           {activeTab==="users"&&currentUser.role==="Admin"&&(
             <div className="space-y-8">
+              {/* ── PASSWORD RESET REQUESTS (NEW) ── */}
+              {resetRequests.length > 0 && (
+                <AdminResetRequestsPanel
+                  resetRequests={resetRequests}
+                  setResetRequests={setResetRequests}
+                  triggerToastAlert={triggerToastAlert}
+                />
+              )}
+
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
                 <div><h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider"><Users className="h-4 w-4"/> Active Corporate Roster</h3><p className="text-xs text-slate-400">Manage, modify, or revoke access for deployed team members.</p></div>
                 <div className="overflow-x-auto w-full pt-2">
@@ -1234,6 +1495,15 @@ export default function App() {
                       <button type="submit" className="w-full flex justify-center items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-black px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all"><FileSpreadsheet className="h-4 w-4"/> Import Leads (paste)</button>
                     </form>
                   </div>
+
+                  {/* Show reset requests panel here too when there are any */}
+                  {resetRequests.length === 0 && (
+                    <AdminResetRequestsPanel
+                      resetRequests={resetRequests}
+                      setResetRequests={setResetRequests}
+                      triggerToastAlert={triggerToastAlert}
+                    />
+                  )}
                 </div>
               </div>
             </div>

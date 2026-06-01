@@ -58,25 +58,9 @@ const INITIAL_PROJECTS = [
   { id: 6, name: "Alagar Homes", location: "Alagar Kovil Road, Madurai", branch: "Madurai Desk", type: "Apartment", price: 55, units: 60, sold: 10, status: "Ongoing" },
 ];
 
-const INITIAL_LEADS = [
-  { id: 1001, name: "Suresh Kumar", phone: "9840011234", altPhone: "9840011235", email: "suresh@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Vishal Virinchi", budget: 65, source: "Website", assignedTo: "Rohini", assignedByRole: "Manager", status: "Follow-Up", notes: "Prefers higher floors.", dateCreated: "2026-05-10", lastFollowUp: "2026-05-25", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-25", by: "Rohini", action: "Follow-up conversation done. Discussing financing pathways and bank loan eligibility matrices." }, { date: "2026-05-15", by: "Sumathi", action: "Called client. Expressed keen interest in structural layouts. Requested site layout blueprints via WhatsApp." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false, siteVisitTentativeDate: "" },
-  { id: 1002, name: "Lakshmi Rao", phone: "9940022345", altPhone: "", email: "lakshmi@yahoo.com", location: "Chennai", branch: "Chennai South", project: "GK Apartments", budget: 85, source: "Meta Ads", assignedTo: "Unassigned", assignedByRole: "", status: "New", notes: "Arranging transportation for family walkthrough.", dateCreated: "2026-05-12", lastFollowUp: "2026-05-28", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-28", by: "System Master", action: "Initial lead automated validation complete." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false, siteVisitTentativeDate: "" },
-  { id: 1003, name: "Vijay Anand", phone: "9740033456", altPhone: "", email: "vijay@outlook.com", location: "Madurai", branch: "Madurai Desk", project: "Desam Garden", budget: 30, source: "Google Ads", assignedTo: "Jibril", assignedByRole: "Admin", status: "New", notes: "Premium corner plot structural interest.", dateCreated: "2026-05-29", lastFollowUp: "None", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-29", by: "Shaj", action: "Admin deployed tracking parameters directly to Manager Jibril view queue." }], bookingUnit: "", bookingAmount: 0, bookingMode: "", bookingDate: "", regPending: false, regCompleted: false, siteVisitTentativeDate: "" },
-  { id: 1004, name: "Meena Selvam", phone: "9640044567", altPhone: "9640044568", email: "meena@gmail.com", location: "Madurai", branch: "Madurai Desk", project: "Fairland", budget: 95, source: "Walk-In", assignedTo: "Unassigned", assignedByRole: "", status: "Booking Confirmed", notes: "Token collected cleanly.", dateCreated: "2026-04-20", lastFollowUp: "2026-05-20", nextFollowUp: "2026-05-29", history: [{ date: "2026-05-20", by: "Priyadarshini", action: "Initial walkthrough context established." }], bookingUnit: "Villa 12", bookingAmount: 500000, bookingMode: "Cheque", bookingDate: "2026-05-20", regPending: true, regCompleted: false, siteVisitTentativeDate: "" },
-];
-
-const INITIAL_ACTIVITY_LOGS = [
-  { id: 2001, date: "2026-05-01", executive: "Muthulakshmi", project: "Fairland", source: "Walk-in", callsMade: 0, callStatus: "Warm", followup: 0, siteVisit: 1, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "Followed by muthulakshmi" },
-  { id: 2002, date: "2026-05-01", executive: "Muthulakshmi", project: "Fairland", source: "Own Leads", callsMade: 1, callStatus: "Warm", followup: 1, siteVisit: 1, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "Site Visit Done Followed muthulakshmi" },
-  { id: 2003, date: "2026-05-02", executive: "Shakila", project: "Fairland", source: "Olx", callsMade: 1, callStatus: "Cold", followup: 0, siteVisit: 0, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "SHE NEED LEASE HOUSE" },
-  { id: 2004, date: "2026-05-02", executive: "Shakila", project: "Alagar Homes", source: "99acres", callsMade: 2, callStatus: "Warm", followup: 1, siteVisit: 0, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "CALL NOT PICK, SHE NEED 1 BHK APPARTMENT" },
-  { id: 2005, date: "2026-05-02", executive: "Kowshika", project: "Alagar Homes", source: "99acres", callsMade: 1, callStatus: "Warm", followup: 1, siteVisit: 0, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "HE SEE IS MD /DETAILS SEND TO VIRINCHI ,GK APPAR" },
-  { id: 2006, date: "2026-05-02", executive: "Priya", project: "Alagar Homes", source: "99acres", callsMade: 3, callStatus: "Warm", followup: 1, siteVisit: 0, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "RENT APPARTMENT NEED" },
-  { id: 2007, date: "2026-05-02", executive: "Priya", project: "Fairland", source: "Own Leads", callsMade: 18, callStatus: "Warm", followup: 2, siteVisit: 0, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "Follow Up" },
-  { id: 2008, date: "2026-05-02", executive: "Priya", project: "Desam Garden", source: "Own Leads", callsMade: 0, callStatus: "Warm", followup: 1, siteVisit: 0, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "Follow Up" },
-  { id: 2009, date: "2026-05-02", executive: "Sumathi", project: "Fairland", source: "Office Leads", callsMade: 40, callStatus: "Warm", followup: 2, siteVisit: 0, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "Follow Up" },
-  { id: 2010, date: "2026-05-02", executive: "AryaLakshmi", project: "Vishal Virinchi", source: "Own Leads", callsMade: 9, callStatus: "Warm", followup: 2, siteVisit: 0, booking: 0, registration: 0, cancellation: 0, collection: 0, remark: "Follow Up" },
-];
+// ─── CLEARED SEED DATA ────────────────────────────────────────────────────
+const INITIAL_LEADS = [];
+const INITIAL_ACTIVITY_LOGS = [];
 
 const SC = {
   New: { bg: "rgba(59,130,246,0.1)", text: "#60a5fa", border: "rgba(59,130,246,0.2)" },
@@ -103,7 +87,6 @@ const PSC = {
 const PIE_COLORS = ['#ea580c', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#f59e0b', '#64748b', '#14b8a6', '#ef4444', '#06b6d4', '#a3e635', '#fb923c'];
 
 // ─── EXCEL DATE PARSER ──────────────────────────────────────────────────────
-// Handles: "01-May", "01-May-26", "2026-05-01", Excel serial numbers, JS Date objects
 const MONTH_MAP = {
   jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
   jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12"
@@ -111,7 +94,6 @@ const MONTH_MAP = {
 
 function parseExcelDate(raw, defaultYear = "2026") {
   if (!raw && raw !== 0) return "";
-  // Excel serial number
   if (typeof raw === "number") {
     try {
       const d = XLSX.SSF.parse_date_code(raw);
@@ -125,21 +107,16 @@ function parseExcelDate(raw, defaultYear = "2026") {
     return "";
   }
   const str = String(raw).trim();
-  // Already ISO: 2026-05-01
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
-  // DD-MMM or DD-MMM-YY or DD-MMM-YYYY
   const m1 = str.match(/^(\d{1,2})[-\/\s]([A-Za-z]+)(?:[-\/\s](\d{2,4}))?$/);
   if (m1) {
     const day = String(m1[1]).padStart(2, "0");
     const monKey = m1[2].toLowerCase().slice(0, 3);
     const mon = MONTH_MAP[monKey] || "01";
     let yr = defaultYear;
-    if (m1[3]) {
-      yr = m1[3].length === 2 ? "20" + m1[3] : m1[3];
-    }
+    if (m1[3]) { yr = m1[3].length === 2 ? "20" + m1[3] : m1[3]; }
     return `${yr}-${mon}-${day}`;
   }
-  // MMM-DD or MMM DD
   const m2 = str.match(/^([A-Za-z]+)[-\/\s](\d{1,2})(?:[-\/\s](\d{2,4}))?$/);
   if (m2) {
     const monKey = m2[1].toLowerCase().slice(0, 3);
@@ -149,7 +126,6 @@ function parseExcelDate(raw, defaultYear = "2026") {
     if (m2[3]) yr = m2[3].length === 2 ? "20" + m2[3] : m2[3];
     return `${yr}-${mon}-${day}`;
   }
-  // DD/MM/YYYY
   const m3 = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
   if (m3) {
     const yr = m3[3].length === 2 ? "20" + m3[3] : m3[3];
@@ -158,7 +134,6 @@ function parseExcelDate(raw, defaultYear = "2026") {
   return str;
 }
 
-// Normalise source string to match known sources (fuzzy)
 function normaliseSource(raw) {
   if (!raw) return "Own Leads";
   const s = String(raw).trim();
@@ -180,7 +155,6 @@ function normaliseSource(raw) {
   return s || "Own Leads";
 }
 
-// Normalise call status
 function normaliseCallStatus(raw) {
   if (!raw) return "Warm";
   const s = String(raw).trim().toLowerCase();
@@ -204,14 +178,14 @@ const KpiTile = ({ label, value, icon, color, sub }) => (
   </div>
 );
 
-// ─── EXCEL IMPORT PANEL (replaces the broken paste-import) ───────────────
+// ─── EXCEL IMPORT PANEL ───────────────────────────────────────────────────
 function ExcelImportPanel({ activityLogs, setActivityLogs, triggerToastAlert }) {
   const fileRef = useRef(null);
-  const [importMode, setImportMode] = useState("activity"); // "activity" | "leads_paste"
-  const [preview, setPreview] = useState(null);          // parsed rows before confirm
+  const [importMode, setImportMode] = useState("activity");
+  const [preview, setPreview] = useState(null);
   const [parseErrors, setParseErrors] = useState([]);
   const [yearOverride, setYearOverride] = useState("2026");
-  const [replaceMode, setReplaceMode] = useState("append"); // "append" | "replace"
+  const [replaceMode, setReplaceMode] = useState("append");
   const [isDragging, setIsDragging] = useState(false);
 
   const resetState = () => {
@@ -220,14 +194,8 @@ function ExcelImportPanel({ activityLogs, setActivityLogs, triggerToastAlert }) 
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  // ── Map a raw worksheet row → activity log object ──────────────────────
-  // Column order from the Excel screenshot:
-  // A=Date  B=Executive/Tel  C=Project  D=Source  E=Calls made
-  // F=Status(callStatus)  G=Followup  H=Site visit  I=Booking
-  // J=Registration  K=Cancellation  L=Collection  M=Remark
   const mapRowToLog = useCallback((row, idx) => {
     const errors = [];
-    // Accept both array-indexed and header-keyed rows
     const get = (arrIdx, ...keys) => {
       if (Array.isArray(row)) return row[arrIdx];
       for (const k of keys) {
@@ -283,47 +251,32 @@ function ExcelImportPanel({ activityLogs, setActivityLogs, triggerToastAlert }) 
       try {
         const data = new Uint8Array(e.target.result);
         const wb = XLSX.read(data, { type: "array", cellDates: false });
-
-        // Try to find a sheet named "Data" first, else use first sheet
         let sheetName = wb.SheetNames[0];
         for (const sn of wb.SheetNames) {
           if (sn.toLowerCase() === "data") { sheetName = sn; break; }
         }
         const ws = wb.Sheets[sheetName];
-
-        // Read as array of arrays (raw), skip header row (row 1)
         const rawRows = XLSX.utils.sheet_to_json(ws, {
-          header: 1,
-          raw: true,
-          defval: "",
-          blankrows: false,
+          header: 1, raw: true, defval: "", blankrows: false,
         });
-
         if (rawRows.length < 2) {
           setParseErrors(["File appears empty or has only a header row."]);
           setPreview(null);
           return;
         }
-
-        // Detect if row 0 is a header by checking if col A is non-numeric string
         const headerRow = rawRows[0];
         const firstCellIsHeader = typeof headerRow[0] === "string" &&
-          isNaN(headerRow[0]) &&
-          !/^\d{1,2}[-\/]/.test(String(headerRow[0]).trim());
-
+          isNaN(headerRow[0]) && !/^\d{1,2}[-\/]/.test(String(headerRow[0]).trim());
         const dataRows = firstCellIsHeader ? rawRows.slice(1) : rawRows;
-
         const allErrors = [];
         const parsed = [];
         dataRows.forEach((row, idx) => {
-          // Skip completely empty rows
           if (row.every(c => c === "" || c === null || c === undefined)) return;
           const { log, errors } = mapRowToLog(row, idx);
           allErrors.push(...errors);
           if (log.executive && log.date) parsed.push(log);
         });
-
-        setParseErrors(allErrors.slice(0, 20)); // cap at 20 shown
+        setParseErrors(allErrors.slice(0, 20));
         setPreview({ rows: parsed, sheetName, totalRaw: dataRows.length });
       } catch (err) {
         setParseErrors([`Failed to read file: ${err.message}`]);
@@ -351,7 +304,6 @@ function ExcelImportPanel({ activityLogs, setActivityLogs, triggerToastAlert }) 
       setActivityLogs(preview.rows);
       triggerToastAlert(`Replaced all activity logs with ${preview.rows.length} imported records.`);
     } else {
-      // Append — deduplicate by (date + executive + project + source + callsMade)
       const existingKeys = new Set(
         activityLogs.map(l => `${l.date}|${l.executive}|${l.project}|${l.source}|${l.callsMade}`)
       );
@@ -368,7 +320,6 @@ function ExcelImportPanel({ activityLogs, setActivityLogs, triggerToastAlert }) 
 
   return (
     <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-5 shadow-2xl">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider">
@@ -383,7 +334,6 @@ function ExcelImportPanel({ activityLogs, setActivityLogs, triggerToastAlert }) 
         )}
       </div>
 
-      {/* Year + mode controls */}
       <div className="grid grid-cols-2 gap-3 text-xs">
         <div className="space-y-1">
           <label className="text-slate-500 font-bold uppercase text-[9px] tracking-wider">Default Year (for dates without year)</label>
@@ -400,7 +350,6 @@ function ExcelImportPanel({ activityLogs, setActivityLogs, triggerToastAlert }) 
         </div>
       </div>
 
-      {/* Drop zone */}
       {!preview && (
         <div
           onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
@@ -408,18 +357,10 @@ function ExcelImportPanel({ activityLogs, setActivityLogs, triggerToastAlert }) 
           onDrop={handleDrop}
           onClick={() => fileRef.current?.click()}
           className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
-            isDragging
-              ? "border-orange-500 bg-orange-500/5"
-              : "border-slate-700 hover:border-orange-500/60 hover:bg-slate-900/60"
+            isDragging ? "border-orange-500 bg-orange-500/5" : "border-slate-700 hover:border-orange-500/60 hover:bg-slate-900/60"
           }`}
         >
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            onChange={handleFileChange}
-            className="hidden"
-          />
+          <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} className="hidden" />
           <div className="flex flex-col items-center gap-3">
             <div className="h-14 w-14 bg-orange-500/10 border border-orange-500/20 rounded-2xl flex items-center justify-center">
               <Upload className="h-6 w-6 text-orange-400" />
@@ -435,7 +376,6 @@ function ExcelImportPanel({ activityLogs, setActivityLogs, triggerToastAlert }) 
         </div>
       )}
 
-      {/* Parse errors */}
       {parseErrors.length > 0 && (
         <div className="bg-amber-950/30 border border-amber-500/30 rounded-xl p-4 space-y-1.5">
           <p className="text-[10px] font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
@@ -448,10 +388,8 @@ function ExcelImportPanel({ activityLogs, setActivityLogs, triggerToastAlert }) 
         </div>
       )}
 
-      {/* Preview Table */}
       {preview && preview.rows.length > 0 && (
         <div className="space-y-3">
-          {/* Summary bar */}
           <div className="flex flex-wrap items-center gap-3 text-xs">
             <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black px-3 py-1 rounded-lg">
               ✓ {preview.rows.length} rows ready to import
@@ -459,8 +397,6 @@ function ExcelImportPanel({ activityLogs, setActivityLogs, triggerToastAlert }) 
             <span className="text-slate-500">from sheet: <span className="text-slate-300 font-bold">"{preview.sheetName}"</span></span>
             <span className="text-slate-500">({preview.totalRaw} total data rows scanned)</span>
           </div>
-
-          {/* Preview table — show first 10 rows */}
           <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/40">
             <table className="w-full text-[10px] border-collapse">
               <thead>
@@ -506,8 +442,6 @@ function ExcelImportPanel({ activityLogs, setActivityLogs, triggerToastAlert }) 
               </p>
             )}
           </div>
-
-          {/* Confirm / cancel */}
           <div className="grid grid-cols-2 gap-3">
             <button onClick={resetState} className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors">
               ✕ Cancel
@@ -1632,7 +1566,6 @@ export default function App() {
                 <KpiTile label="Conversion %" value={`${activityKPIs.convRate}%`} icon={<TrendingUp />} color="#a3e635" />
               </div>
 
-              {/* Summary Matrix */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl">
                 <h3 className="text-sm font-black text-orange-400 mb-4 uppercase tracking-widest">Summary — Projectwise Metrics</h3>
                 <div className="overflow-x-auto">
@@ -1655,7 +1588,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Executivewise Matrix */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl">
                 <h3 className="text-sm font-black text-blue-400 mb-4 uppercase tracking-widest">Executivewise Performance Matrix</h3>
                 <div className="overflow-x-auto">
@@ -1674,7 +1606,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Sourcewise Matrix */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl">
                 <h3 className="text-sm font-black text-emerald-400 mb-4 uppercase tracking-widest">Sourcewise — Calls by Executive</h3>
                 <div className="overflow-x-auto">
@@ -1698,7 +1629,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Projectwise Matrix */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl">
                 <h3 className="text-sm font-black text-amber-400 mb-4 uppercase tracking-widest">Projectwise — Calls by Executive</h3>
                 <div className="overflow-x-auto">
@@ -1722,7 +1652,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Lead Source + Project Conversion */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
                 <h3 className="text-sm font-black text-orange-400 mb-4 uppercase tracking-widest">Lead Source Performance (from Leads)</h3>
                 <div className="overflow-x-auto">
@@ -1732,6 +1661,7 @@ export default function App() {
                   </table>
                 </div>
               </div>
+
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
                 <h3 className="text-sm font-black text-emerald-400 mb-4 uppercase tracking-widest">Project Conversion Efficiency (from Leads)</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1744,7 +1674,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Executive Pipeline Summary */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl w-full">
                 <h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider mb-4"><BarChart3 className="h-4 w-4" /> Executive Pipeline Summary (from Leads)</h3>
                 <div className="overflow-x-auto w-full">
@@ -1769,7 +1698,6 @@ export default function App() {
           {/* ═══ ADMIN / SYSTEM CONTROL HUB ════════════════════════════ */}
           {activeTab === "users" && currentUser.role === "Admin" && (
             <div className="space-y-8">
-              {/* Active Roster */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
                 <div className="space-y-0.5">
                   <h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider"><Users className="h-4 w-4" /> Active Corporate Roster</h3>
@@ -1796,7 +1724,6 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Deploy New Profile */}
                 <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl h-fit">
                   <h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider"><UserPlus className="h-4 w-4" /> Deploy New Profile</h3>
                   <form onSubmit={handleCreateUserSubmit} className="space-y-4 text-xs pt-1">
@@ -1817,15 +1744,12 @@ export default function App() {
                   </form>
                 </div>
 
-                {/* ── REPLACED: Excel Import Panel ── */}
                 <div className="space-y-6">
                   <ExcelImportPanel
                     activityLogs={activityLogs}
                     setActivityLogs={setActivityLogs}
                     triggerToastAlert={triggerToastAlert}
                   />
-
-                  {/* Legacy lead paste import (kept intact as backup) */}
                   <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
                     <h3 className="text-sm font-black text-slate-500 flex items-center gap-2 uppercase tracking-wider"><Upload className="h-4 w-4" /> Lead Paste Import (Tab-Separated)</h3>
                     <form onSubmit={handleDataImportSubmit} className="space-y-4 pt-1">

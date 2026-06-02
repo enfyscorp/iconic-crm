@@ -1322,7 +1322,8 @@ export default function App() {
       try {
         allUsers = await loadStaffUsersFromBackend();
       } catch (err) {
-        setLoginError("Cannot load staff login data from Supabase. Please fix crm_state_store table permissions/RLS.");
+        const detail = err?.message || err?.details || err?.hint || JSON.stringify(err || {});
+        setLoginError(`Cannot load staff login data from Supabase. ${detail}`);
         return;
       }
     }

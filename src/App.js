@@ -907,13 +907,12 @@ export default function App() {
         .upsert({ key, value }, { onConflict: "key" });
       if (error) throw error;
       localStorage.setItem(`crm_state_store:${key}`, JSON.stringify(value));
+      return true;
     } catch (err) {
       console.error(`Failed to save ${key}:`, err);
       const message = typeof err?.message === "string" ? err.message : JSON.stringify(err || {});
       window.dispatchEvent(new CustomEvent("crm-backend-error", { detail: { key, message } }));
-      try {
-        localStorage.setItem(`crm_state_store:${key}`, JSON.stringify(value));
-      } catch {}
+      return false;
     }
   }, []);
 
@@ -929,24 +928,30 @@ export default function App() {
   // ─── SUPABASE COUPLING WRAPPERS ───
   const setLeads = useCallback(async (val) => {
     const data = typeof val === "function" ? val(leads) : val;
+    const saved = await persistState("leads", data);
+    if (!saved) return false;
     setLeadsState(data);
-    await persistState("leads", data);
+    return true;
   }, [leads, persistState]);
 
   const setUsers = useCallback(async (val) => {
     const allData = typeof val === "function" ? val(users) : val;
     const admins = allData.filter(u => u.role === "Admin");
     const nonAdmins = allData.filter(u => u.role !== "Admin");
+    const adminsSaved = await persistState("admin_users", admins);
+    const staffSaved = await persistState("non_admin_users", nonAdmins);
+    if (!adminsSaved || !staffSaved) return false;
     setAdminUsersState(admins);
     setNonAdminUsersState(nonAdmins);
-    await persistState("admin_users", admins);
-    await persistState("non_admin_users", nonAdmins);
+    return true;
   }, [users, persistState]);
 
   const setProjects = useCallback(async (val) => {
     const data = typeof val === "function" ? val(projects) : val;
+    const saved = await persistState("projects", data);
+    if (!saved) return false;
     setProjectsState(data);
-    await persistState("projects", data);
+    return true;
   }, [projects, persistState]);
 
   const setActivityLogsStateWrapped = useCallback((val) => {
@@ -985,6 +990,20 @@ export default function App() {
     }
   }, [persistState]);
 
+  const loadStaffUsersFromBackend = useCallback(async () => {
+    const { data: dbRows, error } = await supabase.from("crm_state_store").select("*");
+    if (error) throw error;
+    const stateMap = {};
+    if (Array.isArray(dbRows)) {
+      dbRows.forEach(row => { stateMap[row.key] = row.value; });
+    }
+    if (!Array.isArray(stateMap["non_admin_users"])) return [];
+    const migrated = await migratePlainPasswords(stateMap["non_admin_users"]);
+    setNonAdminUsersState(migrated.users);
+    if (migrated.changed) persistState("non_admin_users", migrated.users);
+    return migrated.users;
+  }, [persistState]);
+
   // ─── LOAD INITIAL STATE FROM SUPABASE ───
   useEffect(() => {
     let isMounted = true;
@@ -997,35 +1016,26 @@ export default function App() {
           dbRows.forEach(row => { stateMap[row.key] = row.value; });
         }
 
-        let admins = Array.isArray(stateMap["admin_users"]) ? stateMap["admin_users"] : readLocalState("admin_users", []);
-        let nonAdmins = Array.isArray(stateMap["non_admin_users"]) ? stateMap["non_admin_users"] : null;
-        const localNonAdmins = readLocalState("non_admin_users", []);
-        let mergedLocalStaff = false;
-        if (nonAdmins) {
-          const backendIds = new Set(nonAdmins.map(u => u.id));
-          const backendEmails = new Set(nonAdmins.map(u => (u.email || "").toLowerCase()));
-          const localOnlyUsers = localNonAdmins.filter(u => !backendIds.has(u.id) && !backendEmails.has((u.email || "").toLowerCase()));
-          if (localOnlyUsers.length) {
-            nonAdmins = [...nonAdmins, ...localOnlyUsers];
-            mergedLocalStaff = true;
-          }
-        } else {
-          nonAdmins = localNonAdmins.length ? localNonAdmins : BOOTSTRAP_NON_ADMIN_USERS;
-        }
+        let admins = Array.isArray(stateMap["admin_users"]) ? stateMap["admin_users"] : [];
+        let nonAdmins = Array.isArray(stateMap["non_admin_users"]) ? stateMap["non_admin_users"] : BOOTSTRAP_NON_ADMIN_USERS;
         const adminMigration = await migratePlainPasswords(admins);
         const nonAdminMigration = await migratePlainPasswords(nonAdmins);
         admins = adminMigration.users;
         nonAdmins = nonAdminMigration.users;
         if (adminMigration.changed) await persistState("admin_users", admins);
-        if (nonAdminMigration.changed || mergedLocalStaff || !stateMap["non_admin_users"]) await persistState("non_admin_users", nonAdmins);
+        if (nonAdminMigration.changed || !stateMap["non_admin_users"]) {
+          const staffSaved = await persistState("non_admin_users", nonAdmins);
+          if (!staffSaved && !stateMap["non_admin_users"]) nonAdmins = [];
+        }
         let p = Array.isArray(stateMap["projects"]) ? stateMap["projects"] : null;
         if (!p) {
-          p = readLocalState("projects", BOOTSTRAP_PROJECTS);
-          await persistState("projects", p);
+          p = BOOTSTRAP_PROJECTS;
+          const projectsSaved = await persistState("projects", p);
+          if (!projectsSaved) p = [];
         }
-        const l = Array.isArray(stateMap["leads"]) ? stateMap["leads"] : readLocalState("leads", []);
-        const a = Array.isArray(stateMap["activity_logs"]) ? stateMap["activity_logs"] : readLocalState("activity_logs", []);
-        const r = Array.isArray(stateMap["reset_requests"]) ? stateMap["reset_requests"] : readLocalState("reset_requests", []);
+        const l = Array.isArray(stateMap["leads"]) ? stateMap["leads"] : [];
+        const a = Array.isArray(stateMap["activity_logs"]) ? stateMap["activity_logs"] : [];
+        const r = Array.isArray(stateMap["reset_requests"]) ? stateMap["reset_requests"] : [];
 
         if (!isMounted) return;
         setAdminUsersState(admins);
@@ -1039,18 +1049,15 @@ export default function App() {
           setCurrentUser(authUserToAdmin(sessionData.session.user));
         }
       } catch (err) {
-        console.error("Failed to load Supabase state, using local fallback:", err);
+        console.error("Failed to load Supabase state:", err);
+        window.dispatchEvent(new CustomEvent("crm-backend-error", { detail: { key: "initial_load", message: err?.message || "Unable to load Supabase state." } }));
         if (!isMounted) return;
-        const fallbackAdmins = await migratePlainPasswords(readLocalState("admin_users", []));
-        const fallbackNonAdmins = await migratePlainPasswords(readLocalState("non_admin_users", BOOTSTRAP_NON_ADMIN_USERS));
-        setAdminUsersState(fallbackAdmins.users);
-        if (fallbackAdmins.changed) persistState("admin_users", fallbackAdmins.users);
-        if (fallbackNonAdmins.changed) persistState("non_admin_users", fallbackNonAdmins.users);
-        setNonAdminUsersState(fallbackNonAdmins.users);
-        setProjectsState(readLocalState("projects", BOOTSTRAP_PROJECTS));
-        setLeadsState(readLocalState("leads", []));
-        setActivityLogsState(readLocalState("activity_logs", []));
-        setResetRequestsState(readLocalState("reset_requests", []));
+        setAdminUsersState([]);
+        setNonAdminUsersState([]);
+        setProjectsState([]);
+        setLeadsState([]);
+        setActivityLogsState([]);
+        setResetRequestsState([]);
         const { data: sessionData } = await supabase.auth.getSession();
         if (isSupabaseAdminUser(sessionData?.session?.user)) {
           setCurrentUser(authUserToAdmin(sessionData.session.user));
@@ -1060,7 +1067,7 @@ export default function App() {
       }
     })();
     return () => { isMounted = false; };
-  }, [persistState, readLocalState]);
+  }, [persistState]);
 
   useEffect(() => {
     if (!storageReady || !currentUser) return;
@@ -1310,7 +1317,15 @@ export default function App() {
     e.preventDefault();
     setLoginError("");
     const emailOrUsername = loginEmail.toLowerCase().trim();
-    const allUsers = users.filter(u => u.role !== "Admin");
+    let allUsers = users.filter(u => u.role !== "Admin");
+    if (emailOrUsername.endsWith("@desam")) {
+      try {
+        allUsers = await loadStaffUsersFromBackend();
+      } catch (err) {
+        setLoginError("Cannot load staff login data from Supabase. Please fix crm_state_store table permissions/RLS.");
+        return;
+      }
+    }
     const found = allUsers.find(u => u.email.toLowerCase() === emailOrUsername && u.active);
     if (found) {
       const acc = await verifyPassword(found, loginPassword) ? found : null;
@@ -1324,7 +1339,7 @@ export default function App() {
       return;
     }
     if (emailOrUsername.endsWith("@desam")) {
-      setLoginError("Staff login not found on this device. Login as Admin on laptop, open System Control Hub, edit this staff user, set a new password, and Save Changes. If you see Backend save failed, Supabase table permissions must be fixed.");
+      setLoginError("Staff login not found in Supabase. Login as Admin, open System Control Hub, edit this staff user, set a new password, and Save Changes.");
       return;
     }
     if (emailOrUsername.includes("@")) {
@@ -1357,15 +1372,15 @@ export default function App() {
   const requestStatusTransitionPopup=(leadId,nextStatus)=>{ const t=leads.find(l=>l.id===leadId); if(!t)return; setCustomPopup({isOpen:true,leadId,targetValue:nextStatus,type:"status",title:"Confirm Status Shift",message:`Transition "${t.name}" to "${nextStatus}"?`}); };
   const requestOwnerAssignmentPopup=(leadId,personnelName)=>{ const t=leads.find(l=>l.id===leadId); if(!t)return; setCustomPopup({isOpen:true,leadId,targetValue:personnelName,type:"assign",title:"Confirm Assignment",message:`Assign "${t.name}" to "${personnelName}"?`}); };
 
-  const confirmCustomPopupAction=()=>{
+  const confirmCustomPopupAction=async ()=>{
     const{leadId,targetValue,type}=customPopup;
-    if(type==="status"){const log={date:TODAY_STR,by:currentUser.name,action:`Status updated to: ${targetValue}`};const updated=leads.map(l=>l.id===leadId?{...l,status:targetValue,history:[log,...l.history]}:l);setLeads(updated);if(selectedLead&&selectedLead.id===leadId)setSelectedLead({...selectedLead,status:targetValue,history:[log,...selectedLead.history]});triggerToastAlert("Status updated.");}
+    if(type==="status"){const log={date:TODAY_STR,by:currentUser.name,action:`Status updated to: ${targetValue}`};const updated=leads.map(l=>l.id===leadId?{...l,status:targetValue,history:[log,...l.history]}:l);const saved=await setLeads(updated);if(!saved){triggerToastAlert("Could not save status to Supabase.");return;}if(selectedLead&&selectedLead.id===leadId)setSelectedLead({...selectedLead,status:targetValue,history:[log,...selectedLead.history]});triggerToastAlert("Status updated.");}
     else if(type==="assign"){
       const assignedUser = users.find(u => u.name === targetValue);
       const newBranch = assignedUser ? assignedUser.branch : leads.find(l=>l.id===leadId)?.branch;
       const log={date:TODAY_STR,by:currentUser.name,action:`Assigned to: ${targetValue}`};
       const updated=leads.map(l=>l.id===leadId?{...l,assignedTo:targetValue,assignedToId:assignedUser?.id||null,assignedAt:assignedUser?Date.now():null,assignedByRole:currentUser.role,branch:newBranch||l.branch,status:targetValue==="Unassigned"?"New":"Assigned",history:[log,...l.history]}:l);
-      setLeads(updated);setSelectedLead(null);triggerToastAlert(`Assigned to ${targetValue}`);
+      const saved=await setLeads(updated);if(!saved){triggerToastAlert("Could not save assignment to Supabase.");return;}setSelectedLead(null);triggerToastAlert(`Assigned to ${targetValue}`);
     }
     setCustomPopup({isOpen:false,leadId:null,targetValue:"",type:"status",title:"",message:""});
   };
@@ -1373,12 +1388,13 @@ export default function App() {
   const handleDataImportSubmit=async (e)=>{ e.preventDefault(); if(!importText.trim())return; try{ const lines=importText.split("\n").map(l=>l.trim()).filter(Boolean); const newLeads=[]; lines.forEach(line=>{const cols=line.split("\t"); if(cols.length>=4){const matchedProj=projects.find(p=>p.name.toLowerCase()===(cols[3]||"").toLowerCase().trim()); const branchHome=matchedProj?matchedProj.branch:"Madurai Desk"; newLeads.push({id:Date.now()+Math.floor(Math.random()*10000),name:cols[0]||"Lead",phone:stripPhone(cols[1]||"00000"),email:cols[2]||"",project:cols[3]||"",location:cols[4]||"Inbound",budget:parseInt(cols[5])||25,source:cols[6]||"Website",assignedTo:"Unassigned",assignedToId:null,assignedByRole:"",status:"New",branch:branchHome,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,history:[{date:TODAY_STR,by:currentUser.name,action:"Imported via paste."}],siteVisitTentativeDate:"",bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false});}});if(newLeads.length>0){setLeads([...newLeads,...leads]);triggerToastAlert(`Imported ${newLeads.length} leads.`);setImportText("");}
   }catch(err){alert(err.message);} };
 
-  const handleCreateUserSubmit=async (e)=>{ e.preventDefault(); const prefix=newUserForm.emailPrefix.trim().toLowerCase(); const role = newUserForm.role; if (role === "Admin") { triggerToastAlert("Use Admin Recovery or create another admin from secure backend controls."); return; } if(users.some(u=>u.email.toLowerCase()===`${prefix}@desam`)){triggerToastAlert("That username already exists.");return;} const u={id:Date.now(),name:newUserForm.name.trim(),email:`${prefix}@desam`,...(await makePasswordFields(newUserForm.pass)),role,branch:newUserForm.branch,phone:stripPhone(newUserForm.phone)||"9840000000",active:true,avatar:newUserForm.name.charAt(0).toUpperCase()}; setUsers([...users, u]); setNewUserForm({name:"",emailPrefix:"",pass:"",role:"Executive",branch:"Madurai Desk",phone:""}); triggerToastAlert(`Profile for ${u.name} created.`); };
+  const handleCreateUserSubmit=async (e)=>{ e.preventDefault(); const prefix=newUserForm.emailPrefix.trim().toLowerCase(); const role = newUserForm.role; if (role === "Admin") { triggerToastAlert("Use Admin Recovery or create another admin from secure backend controls."); return; } if(users.some(u=>u.email.toLowerCase()===`${prefix}@desam`)){triggerToastAlert("That username already exists.");return;} const u={id:Date.now(),name:newUserForm.name.trim(),email:`${prefix}@desam`,...(await makePasswordFields(newUserForm.pass)),role,branch:newUserForm.branch,phone:stripPhone(newUserForm.phone)||"9840000000",active:true,avatar:newUserForm.name.charAt(0).toUpperCase()}; const saved=await setUsers([...users, u]); if(!saved){triggerToastAlert("Could not save user to Supabase.");return;} setNewUserForm({name:"",emailPrefix:"",pass:"",role:"Executive",branch:"Madurai Desk",phone:""}); triggerToastAlert(`Profile for ${u.name} created.`); };
 
   const handleDeleteUser=async (userId)=>{
     if(userId===currentUser.id){triggerToastAlert("Cannot delete your own account.");return;}
     if(HARDCODED_ADMINS.some(a=>a.id===userId)){triggerToastAlert("Admin accounts cannot be deleted here.");return;}
-    setUsers(users.filter(u => u.id !== userId));
+    const saved=await setUsers(users.filter(u => u.id !== userId));
+    if(!saved){triggerToastAlert("Could not remove user from Supabase.");return;}
     triggerToastAlert("Profile removed.");
   };
 
@@ -1395,17 +1411,18 @@ export default function App() {
     const { newPassword, confirmNewPassword, ...cleanForm } = editUserForm;
     const passwordFields = passwordValue ? await makePasswordFields(passwordValue) : {};
     const u={...cleanForm,...passwordFields,name:cleanForm.name.trim(),email:`${prefix}@desam`,branch:cleanForm.role==="Admin"?"All Branches":cleanForm.branch,phone:stripPhone(cleanForm.phone)||"9840000000",avatar:cleanForm.name.charAt(0).toUpperCase(),active:cleanForm.active!==false};
-    setUsers(users.map(x => x.id === u.id ? u : x));
+    const saved=await setUsers(users.map(x => x.id === u.id ? u : x));
+    if(!saved){triggerToastAlert("Could not save user changes to Supabase.");return;}
     setIsEditUserModalOpen(false);setEditUserForm(null); triggerToastAlert(`Profile for ${u.name} updated.`); };
 
   const commitManualFollowUpReport=(e)=>{ e.preventDefault(); if(!followUpNotes.trim()||!nextFollowUpDate)return; const updated=leads.map(l=>{ if(l.id===selectedLead.id){const obj={...l,status:"Contacted",lastFollowUp:TODAY_STR,nextFollowUp:nextFollowUpDate,history:[{date:TODAY_STR,by:currentUser.name,action:`[Follow-Up]: ${followUpNotes.trim()} (Next: ${nextFollowUpDate})`},...l.history]};setSelectedLead(obj);return obj;}return l;}); setLeads(updated); setFollowUpNotes("");setNextFollowUpDate(""); triggerToastAlert("Follow-up logged."); };
 
-  const handleCreateLead=(e)=>{ e.preventDefault(); const phone=stripPhone(newLeadForm.phone); const dup=leads.find(l=>stripPhone(l.phone)===phone); if(dup){setDuplicateConflictRecord(dup);return;}
+  const handleCreateLead=async (e)=>{ e.preventDefault(); const phone=stripPhone(newLeadForm.phone); const dup=leads.find(l=>stripPhone(l.phone)===phone); if(dup){setDuplicateConflictRecord(dup);return;}
     const assignedUser = newLeadForm.assignedTo && newLeadForm.assignedTo !== "Unassigned" ? users.find(u => u.name === newLeadForm.assignedTo) : null;
     const projBranch = projects.find(p=>p.name===newLeadForm.project)?.branch || currentUser.branch || "Madurai Desk";
     const leadBranch = assignedUser ? assignedUser.branch : projBranch;
     const created={...newLeadForm,id:Date.now(),phone,altPhone:stripPhone(newLeadForm.altPhone),branch:leadBranch,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,assignedToId:assignedUser?.id||null,assignedAt:assignedUser?Date.now():null,assignedByRole:currentUser.role,bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false,siteVisitTentativeDate:"",status:newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?"Assigned":"New",history:[{date:TODAY_STR,by:currentUser.name,action:"Lead captured."+(newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?` Assigned to ${newLeadForm.assignedTo}.`:"")}]};
-    setLeads([created,...leads]); setIsLeadModalOpen(false); setNewLeadForm({name:"",phone:"",altPhone:"",email:"",location:"",project:projects[0]?.name||"",budget:25,source:"Website",assignedTo:"Unassigned",notes:""}); triggerToastAlert("Lead created."); };
+    const saved=await setLeads([created,...leads]); if(!saved){triggerToastAlert("Could not save lead to Supabase.");return;} setIsLeadModalOpen(false); setNewLeadForm({name:"",phone:"",altPhone:"",email:"",location:"",project:projects[0]?.name||"",budget:25,source:"Website",assignedTo:"Unassigned",notes:""}); triggerToastAlert("Lead created."); };
 
   const handleCreateProject=(e)=>{ e.preventDefault(); const p={...newProjectForm,id:Date.now(),price:parseInt(newProjectForm.price)||0,units:parseInt(newProjectForm.units)||0,sold:parseInt(newProjectForm.sold)||0}; setProjects([p,...projects]); setIsProjectModalOpen(false); setNewProjectForm({name:"",location:"",branch:"Madurai Desk",type:"Plot",price:30,units:50,sold:0,status:"Pre-Launch"}); triggerToastAlert(`Project "${p.name}" added.`); };
   const handleCreateActivityLog=(e)=>{ e.preventDefault(); const log={...newActivityForm,id:Date.now(),executive:["Admin","Manager"].includes(currentUser.role)?newActivityForm.executive:currentUser.name,callsMade:parseInt(newActivityForm.callsMade)||0,followup:parseInt(newActivityForm.followup)||0,siteVisit:parseInt(newActivityForm.siteVisit)||0,booking:parseInt(newActivityForm.booking)||0,registration:parseInt(newActivityForm.registration)||0,cancellation:parseInt(newActivityForm.cancellation)||0,collection:parseInt(newActivityForm.collection)||0}; setActivityLogsStateWrapped(prev=>[log,...prev]); setIsActivityLogModalOpen(false); setNewActivityForm({date:TODAY_STR,executive:"",project:projects[0]?.name||"",source:"Own Leads",callsMade:0,callStatus:"Warm",followup:0,siteVisit:0,booking:0,registration:0,cancellation:0,collection:0,remark:""}); triggerToastAlert("Activity log saved."); };

@@ -891,12 +891,15 @@ export default function App() {
   const [actStartDate, setActStartDate] = useState(TODAY_STR);
   const [actEndDate, setActEndDate] = useState(TODAY_STR);
   const [activitySearch, setActivitySearch] = useState("");
+  const [reportStartDate, setReportStartDate] = useState(TODAY_STR);
+  const [reportEndDate, setReportEndDate] = useState(TODAY_STR);
 
   const [leads, setLeadsState] = useState([]);
   const [adminUsers, setAdminUsersState] = useState([]);
   const [nonAdminUsers, setNonAdminUsersState] = useState([]);
   const [projects, setProjectsState] = useState([]);
   const [activityLogs, setActivityLogsState] = useState([]);
+  const [whatsappTemplates, setWhatsappTemplatesState] = useState([]);
   const [resetRequests, setResetRequestsState] = useState([]);
 
   const users = useMemo(() => [...adminUsers, ...nonAdminUsers], [adminUsers, nonAdminUsers]);
@@ -963,6 +966,14 @@ export default function App() {
     });
   }, [persistState]);
 
+  const setWhatsappTemplates = useCallback(async (val) => {
+    const data = typeof val === "function" ? val(whatsappTemplates) : val;
+    const saved = await persistState("whatsapp_templates", data);
+    if (!saved) return false;
+    setWhatsappTemplatesState(data);
+    return true;
+  }, [whatsappTemplates, persistState]);
+
   const setResetRequests = useCallback((val) => {
     setResetRequestsState(prev => {
       const data = typeof val === "function" ? val(prev) : val;
@@ -980,6 +991,8 @@ export default function App() {
         dbRows.forEach(row => { stateMap[row.key] = row.value; });
       }
       if (Array.isArray(stateMap["leads"])) setLeadsState(stateMap["leads"]);
+      if (Array.isArray(stateMap["projects"])) setProjectsState(stateMap["projects"]);
+      if (Array.isArray(stateMap["whatsapp_templates"])) setWhatsappTemplatesState(stateMap["whatsapp_templates"]);
       if (Array.isArray(stateMap["non_admin_users"])) {
         const migrated = await migratePlainPasswords(stateMap["non_admin_users"]);
         setNonAdminUsersState(migrated.users);
@@ -1036,6 +1049,7 @@ export default function App() {
         }
         const l = Array.isArray(stateMap["leads"]) ? stateMap["leads"] : [];
         const a = Array.isArray(stateMap["activity_logs"]) ? stateMap["activity_logs"] : [];
+        const w = Array.isArray(stateMap["whatsapp_templates"]) ? stateMap["whatsapp_templates"] : [];
         const r = Array.isArray(stateMap["reset_requests"]) ? stateMap["reset_requests"] : [];
 
         if (!isMounted) return;
@@ -1044,6 +1058,7 @@ export default function App() {
         setProjectsState(p);
         setLeadsState(l);
         setActivityLogsState(a);
+        setWhatsappTemplatesState(w);
         setResetRequestsState(r);
         const { data: sessionData } = await supabase.auth.getSession();
         if (isSupabaseAdminUser(sessionData?.session?.user)) {
@@ -1058,6 +1073,7 @@ export default function App() {
         setProjectsState([]);
         setLeadsState([]);
         setActivityLogsState([]);
+        setWhatsappTemplatesState([]);
         setResetRequestsState([]);
         const { data: sessionData } = await supabase.auth.getSession();
         if (isSupabaseAdminUser(sessionData?.session?.user)) {
@@ -1109,6 +1125,13 @@ export default function App() {
   const [tentativeWalkthroughDateInput, setTentativeWalkthroughDateInput] = useState("");
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [editUserForm, setEditUserForm] = useState(null);
+  const [statusEditLeadId, setStatusEditLeadId] = useState(null);
+  const [selectedWhatsappTemplateId, setSelectedWhatsappTemplateId] = useState("");
+  const [newWhatsappTemplateForm, setNewWhatsappTemplateForm] = useState({ project:"All", title:"", message:"" });
+
+  useEffect(() => {
+    setSelectedWhatsappTemplateId("");
+  }, [selectedLead?.id, selectedLead?.project]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -1169,6 +1192,7 @@ export default function App() {
   const visibleProjects = useMemo(()=>{ if(!currentUser)return[]; if(currentUser.role==="Admin")return projects; return projects.filter(p=>p.branch===currentUser.branch); },[projects,currentUser]);
   const visibleUsers = useMemo(()=>{ if(!currentUser)return[]; if(currentUser.role==="Admin")return users; return users.filter(u=>u.branch===currentUser.branch); },[users,currentUser]);
   const assignableUsers = useMemo(()=>visibleUsers.filter(u=>["Manager","Executive","Telecaller"].includes(u.role)&&u.active),[visibleUsers]);
+  const selectedLeadWhatsappTemplates = useMemo(()=>selectedLead ? whatsappTemplates.filter(t=>t.project==="All"||t.project===selectedLead.project) : [],[whatsappTemplates,selectedLead]);
   const isAssignedToCurrentUser = useCallback((lead) => {
     if (!currentUser || !lead) return false;
     return lead.assignedToId === currentUser.id || lead.assignedTo === currentUser.name || lead.assignedTo === currentUser.email;
@@ -1212,6 +1236,7 @@ export default function App() {
       const meta = classify(h.action);
       return {
         id: `${lead.id}-${index}-${h.date}`,
+        leadId: lead.id,
         date: h.date || lead.dateCreated || TODAY_STR,
         executive: h.by || lead.assignedTo || "System",
         project: lead.project || "",
@@ -1227,6 +1252,7 @@ export default function App() {
   const filteredActivityLogs = useMemo(()=>{
     let logs=systemActivityLogs;
     if(currentUser&&!["Admin","Manager"].includes(currentUser.role))logs=logs.filter(l=>l.executive===currentUser.name);
+    if(currentUser?.role==="Manager")logs=logs.filter(l=>visibleProjects.some(p=>p.name===l.project));
     if(actFilterExec!=="All")logs=logs.filter(l=>l.executive===actFilterExec);
     if(actFilterProject!=="All")logs=logs.filter(l=>l.project===actFilterProject);
     if(actFilterSource!=="All")logs=logs.filter(l=>l.source===actFilterSource);
@@ -1235,7 +1261,120 @@ export default function App() {
     if(actEndDate)logs=logs.filter(l=>l.date<=actEndDate);
     if(activitySearch.trim()){const t=activitySearch.toLowerCase();logs=logs.filter(l=>(l.leadName||"").toLowerCase().includes(t)||(l.phone||"").includes(t)||(l.executive||"").toLowerCase().includes(t)||(l.project||"").toLowerCase().includes(t)||(l.remark||"").toLowerCase().includes(t));}
     return [...logs].sort((a,b)=>b.date.localeCompare(a.date));
-  },[systemActivityLogs,currentUser,actFilterExec,actFilterProject,actFilterSource,actFilterStatus,actStartDate,actEndDate,activitySearch]);
+  },[systemActivityLogs,currentUser,visibleProjects,actFilterExec,actFilterProject,actFilterSource,actFilterStatus,actStartDate,actEndDate,activitySearch]);
+
+  const customerActivityRows = useMemo(()=>{
+    const map = new Map();
+    filteredActivityLogs.forEach(log => {
+      const key = log.leadId || stripPhone(log.phone) || log.leadName || log.id;
+      const current = map.get(key) || {
+        id: key,
+        leadId: log.leadId,
+        lastContactedDate: log.date,
+        executive: log.executive,
+        leadName: log.leadName,
+        phone: log.phone,
+        project: log.project,
+        source: log.source,
+        callsMade: 0,
+        followup: 0,
+        siteVisit: 0,
+        booking: 0,
+        registration: 0,
+        cancellation: 0,
+        collection: 0,
+        lastRemark: "",
+      };
+      current.callsMade += log.callsMade || 0;
+      current.followup += log.followup || 0;
+      current.siteVisit += log.siteVisit || 0;
+      current.booking += log.booking || 0;
+      current.registration += log.registration || 0;
+      current.cancellation += log.cancellation || 0;
+      current.collection += log.collection || 0;
+      if ((log.date || "") >= (current.lastContactedDate || "")) {
+        current.lastContactedDate = log.date;
+        current.lastRemark = log.remark || "";
+        current.executive = log.executive || current.executive;
+        current.project = log.project || current.project;
+        current.source = log.source || current.source;
+      }
+      map.set(key, current);
+    });
+    return Array.from(map.values()).sort((a,b)=>(b.lastContactedDate||"").localeCompare(a.lastContactedDate||""));
+  },[filteredActivityLogs]);
+
+  const monthStartDate = `${TODAY_STR.slice(0,7)}-01`;
+  const isDateInRange = useCallback((date, start, end) => {
+    if (!date) return false;
+    if (start && date < start) return false;
+    if (end && date > end) return false;
+    return true;
+  }, []);
+
+  const reportScopedActivityLogs = useMemo(()=>{
+    let logs = systemActivityLogs;
+    if(currentUser&&!["Admin","Manager"].includes(currentUser.role))logs=logs.filter(l=>l.executive===currentUser.name);
+    if(currentUser?.role==="Manager")logs=logs.filter(l=>visibleProjects.some(p=>p.name===l.project));
+    return logs;
+  },[systemActivityLogs,currentUser,visibleProjects]);
+
+  const reportScopedLeads = useMemo(()=>{
+    if(!currentUser)return[];
+    if(currentUser.role==="Admin")return leads;
+    if(currentUser.role==="Manager")return leads.filter(l=>l.branch===currentUser.branch);
+    return leads.filter(isAssignedToCurrentUser);
+  },[leads,currentUser,isAssignedToCurrentUser]);
+
+  const summarizePeopleActivity = useCallback((logs)=>{
+    const map = {};
+    visibleUsers.filter(u=>["Manager","Executive","Telecaller"].includes(u.role)).forEach(u=>{
+      map[u.name]={name:u.name,role:u.role,calls:0,followup:0,siteVisit:0,booking:0,registration:0,cancellation:0};
+    });
+    logs.forEach(l=>{
+      const name = l.executive || "System";
+      if(!map[name])map[name]={name,role:visibleUsers.find(u=>u.name===name)?.role||"User",calls:0,followup:0,siteVisit:0,booking:0,registration:0,cancellation:0};
+      map[name].calls += l.callsMade || 0;
+      map[name].followup += l.followup || 0;
+      map[name].siteVisit += l.siteVisit || 0;
+      map[name].booking += l.booking || 0;
+      map[name].registration += l.registration || 0;
+      map[name].cancellation += l.cancellation || 0;
+    });
+    return Object.values(map).sort((a,b)=>a.name.localeCompare(b.name));
+  },[visibleUsers]);
+
+  const todayPeopleActivitySummary = useMemo(()=>summarizePeopleActivity(reportScopedActivityLogs.filter(l=>l.date===TODAY_STR)),[summarizePeopleActivity,reportScopedActivityLogs,TODAY_STR]);
+  const monthPeopleActivitySummary = useMemo(()=>summarizePeopleActivity(reportScopedActivityLogs.filter(l=>isDateInRange(l.date,monthStartDate,TODAY_STR))),[summarizePeopleActivity,reportScopedActivityLogs,isDateInRange,monthStartDate,TODAY_STR]);
+  const rangePeopleActivitySummary = useMemo(()=>summarizePeopleActivity(reportScopedActivityLogs.filter(l=>isDateInRange(l.date,reportStartDate,reportEndDate))),[summarizePeopleActivity,reportScopedActivityLogs,isDateInRange,reportStartDate,reportEndDate]);
+
+  const summarizeSourceReport = useCallback((start, end)=>{
+    const map = {};
+    const ensure = (source) => {
+      const key = source || "Unknown";
+      if(!map[key])map[key]={source:key,enquirySet:new Set(),siteVisitSet:new Set(),conversionSet:new Set()};
+      return map[key];
+    };
+    reportScopedLeads.forEach(lead=>{
+      if(isDateInRange(lead.dateCreated,start,end))ensure(lead.source).enquirySet.add(lead.id);
+    });
+    reportScopedActivityLogs.forEach(log=>{
+      if(!isDateInRange(log.date,start,end))return;
+      const row = ensure(log.source);
+      if(log.siteVisit)row.siteVisitSet.add(log.leadId || `${log.phone}-${log.leadName}`);
+      if(log.booking || log.registration)row.conversionSet.add(log.leadId || `${log.phone}-${log.leadName}`);
+    });
+    return Object.values(map).map(row=>{
+      const enquiry = row.enquirySet.size;
+      const siteVisit = row.siteVisitSet.size;
+      const conversion = row.conversionSet.size;
+      return { source:row.source, enquiry, siteVisit, conversion, percentage: enquiry ? ((conversion/enquiry)*100).toFixed(1) : "0.0" };
+    }).sort((a,b)=>b.enquiry-a.enquiry || b.conversion-a.conversion);
+  },[reportScopedLeads,reportScopedActivityLogs,isDateInRange]);
+
+  const todaySourceReport = useMemo(()=>summarizeSourceReport(TODAY_STR,TODAY_STR),[summarizeSourceReport,TODAY_STR]);
+  const monthSourceReport = useMemo(()=>summarizeSourceReport(monthStartDate,TODAY_STR),[summarizeSourceReport,monthStartDate,TODAY_STR]);
+  const rangeSourceReport = useMemo(()=>summarizeSourceReport(reportStartDate,reportEndDate),[summarizeSourceReport,reportStartDate,reportEndDate]);
 
   const dashboardActivityLogs = useMemo(()=>{
     let logs=systemActivityLogs;
@@ -1341,10 +1480,75 @@ export default function App() {
   const handleProjectStatusChange=(projectId,targetStatus)=>{ const updated=projects.map(p=>p.id===projectId?{...p,status:targetStatus}:p); setProjects(updated); triggerToastAlert(`Project status: ${targetStatus}`); };
   const commitTentativeWalkthroughPlan=(e)=>{ e.preventDefault(); if(!tentativeWalkthroughDateInput)return; const log={date:TODAY_STR,by:currentUser.name,action:`[SITE VISIT PLANNED]: Date set to ${tentativeWalkthroughDateInput}.`}; const updated=leads.map(l=>l.id===selectedLead.id?{...l,status:"Site Visit Planned",siteVisitTentativeDate:tentativeWalkthroughDateInput,history:[log,...l.history]}:l); setLeads(updated); setSelectedLead(prev=>({...prev,status:"Site Visit Planned",siteVisitTentativeDate:tentativeWalkthroughDateInput,history:[log,...prev.history]})); setTentativeWalkthroughDateInput(""); triggerToastAlert("Tentative date saved."); };
 
+  const handleLeadStatusDropdownChange = async (leadId, targetStatus) => {
+    const lead = leads.find(l => l.id === leadId);
+    if (!lead || lead.status === targetStatus) {
+      setStatusEditLeadId(null);
+      return;
+    }
+    const log = { date:TODAY_STR, by:currentUser.name, action:`Status updated to: ${targetStatus}` };
+    const updated = leads.map(l => l.id === leadId ? { ...l, status:targetStatus, history:[log, ...(l.history || [])] } : l);
+    const saved = await setLeads(updated);
+    if(!saved){ triggerToastAlert("Could not save status to Supabase."); return; }
+    if(selectedLead?.id === leadId)setSelectedLead(prev => ({ ...prev, status:targetStatus, history:[log, ...(prev.history || [])] }));
+    setStatusEditLeadId(null);
+    triggerToastAlert("Status updated.");
+  };
+
+  const handleLeadProjectChange = async (leadId, projectName) => {
+    const lead = leads.find(l => l.id === leadId);
+    if (!lead || lead.project === projectName) return;
+    const project = projects.find(p => p.name === projectName);
+    const log = { date:TODAY_STR, by:currentUser.name, action:`Project changed from ${lead.project || "Not set"} to ${projectName}.` };
+    const updated = leads.map(l => l.id === leadId ? { ...l, project:projectName, branch:project?.branch || l.branch, history:[log, ...(l.history || [])] } : l);
+    const saved = await setLeads(updated);
+    if(!saved){ triggerToastAlert("Could not save project change to Supabase."); return; }
+    if(selectedLead?.id === leadId)setSelectedLead(prev => ({ ...prev, project:projectName, branch:project?.branch || prev.branch, history:[log, ...(prev.history || [])] }));
+    triggerToastAlert("Project updated.");
+  };
+
+  const handleCreateWhatsappTemplate = async (e) => {
+    e.preventDefault();
+    if(!newWhatsappTemplateForm.title.trim() || !newWhatsappTemplateForm.message.trim())return;
+    const template = {
+      id: Date.now(),
+      project: newWhatsappTemplateForm.project || "All",
+      title: newWhatsappTemplateForm.title.trim(),
+      message: newWhatsappTemplateForm.message.trim(),
+      createdBy: currentUser.name,
+      createdAt: TODAY_STR,
+    };
+    const saved = await setWhatsappTemplates([template, ...whatsappTemplates]);
+    if(!saved){ triggerToastAlert("Could not save WhatsApp template."); return; }
+    setNewWhatsappTemplateForm({ project:"All", title:"", message:"" });
+    triggerToastAlert("WhatsApp template saved.");
+  };
+
+  const handleDeleteWhatsappTemplate = async (templateId) => {
+    const saved = await setWhatsappTemplates(whatsappTemplates.filter(t => t.id !== templateId));
+    if(!saved){ triggerToastAlert("Could not delete WhatsApp template."); return; }
+    triggerToastAlert("Template deleted.");
+  };
+
+  const buildWhatsappTemplateMessage = (template, lead) => {
+    return (template?.message || "")
+      .replaceAll("{name}", lead?.name || "")
+      .replaceAll("{project}", lead?.project || "")
+      .replaceAll("{phone}", lead?.phone || "");
+  };
+
+  const handleSendWhatsappTemplate = () => {
+    if(!selectedLead || !selectedWhatsappTemplateId)return;
+    const template = whatsappTemplates.find(t => String(t.id) === String(selectedWhatsappTemplateId));
+    if(!template)return;
+    const message = buildWhatsappTemplateMessage(template, selectedLead);
+    window.open(`https://wa.me/91${stripPhone(selectedLead.phone)}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+  };
+
   const executeDataExportSequence=(formatType)=>{
-    if(filteredActivityLogs.length===0){triggerToastAlert("No data to export.");return;}
-    const headers=["Date","User","Client","Phone","Project","Source","Activity","Calls Made","Followup","Site Visit","Booking","Registration","Cancellation","Collection","Remark"];
-    const rows=filteredActivityLogs.map(l=>[l.date,l.executive,l.leadName,l.phone,l.project,l.source,l.type,l.callsMade,l.followup,l.siteVisit,l.booking,l.registration,l.cancellation,l.collection,l.remark]);
+    if(customerActivityRows.length===0){triggerToastAlert("No data to export.");return;}
+    const headers=["Last Contacted","User","Client","Phone","Project","Source","Calls Made","Followup","Site Visit","Booking","Registration","Cancellation","Collection","Last Remark"];
+    const rows=customerActivityRows.map(l=>[l.lastContactedDate,l.executive,l.leadName,l.phone,l.project,l.source,l.callsMade,l.followup,l.siteVisit,l.booking,l.registration,l.cancellation,l.collection,l.lastRemark]);
     const ext=formatType==="excel"?"xlsx":"csv";
     let blob;
     if (formatType === "excel") {
@@ -1500,11 +1704,48 @@ export default function App() {
     });
   };
 
+  const renderPeopleActivityTable = (title, rows) => (
+    <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl">
+      <h3 className="text-xs font-black text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2"><Users className="h-4 w-4 text-blue-400"/>{title}</h3>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-[10px] whitespace-nowrap">
+          <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold"><tr><th className="p-3">Name</th><th className="p-3">Role</th><th className="p-3 text-center">Calls</th><th className="p-3 text-center">Followup</th><th className="p-3 text-center">Site Visit</th><th className="p-3 text-center">Booking</th><th className="p-3 text-center">Registration</th><th className="p-3 text-center">Cancellation</th></tr></thead>
+          <tbody className="divide-y divide-slate-800">
+            {rows.length===0?<tr><td colSpan="8" className="p-5 text-center text-slate-500 font-bold uppercase tracking-wider">No activity</td></tr>:rows.map(row=>(
+              <tr key={`${title}-${row.name}`} className="hover:bg-slate-900/50">
+                <td className="p-3 font-black text-white">{row.name}</td><td className="p-3 text-slate-400">{row.role}</td><td className="p-3 text-center font-mono">{row.calls}</td><td className="p-3 text-center font-mono text-blue-400">{row.followup}</td><td className="p-3 text-center font-mono text-emerald-400">{row.siteVisit}</td><td className="p-3 text-center font-mono text-purple-400">{row.booking}</td><td className="p-3 text-center font-mono text-amber-400">{row.registration}</td><td className="p-3 text-center font-mono text-rose-400">{row.cancellation}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderSourceReportTable = (title, rows) => (
+    <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl">
+      <h3 className="text-xs font-black text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2"><PieChart className="h-4 w-4 text-orange-400"/>{title}</h3>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-[10px] whitespace-nowrap">
+          <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold"><tr><th className="p-3">Source</th><th className="p-3 text-center">Enquiry</th><th className="p-3 text-center">Site Visit</th><th className="p-3 text-center">Conversion</th><th className="p-3 text-center">Percentage</th></tr></thead>
+          <tbody className="divide-y divide-slate-800">
+            {rows.length===0?<tr><td colSpan="5" className="p-5 text-center text-slate-500 font-bold uppercase tracking-wider">No source data</td></tr>:rows.map(row=>(
+              <tr key={`${title}-${row.source}`} className="hover:bg-slate-900/50">
+                <td className="p-3 font-black text-white">{row.source}</td><td className="p-3 text-center font-mono">{row.enquiry}</td><td className="p-3 text-center font-mono text-emerald-400">{row.siteVisit}</td><td className="p-3 text-center font-mono text-purple-400">{row.conversion}</td><td className="p-3 text-center font-mono text-orange-400 font-black">{row.percentage}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
   const navItems = [
     {id:"dashboard",icon:<Layers/>,label:"DASHBOARD"},
     {id:"leads",icon:<PhoneCall/>,label:"LEAD CHANNELS"},
     {id:"activity",icon:<ClipboardList/>,label:"ACTIVITY LOGS"},
     {id:"projects",icon:<Building2/>,label:"PROJECT MASTER"},
+    {id:"templates",icon:<MessageSquare/>,label:"WHATSAPP TEMPLATES"},
     {id:"reports",icon:<BarChart3/>,label:"MATRIX REPORTS"},
   ];
 
@@ -1735,7 +1976,7 @@ export default function App() {
           {activeTab==="activity"&&(
             <div className="space-y-5">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-950 p-5 border border-slate-800 rounded-2xl shadow-xl">
-                <div><h1 className="text-lg lg:text-xl font-black text-white flex items-center gap-2"><ClipboardList className="h-5 w-5 text-emerald-500"/> Activity Tracker</h1><p className="text-[10px] text-slate-500 mt-1">{filteredActivityLogs.length} verified logs recorded.</p></div>
+                <div><h1 className="text-lg lg:text-xl font-black text-white flex items-center gap-2"><ClipboardList className="h-5 w-5 text-emerald-500"/> Activity Tracker</h1><p className="text-[10px] text-slate-500 mt-1">{customerActivityRows.length} customer summaries recorded.</p></div>
                 <button onClick={()=>executeDataExportSequence("excel")} className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 border border-slate-700 text-emerald-400 font-black text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider transition-colors flex items-center justify-center gap-2 shadow-lg"><Download className="h-4 w-4"/> Export</button>
               </div>
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4 text-xs">
@@ -1750,23 +1991,24 @@ export default function App() {
                  <div className="overflow-x-auto border border-slate-800 rounded-xl bg-slate-900/40">
                    <table className="w-full text-left text-[10px] whitespace-nowrap">
                      <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold bg-slate-950">
-                      <tr><th className="p-3">Date</th><th className="p-3">User</th><th className="p-3">Client</th><th className="p-3">Phone</th><th className="p-3">Project</th><th className="p-3">Source</th><th className="p-3 text-center">Activity</th><th className="p-3 text-center">Calls</th><th className="p-3 text-center">FU</th><th className="p-3 text-center">SV</th><th className="p-3 text-center">BK</th><th className="p-3">Remark</th></tr>
+                      <tr><th className="p-3">Last Contacted</th><th className="p-3">User</th><th className="p-3">Client</th><th className="p-3">Phone</th><th className="p-3">Project</th><th className="p-3">Source</th><th className="p-3 text-center">Calls</th><th className="p-3 text-center">FU</th><th className="p-3 text-center">SV</th><th className="p-3 text-center">BK</th><th className="p-3 text-center">Reg.</th><th className="p-3 text-center">Cxl.</th><th className="p-3">Last Remark</th></tr>
                      </thead>
                      <tbody className="divide-y divide-slate-800">
-                      {filteredActivityLogs.length===0?<tr><td colSpan="12" className="p-6 text-center text-slate-500 font-bold uppercase tracking-wider">No activity found</td></tr>:filteredActivityLogs.map((log,i)=>(
+                      {customerActivityRows.length===0?<tr><td colSpan="13" className="p-6 text-center text-slate-500 font-bold uppercase tracking-wider">No activity found</td></tr>:customerActivityRows.map((log,i)=>(
                         <tr key={log.id||i} className="hover:bg-slate-800/50 transition-colors">
-                          <td className="p-3 font-mono text-slate-400">{log.date}</td>
+                          <td className="p-3 font-mono text-slate-400">{log.lastContactedDate}</td>
                           <td className="p-3 font-bold text-white">{log.executive}</td>
-                          <td className="p-3 font-bold text-white">{log.leadName}</td>
+                          <td className="p-3"><button onClick={()=>{const lead=leads.find(l=>l.id===log.leadId)||leads.find(l=>stripPhone(l.phone)===stripPhone(log.phone)); if(lead)setSelectedLead(lead);}} className="font-black text-white hover:text-orange-400 underline-offset-4 hover:underline">{log.leadName}</button></td>
                           <td className="p-3 font-mono text-slate-400">{log.phone}</td>
                           <td className="p-3 text-orange-400 font-bold">{log.project}</td>
                           <td className="p-3 text-slate-400">{log.source}</td>
-                          <td className="p-3 text-center"><span className="px-2 py-0.5 rounded border text-[9px] font-black uppercase bg-emerald-500/10 text-emerald-400 border-emerald-500/20">{log.type}</span></td>
                           <td className="p-3 text-center font-mono font-black text-white">{log.callsMade}</td>
                           <td className="p-3 text-center text-blue-400 font-bold">{log.followup||"-"}</td>
                           <td className="p-3 text-center text-emerald-400 font-bold">{log.siteVisit||"-"}</td>
                           <td className="p-3 text-center text-purple-400 font-bold">{log.booking||"-"}</td>
-                           <td className="p-3 text-slate-400 max-w-[150px] truncate" title={log.remark}>{log.remark||"-"}</td>
+                          <td className="p-3 text-center text-amber-400 font-bold">{log.registration||"-"}</td>
+                          <td className="p-3 text-center text-rose-400 font-bold">{log.cancellation||"-"}</td>
+                           <td className="p-3 text-slate-400 max-w-[220px] truncate" title={log.lastRemark}>{log.lastRemark||"-"}</td>
                          </tr>
                        ))}
                      </tbody>
@@ -1813,11 +2055,66 @@ export default function App() {
           )}
 
           {/* ═══ REPORTS TAB ══════════════════════════════════════════════ */}
+          {activeTab==="templates"&&(
+            <div className="space-y-5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-950 p-5 border border-slate-800 rounded-2xl shadow-xl">
+                <div><h1 className="text-lg lg:text-xl font-black text-white flex items-center gap-2"><MessageSquare className="h-5 w-5 text-emerald-500"/> WhatsApp Templates</h1><p className="text-[10px] text-slate-500 mt-1">{whatsappTemplates.length} saved project messages.</p></div>
+              </div>
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                {["Admin","Manager"].includes(currentUser.role)&&(
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl xl:col-span-1">
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider mb-5 flex items-center gap-2"><Plus className="h-4 w-4 text-emerald-500"/> Create Template</h3>
+                    <form onSubmit={handleCreateWhatsappTemplate} className="space-y-4 text-xs">
+                      <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Project</label><select value={newWhatsappTemplateForm.project} onChange={e=>setNewWhatsappTemplateForm({...newWhatsappTemplateForm,project:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-emerald-500"><option value="All">All Projects</option>{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
+                      <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Title</label><input type="text" required value={newWhatsappTemplateForm.title} onChange={e=>setNewWhatsappTemplateForm({...newWhatsappTemplateForm,title:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-emerald-500" placeholder="Initial call message"/></div>
+                      <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Message</label><textarea required rows={8} value={newWhatsappTemplateForm.message} onChange={e=>setNewWhatsappTemplateForm({...newWhatsappTemplateForm,message:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-emerald-500 resize-none" placeholder="Hello {name}, thank you for your interest in {project}."/></div>
+                      <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider transition-colors flex items-center justify-center gap-2"><CheckCircle2 className="h-4 w-4"/> Save Template</button>
+                    </form>
+                  </div>
+                )}
+                <div className={`${["Admin","Manager"].includes(currentUser.role)?"xl:col-span-2":"xl:col-span-3"} grid grid-cols-1 md:grid-cols-2 gap-4`}>
+                  {whatsappTemplates.length===0&&<div className="md:col-span-2 flex flex-col items-center justify-center py-16 bg-slate-950/40 border border-slate-800 border-dashed rounded-2xl"><MessageSquare className="h-8 w-8 text-slate-700 mb-3"/><p className="text-slate-500 text-xs font-bold uppercase tracking-wider">No templates saved</p></div>}
+                  {whatsappTemplates.map(t=>(
+                    <div key={t.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl hover:border-emerald-500/40 transition-colors">
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div><h3 className="text-sm font-black text-white">{t.title}</h3><p className="text-[10px] text-emerald-400 font-bold mt-1">{t.project}</p></div>
+                        {["Admin","Manager"].includes(currentUser.role)&&<button onClick={()=>handleDeleteWhatsappTemplate(t.id)} className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-500 hover:text-rose-400"><Trash2 className="h-3.5 w-3.5"/></button>}
+                      </div>
+                      <p className="text-xs text-slate-400 leading-relaxed whitespace-pre-wrap">{t.message}</p>
+                      <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-[9px] text-slate-600 font-bold uppercase tracking-wider"><span>{t.createdBy}</span><span>{t.createdAt}</span></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab==="reports"&&(
             <div className="space-y-6">
               <div className="bg-slate-950 p-6 border border-slate-800 rounded-2xl shadow-xl">
                 <h1 className="text-xl font-black text-white flex items-center gap-2 mb-1"><BarChart3 className="h-6 w-6 text-blue-500"/> Matrix Intelligence</h1>
                 <p className="text-xs text-slate-500">Comprehensive analytical insights generated from system activity.</p>
+              </div>
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div><h2 className="text-sm font-black text-white uppercase tracking-wider">Selected Range Reports</h2><p className="text-[10px] text-slate-500 mt-1">Daily, monthly, and selected range summaries are calculated from saved lead activity.</p></div>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 text-xs">
+                    <div className="relative"><Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500"/><input type="date" value={reportStartDate} onChange={e=>setReportStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-3 py-2 text-slate-300 focus:outline-none focus:border-blue-500 font-mono"/></div>
+                    <span className="hidden sm:block text-slate-600">-</span>
+                    <div className="relative"><Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500"/><input type="date" value={reportEndDate} onChange={e=>setReportEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-3 py-2 text-slate-300 focus:outline-none focus:border-blue-500 font-mono"/></div>
+                    {(reportStartDate!==TODAY_STR||reportEndDate!==TODAY_STR)&&<button onClick={()=>{setReportStartDate(TODAY_STR);setReportEndDate(TODAY_STR);}} className="text-blue-400 hover:text-blue-300 font-bold px-3 py-2 border border-blue-500/30 rounded-lg flex items-center justify-center gap-1 bg-blue-500/10"><X className="h-3.5 w-3.5"/> Clear</button>}
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                {renderPeopleActivityTable(`Today Activity (${TODAY_STR})`, todayPeopleActivitySummary)}
+                {renderPeopleActivityTable(`Month Activity (${monthStartDate} to ${TODAY_STR})`, monthPeopleActivitySummary)}
+                {renderPeopleActivityTable("Selected Range Activity", rangePeopleActivitySummary)}
+              </div>
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                {renderSourceReportTable(`Today Sourcewise (${TODAY_STR})`, todaySourceReport)}
+                {renderSourceReportTable(`Month Sourcewise (${monthStartDate} to ${TODAY_STR})`, monthSourceReport)}
+                {renderSourceReportTable("Selected Range Sourcewise", rangeSourceReport)}
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl"><h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><TrendingUp className="h-4 w-4"/> Daily Activity Trajectory</h3><div className="h-72 w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={callsTrendData} margin={{top:5,right:20,left:-20,bottom:5}}><defs><linearGradient id="colorCalls" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false}/><XAxis dataKey="date" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false}/><YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false}/><Tooltip contentStyle={{backgroundColor:'#0f172a',border:'1px solid #1e293b',borderRadius:'12px',fontSize:'12px',color:'#fff'}} itemStyle={{fontWeight:'900'}}/><Legend wrapperStyle={{fontSize:'10px',fontWeight:'700',paddingTop:'10px'}}/><Area type="monotone" dataKey="calls" name="Total Calls" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorCalls)"/><Line type="monotone" dataKey="siteVisits" name="Site Visits" stroke="#10b981" strokeWidth={3} dot={{r:4}}/><Line type="monotone" dataKey="bookings" name="Bookings" stroke="#8b5cf6" strokeWidth={3} dot={{r:4}}/></ComposedChart></ResponsiveContainer></div></div>
@@ -1885,16 +2182,24 @@ export default function App() {
           </div>
           <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-slate-950">
              <div className="grid grid-cols-2 gap-3 text-xs">
-               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Status</p><div className="mt-1 flex items-center justify-between"><span className="font-black" style={{color:SC[selectedLead.status]?.text}}>{selectedLead.status}</span><button onClick={()=>requestStatusTransitionPopup(selectedLead.id,"Closed")} className="text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded transition-colors">Edit</button></div></div>
+               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Status</p>{statusEditLeadId===selectedLead.id?<select autoFocus value={selectedLead.status} onChange={e=>handleLeadStatusDropdownChange(selectedLead.id,e.target.value)} onBlur={()=>setStatusEditLeadId(null)} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500">{STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select>:<div className="mt-1 flex items-center justify-between gap-2"><span className="font-black truncate" style={{color:SC[selectedLead.status]?.text}}>{selectedLead.status}</span><button onClick={()=>setStatusEditLeadId(selectedLead.id)} className="text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded transition-colors">Edit</button></div>}</div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Assigned</p>{["Admin","Manager"].includes(currentUser.role)?<select value={selectedLead.assignedTo||"Unassigned"} onChange={e=>requestOwnerAssignmentPopup(selectedLead.id,e.target.value)} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500"><option value="Unassigned">Unassigned</option>{assignableUsers.map(u=><option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}</select>:<p className="font-bold text-white truncate mt-1">{selectedLead.assignedTo}</p>}</div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Project / Budget</p><p className="font-bold text-orange-400 mt-1 truncate">{selectedLead.project} <span className="text-slate-500 mx-1">•</span> <span className="font-mono text-emerald-400">₹{selectedLead.budget}L</span></p></div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Source</p><p className="font-bold text-slate-300 mt-1 truncate">{selectedLead.source}</p></div>
              </div>
+             <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Change Project</p><select value={selectedLead.project||""} onChange={e=>handleLeadProjectChange(selectedLead.id,e.target.value)} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-2 text-[10px] font-bold text-orange-400 focus:outline-none focus:border-orange-500">{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
              <div className="space-y-4">
                 <div className="flex items-center gap-2 border-b border-slate-800 pb-2"><Activity className="h-4 w-4 text-blue-400"/><h3 className="text-xs font-black uppercase tracking-wider text-slate-300">Action Center</h3></div>
                 <div className="grid grid-cols-2 gap-2">
                   <MobileCallButton phone={selectedLead.phone} leadName={selectedLead.name} onFeedbackSaved={(f)=>handleCallFeedback(selectedLead.id, f)} currentUser={currentUser} TODAY_STR={TODAY_STR} />
                   <a href={`https://wa.me/91${stripPhone(selectedLead.phone)}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-wider bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600 hover:text-white transition-all shadow-md"><MessageSquare className="h-3.5 w-3.5"/> WhatsApp</a>
+                </div>
+                <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center gap-2"><MessageSquare className="h-3.5 w-3.5 text-emerald-400"/><p className="text-[10px] text-slate-400 font-black uppercase tracking-wider">Project WhatsApp Message</p></div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <select value={selectedWhatsappTemplateId} onChange={e=>setSelectedWhatsappTemplateId(e.target.value)} className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-2 py-2 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-emerald-500"><option value="">Select Template</option>{selectedLeadWhatsappTemplates.map(t=><option key={t.id} value={t.id}>{t.title} ({t.project})</option>)}</select>
+                    <button type="button" disabled={!selectedWhatsappTemplateId || !(selectedLead.history||[]).some(h=>(h.action||"").toLowerCase().includes("mobile call"))} onClick={handleSendWhatsappTemplate} className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-800 disabled:text-slate-500 text-white font-black text-[10px] uppercase tracking-wider px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5"><Send className="h-3 w-3"/> Send</button>
+                  </div>
                 </div>
                 <form onSubmit={commitManualFollowUpReport} className="bg-slate-900/50 border border-slate-800 rounded-xl p-3 space-y-3">
                   <textarea value={followUpNotes} onChange={e=>setFollowUpNotes(e.target.value)} required rows={2} placeholder="Quick follow-up notes..." className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500 resize-none"/>

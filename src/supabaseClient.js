@@ -1,38 +1,67 @@
-const reactAppSupabaseUrl = typeof process !== "undefined" ? process.env.REACT_APP_SUPABASE_URL : "";
-const reactAppSupabaseAnonKey = typeof process !== "undefined" ? process.env.REACT_APP_SUPABASE_ANON_KEY : "";
-const viteSupabaseUrl = import.meta.env?.VITE_SUPABASE_URL || "";
-const viteSupabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || "";
-const runtimeSupabaseUrl = globalThis.DESAM_SUPABASE_URL || "";
-const runtimeSupabaseAnonKey = globalThis.DESAM_SUPABASE_ANON_KEY || "";
-
-const supabaseUrl = viteSupabaseUrl || reactAppSupabaseUrl || runtimeSupabaseUrl || "";
-const supabaseAnonKey = viteSupabaseAnonKey || reactAppSupabaseAnonKey || runtimeSupabaseAnonKey || "";
-const configStatus = {
-  hasUrl: Boolean(supabaseUrl),
-  hasAnonKey: Boolean(supabaseAnonKey),
-  checkedNames: [
-    "VITE_SUPABASE_URL",
-    "VITE_SUPABASE_ANON_KEY",
-    "REACT_APP_SUPABASE_URL",
-    "REACT_APP_SUPABASE_ANON_KEY",
-  ],
-};
 const AUTH_SESSION_KEY = "desam_supabase_auth_session";
+
+const readBuildConfig = () => {
+  const reactEnv = typeof process !== "undefined" ? process.env || {} : {};
+  const viteEnv = import.meta.env || {};
+  return {
+    url: viteEnv.VITE_SUPABASE_URL || reactEnv.REACT_APP_SUPABASE_URL || "",
+    anonKey: viteEnv.VITE_SUPABASE_ANON_KEY || reactEnv.REACT_APP_SUPABASE_ANON_KEY || "",
+  };
+};
+
+let runtimeConfigPromise = null;
+
+async function readRuntimeConfig() {
+  if (!runtimeConfigPromise) {
+    runtimeConfigPromise = fetch("/supabase-config.json", { cache: "no-store" })
+      .then(response => response.ok ? response.json() : {})
+      .catch(() => ({}));
+  }
+  return runtimeConfigPromise;
+}
+
+async function getConfig() {
+  const buildConfig = readBuildConfig();
+  if (buildConfig.url && buildConfig.anonKey) return buildConfig;
+
+  const runtimeConfig = await readRuntimeConfig();
+  return {
+    url: runtimeConfig.VITE_SUPABASE_URL || runtimeConfig.REACT_APP_SUPABASE_URL || runtimeConfig.url || buildConfig.url || "",
+    anonKey: runtimeConfig.VITE_SUPABASE_ANON_KEY || runtimeConfig.REACT_APP_SUPABASE_ANON_KEY || runtimeConfig.anonKey || buildConfig.anonKey || "",
+  };
+}
+
+const getSession = () => {
+  try {
+    return JSON.parse(localStorage.getItem(AUTH_SESSION_KEY) || "null");
+  } catch {
+    return null;
+  }
+};
+
+const configError = async () => {
+  const config = await getConfig();
+  return {
+    data: null,
+    error: {
+      message: `Supabase Auth is not configured. Config status: ${JSON.stringify({
+        hasUrl: Boolean(config.url),
+        hasAnonKey: Boolean(config.anonKey),
+        checkedNames: [
+          "VITE_SUPABASE_URL",
+          "VITE_SUPABASE_ANON_KEY",
+          "REACT_APP_SUPABASE_URL",
+          "REACT_APP_SUPABASE_ANON_KEY",
+          "/supabase-config.json",
+        ],
+      })}`,
+    },
+  };
+};
 
 const localKey = (table, key) => `${table}:${key}`;
 
 const localStore = {
-  auth: {
-    async signInWithPassword() {
-      return { data: null, error: { message: `Supabase Auth is not configured. Config status: ${JSON.stringify(configStatus)}` } };
-    },
-    async signOut() {
-      return { error: null };
-    },
-    async getSession() {
-      return { data: { session: null }, error: null };
-    },
-  },
   from(table) {
     return {
       async select() {
@@ -54,92 +83,90 @@ const localStore = {
   },
 };
 
-function createRestClient(url, anonKey) {
-  const baseUrl = url.replace(/\/$/, "");
-  const baseHeaders = {
-    apikey: anonKey,
-    "Content-Type": "application/json",
-  };
-  const getSession = () => {
-    try {
-      return JSON.parse(localStorage.getItem(AUTH_SESSION_KEY) || "null");
-    } catch {
-      return null;
-    }
-  };
-  const authHeaders = () => {
-    const session = getSession();
-    return {
-      ...baseHeaders,
-      Authorization: `Bearer ${session?.access_token || anonKey}`,
-    };
-  };
-
+async function authHeaders() {
+  const config = await getConfig();
+  if (!config.url || !config.anonKey) return null;
+  const session = getSession();
   return {
-    auth: {
-      async signInWithPassword({ email, password }) {
+    baseUrl: config.url.replace(/\/$/, ""),
+    headers: {
+      apikey: config.anonKey,
+      Authorization: `Bearer ${session?.access_token || config.anonKey}`,
+      "Content-Type": "application/json",
+    },
+    anonKey: config.anonKey,
+  };
+}
+
+export const supabase = {
+  auth: {
+    async signInWithPassword({ email, password }) {
+      const auth = await authHeaders();
+      if (!auth) return configError();
+      try {
+        const response = await fetch(`${auth.baseUrl}/auth/v1/token?grant_type=password`, {
+          method: "POST",
+          headers: {
+            apikey: auth.anonKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok) return { data: null, error: data || { message: "Login failed." } };
+        const session = {
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+          expires_at: data.expires_at,
+          user: data.user,
+        };
+        localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+        return { data: { session, user: data.user }, error: null };
+      } catch (error) {
+        return { data: null, error };
+      }
+    },
+    async signOut() {
+      localStorage.removeItem(AUTH_SESSION_KEY);
+      return { error: null };
+    },
+    async getSession() {
+      return { data: { session: getSession() }, error: null };
+    },
+  },
+  from(table) {
+    return {
+      async select(columns = "*") {
+        const auth = await authHeaders();
+        if (!auth) return localStore.from(table).select(columns);
         try {
-          const response = await fetch(`${baseUrl}/auth/v1/token?grant_type=password`, {
-            method: "POST",
-            headers: baseHeaders,
-            body: JSON.stringify({ email, password }),
+          const response = await fetch(`${auth.baseUrl}/rest/v1/${table}?select=${encodeURIComponent(columns)}`, {
+            headers: auth.headers,
           });
-          const data = await response.json().catch(() => null);
-          if (!response.ok) return { data: null, error: data || { message: "Login failed." } };
-          const session = {
-            access_token: data.access_token,
-            refresh_token: data.refresh_token,
-            expires_at: data.expires_at,
-            user: data.user,
-          };
-          localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
-          return { data: { session, user: data.user }, error: null };
+          const data = await response.json();
+          return response.ok ? { data, error: null } : { data: null, error: data };
         } catch (error) {
           return { data: null, error };
         }
       },
-      async signOut() {
-        localStorage.removeItem(AUTH_SESSION_KEY);
-        return { error: null };
+      async upsert(row) {
+        const auth = await authHeaders();
+        if (!auth) return localStore.from(table).upsert(row);
+        try {
+          const response = await fetch(`${auth.baseUrl}/rest/v1/${table}`, {
+            method: "POST",
+            headers: {
+              ...auth.headers,
+              Prefer: "resolution=merge-duplicates,return=representation",
+            },
+            body: JSON.stringify(row),
+          });
+          const data = await response.json().catch(() => null);
+          return response.ok ? { data, error: null } : { data: null, error: data };
+        } catch (error) {
+          return { data: null, error };
+        }
       },
-      async getSession() {
-        return { data: { session: getSession() }, error: null };
-      },
-    },
-    from(table) {
-      return {
-        async select(columns = "*") {
-          try {
-            const response = await fetch(`${baseUrl}/rest/v1/${table}?select=${encodeURIComponent(columns)}`, {
-              headers: authHeaders(),
-            });
-            const data = await response.json();
-            return response.ok ? { data, error: null } : { data: null, error: data };
-          } catch (error) {
-            return { data: null, error };
-          }
-        },
-        async upsert(row) {
-          try {
-            const response = await fetch(`${baseUrl}/rest/v1/${table}`, {
-              method: "POST",
-              headers: {
-                ...authHeaders(),
-                Prefer: "resolution=merge-duplicates,return=representation",
-              },
-              body: JSON.stringify(row),
-            });
-            const data = await response.json().catch(() => null);
-            return response.ok ? { data, error: null } : { data: null, error: data };
-          } catch (error) {
-            return { data: null, error };
-          }
-        },
-      };
-    },
-  };
-}
-
-export const supabase = supabaseUrl && supabaseAnonKey
-  ? createRestClient(supabaseUrl, supabaseAnonKey)
-  : localStore;
+    };
+  },
+};

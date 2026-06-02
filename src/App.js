@@ -967,14 +967,21 @@ export default function App() {
     try {
       const { data: dbRows, error } = await supabase.from("crm_state_store").select("*");
       if (error) throw error;
-      const leadsRow = Array.isArray(dbRows) ? dbRows.find(row => row.key === "leads") : null;
-      if (Array.isArray(leadsRow?.value)) {
-        setLeadsState(leadsRow.value);
+      const stateMap = {};
+      if (Array.isArray(dbRows)) {
+        dbRows.forEach(row => { stateMap[row.key] = row.value; });
       }
+      if (Array.isArray(stateMap["leads"])) setLeadsState(stateMap["leads"]);
+      if (Array.isArray(stateMap["non_admin_users"])) {
+        const migrated = await migratePlainPasswords(stateMap["non_admin_users"]);
+        setNonAdminUsersState(migrated.users);
+        if (migrated.changed) persistState("non_admin_users", migrated.users);
+      }
+      if (Array.isArray(stateMap["reset_requests"])) setResetRequestsState(stateMap["reset_requests"]);
     } catch (err) {
-      console.error("Failed to refresh leads from backend:", err);
+      console.error("Failed to refresh backend state:", err);
     }
-  }, []);
+  }, [persistState]);
 
   // ─── LOAD INITIAL STATE FROM SUPABASE ───
   useEffect(() => {
@@ -1067,6 +1074,7 @@ export default function App() {
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isActivityLogModalOpen, setIsActivityLogModalOpen] = useState(false);
+  const [dismissedAssignmentNotices, setDismissedAssignmentNotices] = useState([]);
   const [newLeadForm, setNewLeadForm] = useState({ name:"", phone:"", altPhone:"", email:"", location:"", project:"", budget:25, source:"Website", assignedTo:"Unassigned", notes:"" });
   const [newProjectForm, setNewProjectForm] = useState({ name:"", location:"", branch:"Madurai Desk", type:"Plot", price:30, units:50, sold:0, status:"Pre-Launch" });
   const [newUserForm, setNewUserForm] = useState({ name:"", emailPrefix:"", pass:"", role:"Executive", branch:"Madurai Desk", phone:"" });
@@ -1083,6 +1091,19 @@ export default function App() {
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [editUserForm, setEditUserForm] = useState(null);
 
+  useEffect(() => {
+    if (!currentUser) {
+      setDismissedAssignmentNotices([]);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(`crm_assignment_notices:${currentUser.id}`);
+      setDismissedAssignmentNotices(raw ? JSON.parse(raw) : []);
+    } catch {
+      setDismissedAssignmentNotices([]);
+    }
+  }, [currentUser]);
+
   const navigateTo = useCallback((tab) => { setNavHistory(prev=>[...prev,activeTab]); setActiveTab(tab); setIsMobileMenuOpen(false); }, [activeTab]);
   const navigateBack = useCallback(() => {
     setNavHistory(prev => { if(prev.length===0)return prev; const h=[...prev]; const last=h.pop(); setActiveTab(last); return h; });
@@ -1098,6 +1119,24 @@ export default function App() {
   const stripPhone = (val) => { if(!val)return""; return val.toString().replace(/\s+/g,"").replace(/\D/g,""); };
   const copyToClipboard = (text) => { if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).catch(() => {}); triggerToastAlert("Copied!"); };
   const triggerToastAlert = (msg) => { setToastNotification({isVisible:true,message:msg}); setTimeout(()=>setToastNotification({isVisible:false,message:""}),3500); };
+
+  useEffect(() => {
+    if (!currentUser || currentUser.role === "Admin") return;
+    const latest = nonAdminUsers.find(u => u.id === currentUser.id);
+    if (!latest) return;
+    if (latest.active === false || latest.email !== currentUser.email || latest.passwordHash !== currentUser.passwordHash) {
+      setCurrentUser(null);
+      setLoginEmail("");
+      setLoginPassword("");
+      setGlobalSearch("");
+      setActiveTab("dashboard");
+      setNavHistory([]);
+      setIsMobileMenuOpen(false);
+      setLoginError("Your login was changed by Admin. Please login again.");
+    } else if (latest.name !== currentUser.name || latest.role !== currentUser.role || latest.branch !== currentUser.branch) {
+      setCurrentUser(latest);
+    }
+  }, [currentUser, nonAdminUsers]);
 
   const visibleProjects = useMemo(()=>{ if(!currentUser)return[]; if(currentUser.role==="Admin")return projects; return projects.filter(p=>p.branch===currentUser.branch); },[projects,currentUser]);
   const visibleUsers = useMemo(()=>{ if(!currentUser)return[]; if(currentUser.role==="Admin")return users; return users.filter(u=>u.branch===currentUser.branch); },[users,currentUser]);
@@ -1176,6 +1215,27 @@ export default function App() {
     if(["Executive","Telecaller"].includes(currentUser.role))return leads.filter(isAssignedToCurrentUser);
     return[];
   },[leads,currentUser,isAssignedToCurrentUser]);
+
+  const priorityAssignedLeads = useMemo(() => {
+    if (!currentUser || currentUser.role === "Admin") return [];
+    return leads
+      .filter(l => isAssignedToCurrentUser(l) && l.assignedTo !== "Unassigned" && l.assignedAt && !dismissedAssignmentNotices.includes(`${l.id}:${l.assignedAt}`))
+      .sort((a,b)=>(b.assignedAt||0)-(a.assignedAt||0));
+  }, [leads, currentUser, isAssignedToCurrentUser, dismissedAssignmentNotices]);
+
+  const dueFollowUpLeads = useMemo(() => {
+    if (!currentUser) return [];
+    return processedLeads
+      .filter(l => l.nextFollowUp && l.nextFollowUp !== "None" && l.nextFollowUp <= TODAY_STR && !["New","Assigned","Closed","Booking Confirmed","Not Interested","Wrong Number"].includes(l.status))
+      .sort((a,b)=>a.nextFollowUp.localeCompare(b.nextFollowUp));
+  }, [processedLeads, currentUser, TODAY_STR]);
+
+  const appointmentReminderLeads = useMemo(() => {
+    if (!currentUser) return [];
+    return processedLeads
+      .filter(l => l.siteVisitTentativeDate && l.siteVisitTentativeDate <= TODAY_STR && l.status === "Site Visit Planned")
+      .sort((a,b)=>a.siteVisitTentativeDate.localeCompare(b.siteVisitTentativeDate));
+  }, [processedLeads, currentUser, TODAY_STR]);
 
   const unattendedManagerAlerts = useMemo(()=>{
     if(!currentUser||currentUser.role!=="Manager")return[];
@@ -1280,7 +1340,7 @@ export default function App() {
       const assignedUser = users.find(u => u.name === targetValue);
       const newBranch = assignedUser ? assignedUser.branch : leads.find(l=>l.id===leadId)?.branch;
       const log={date:TODAY_STR,by:currentUser.name,action:`Assigned to: ${targetValue}`};
-      const updated=leads.map(l=>l.id===leadId?{...l,assignedTo:targetValue,assignedToId:assignedUser?.id||null,assignedByRole:currentUser.role,branch:newBranch||l.branch,status:targetValue==="Unassigned"?"New":"Assigned",history:[log,...l.history]}:l);
+      const updated=leads.map(l=>l.id===leadId?{...l,assignedTo:targetValue,assignedToId:assignedUser?.id||null,assignedAt:assignedUser?Date.now():null,assignedByRole:currentUser.role,branch:newBranch||l.branch,status:targetValue==="Unassigned"?"New":"Assigned",history:[log,...l.history]}:l);
       setLeads(updated);setSelectedLead(null);triggerToastAlert(`Assigned to ${targetValue}`);
     }
     setCustomPopup({isOpen:false,leadId:null,targetValue:"",type:"status",title:"",message:""});
@@ -1300,10 +1360,17 @@ export default function App() {
 
   const openEditUserModal=(user)=>{
     if(HARDCODED_ADMINS.some(a=>a.id===user.id)){triggerToastAlert("Admin credentials are managed separately.");return;}
-    setEditUserForm({...user}); setIsEditUserModalOpen(true);
+    setEditUserForm({...user,newPassword:"",confirmNewPassword:""}); setIsEditUserModalOpen(true);
   };
 
-  const handleUpdateUserSubmit=async (e)=>{ e.preventDefault(); const prefix=editUserForm.email.split('@')[0].trim().toLowerCase(); const u={...editUserForm,name:editUserForm.name.trim(),email:`${prefix}@desam`,branch:editUserForm.role==="Admin"?"All Branches":editUserForm.branch,phone:stripPhone(editUserForm.phone)||"9840000000",avatar:editUserForm.name.charAt(0).toUpperCase()};
+  const handleUpdateUserSubmit=async (e)=>{ e.preventDefault();
+    const passwordValue = editUserForm.newPassword || "";
+    if (passwordValue && passwordValue.length < 6) { triggerToastAlert("Password must be at least 6 characters."); return; }
+    if (passwordValue && passwordValue !== editUserForm.confirmNewPassword) { triggerToastAlert("Passwords do not match."); return; }
+    const prefix=editUserForm.email.split('@')[0].trim().toLowerCase();
+    const { newPassword, confirmNewPassword, ...cleanForm } = editUserForm;
+    const passwordFields = passwordValue ? await makePasswordFields(passwordValue) : {};
+    const u={...cleanForm,...passwordFields,name:cleanForm.name.trim(),email:`${prefix}@desam`,branch:cleanForm.role==="Admin"?"All Branches":cleanForm.branch,phone:stripPhone(cleanForm.phone)||"9840000000",avatar:cleanForm.name.charAt(0).toUpperCase(),active:cleanForm.active!==false};
     setUsers(users.map(x => x.id === u.id ? u : x));
     setIsEditUserModalOpen(false);setEditUserForm(null); triggerToastAlert(`Profile for ${u.name} updated.`); };
 
@@ -1313,7 +1380,7 @@ export default function App() {
     const assignedUser = newLeadForm.assignedTo && newLeadForm.assignedTo !== "Unassigned" ? users.find(u => u.name === newLeadForm.assignedTo) : null;
     const projBranch = projects.find(p=>p.name===newLeadForm.project)?.branch || currentUser.branch || "Madurai Desk";
     const leadBranch = assignedUser ? assignedUser.branch : projBranch;
-    const created={...newLeadForm,id:Date.now(),phone,altPhone:stripPhone(newLeadForm.altPhone),branch:leadBranch,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,assignedToId:assignedUser?.id||null,assignedByRole:currentUser.role,bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false,siteVisitTentativeDate:"",status:newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?"Assigned":"New",history:[{date:TODAY_STR,by:currentUser.name,action:"Lead captured."+(newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?` Assigned to ${newLeadForm.assignedTo}.`:"")}]};
+    const created={...newLeadForm,id:Date.now(),phone,altPhone:stripPhone(newLeadForm.altPhone),branch:leadBranch,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,assignedToId:assignedUser?.id||null,assignedAt:assignedUser?Date.now():null,assignedByRole:currentUser.role,bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false,siteVisitTentativeDate:"",status:newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?"Assigned":"New",history:[{date:TODAY_STR,by:currentUser.name,action:"Lead captured."+(newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?` Assigned to ${newLeadForm.assignedTo}.`:"")}]};
     setLeads([created,...leads]); setIsLeadModalOpen(false); setNewLeadForm({name:"",phone:"",altPhone:"",email:"",location:"",project:projects[0]?.name||"",budget:25,source:"Website",assignedTo:"Unassigned",notes:""}); triggerToastAlert("Lead created."); };
 
   const handleCreateProject=(e)=>{ e.preventDefault(); const p={...newProjectForm,id:Date.now(),price:parseInt(newProjectForm.price)||0,units:parseInt(newProjectForm.units)||0,sold:parseInt(newProjectForm.sold)||0}; setProjects([p,...projects]); setIsProjectModalOpen(false); setNewProjectForm({name:"",location:"",branch:"Madurai Desk",type:"Plot",price:30,units:50,sold:0,status:"Pre-Launch"}); triggerToastAlert(`Project "${p.name}" added.`); };
@@ -1332,6 +1399,15 @@ export default function App() {
   };
 
   const activeResetCount = useMemo(() => resetRequests.filter(r => r.expiresAt > Date.now() && !r.consumed).length, [resetRequests]);
+  const dismissAssignmentNotice = (lead) => {
+    if (!currentUser || !lead) return;
+    const noticeId = `${lead.id}:${lead.assignedAt}`;
+    setDismissedAssignmentNotices(prev => {
+      const next = prev.includes(noticeId) ? prev : [...prev, noticeId];
+      try { localStorage.setItem(`crm_assignment_notices:${currentUser.id}`, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
 
   const navItems = [
     {id:"dashboard",icon:<Layers/>,label:"DASHBOARD"},
@@ -1413,6 +1489,33 @@ export default function App() {
         <AdminLoginResetPopup count={activeResetCount} onGoToHub={() => { setShowAdminLoginPopup(false); navigateTo("users"); }} onDismiss={() => setShowAdminLoginPopup(false)} />
       )}
 
+      {priorityAssignedLeads.length>0&&(
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[450] flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-orange-500/30 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+            <div className="bg-orange-950/30 border-b border-orange-500/20 p-5 flex items-center gap-3">
+              <div className="h-11 w-11 rounded-xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-center"><Bell className="h-5 w-5 text-orange-400 animate-pulse"/></div>
+              <div><h3 className="text-sm font-black text-white uppercase tracking-wide">Priority Lead Assigned</h3><p className="text-[10px] text-orange-200/70 mt-0.5">New lead requires your attention</p></div>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-4">
+                <p className="text-base font-black text-white">{priorityAssignedLeads[0].name}</p>
+                <div className="grid grid-cols-2 gap-3 mt-3 text-[10px]">
+                  <div><p className="text-slate-500 font-bold uppercase tracking-wider">Phone</p><p className="text-slate-200 font-mono mt-0.5">{priorityAssignedLeads[0].phone}</p></div>
+                  <div><p className="text-slate-500 font-bold uppercase tracking-wider">Project</p><p className="text-orange-400 font-bold mt-0.5 truncate">{priorityAssignedLeads[0].project}</p></div>
+                  <div><p className="text-slate-500 font-bold uppercase tracking-wider">Source</p><p className="text-slate-300 font-bold mt-0.5">{priorityAssignedLeads[0].source}</p></div>
+                  <div><p className="text-slate-500 font-bold uppercase tracking-wider">Budget</p><p className="text-emerald-400 font-mono font-black mt-0.5">₹{priorityAssignedLeads[0].budget}L</p></div>
+                </div>
+              </div>
+              {priorityAssignedLeads.length>1&&<p className="text-[11px] text-slate-500 font-bold text-center">{priorityAssignedLeads.length-1} more new assignment{priorityAssignedLeads.length>2?"s":""} waiting.</p>}
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={()=>dismissAssignmentNotice(priorityAssignedLeads[0])} className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors">Acknowledge</button>
+                <button onClick={()=>{const lead=priorityAssignedLeads[0];dismissAssignmentNotice(lead);setSelectedLead(lead);}} className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white shadow-lg transition-all">Open Lead</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <aside className="hidden lg:flex w-64 bg-slate-950 border-r border-slate-800 flex-col justify-between h-full flex-shrink-0"><SidebarContent/></aside>
       {isMobileMenuOpen&&(<div className="fixed inset-0 z-50 flex lg:hidden bg-black/60 backdrop-blur-sm"><aside className="w-64 bg-slate-950 border-r border-slate-800 flex-col justify-between h-full flex"><SidebarContent/></aside><div className="flex-1" onClick={()=>setIsMobileMenuOpen(false)}></div></div>)}
 
@@ -1444,6 +1547,22 @@ export default function App() {
                 <div><h1 className="text-xl lg:text-2xl font-black text-white tracking-tight">Sales Performance Dashboard</h1><p className="text-xs text-slate-400 mt-0.5">Real-time activity & lead pipeline overview.</p></div>
               </div>
               {unattendedManagerAlerts.length>0&&(<div className="bg-rose-950/40 border border-rose-500/30 p-4 lg:p-5 rounded-2xl flex items-start gap-4 shadow-xl"><div className="bg-rose-500/20 p-2 rounded-full border border-rose-500/30 mt-0.5"><AlertTriangle className="h-5 w-5 text-rose-500 animate-pulse"/></div><div><h3 className="text-rose-400 font-black text-xs uppercase tracking-wider">Unattended Leads Alert</h3><p className="text-rose-200/70 text-xs mt-1.5 font-medium">{unattendedManagerAlerts.length} leads in "New" status unattended for 48+ hours.</p></div></div>)}
+              {(dueFollowUpLeads.length>0||appointmentReminderLeads.length>0)&&(
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  <div className="bg-slate-950 border border-blue-500/30 rounded-2xl p-5 shadow-xl">
+                    <h2 className="text-xs font-black text-blue-400 flex items-center gap-2 uppercase tracking-wider mb-4"><Clock className="h-4 w-4"/> Follow-Up Reminders</h2>
+                    <div className="space-y-2">
+                      {dueFollowUpLeads.length===0?<p className="text-xs text-slate-500 font-bold py-3">No due follow-ups.</p>:dueFollowUpLeads.slice(0,5).map(l=><button key={l.id} onClick={()=>setSelectedLead(l)} className="w-full text-left bg-slate-900/70 hover:bg-slate-900 border border-slate-800 hover:border-blue-500/40 rounded-xl p-3 transition-colors"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs font-black text-white truncate">{l.name}</p><p className="text-[10px] text-slate-500 font-mono mt-0.5">{l.phone}</p></div><span className={`text-[10px] font-black font-mono ${l.nextFollowUp<TODAY_STR?"text-rose-400":"text-amber-400"}`}>{l.nextFollowUp}</span></div></button>)}
+                    </div>
+                  </div>
+                  <div className="bg-slate-950 border border-amber-500/30 rounded-2xl p-5 shadow-xl">
+                    <h2 className="text-xs font-black text-amber-400 flex items-center gap-2 uppercase tracking-wider mb-4"><Calendar className="h-4 w-4"/> Appointment Reminders</h2>
+                    <div className="space-y-2">
+                      {appointmentReminderLeads.length===0?<p className="text-xs text-slate-500 font-bold py-3">No due appointments.</p>:appointmentReminderLeads.slice(0,5).map(l=><button key={l.id} onClick={()=>setSelectedLead(l)} className="w-full text-left bg-slate-900/70 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/40 rounded-xl p-3 transition-colors"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs font-black text-white truncate">{l.name}</p><p className="text-[10px] text-slate-500 mt-0.5 truncate">{l.project}</p></div><span className={`text-[10px] font-black font-mono ${l.siteVisitTentativeDate<TODAY_STR?"text-rose-400":"text-amber-400"}`}>{l.siteVisitTentativeDate}</span></div></button>)}
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
                 <KpiTile label="Total Calls" value={activityKPIs.totalCalls.toLocaleString()} icon={<Phone/>} color="#ea580c"/>
                 <KpiTile label="Followups" value={activityKPIs.totalFollowups.toLocaleString()} icon={<PhoneCall/>} color="#3b82f6"/>
@@ -1797,18 +1916,27 @@ export default function App() {
 
       {isEditUserModalOpen&&editUserForm&&(
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-slate-950 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl flex flex-col">
+          <div className="bg-slate-950 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between p-5 border-b border-slate-800">
               <h2 className="text-lg font-black text-white flex items-center gap-2"><Edit2 className="h-5 w-5 text-blue-500"/> Edit Personnel Info</h2>
               <button onClick={()=>{setIsEditUserModalOpen(false);setEditUserForm(null);}} className="text-slate-500 hover:text-white p-2 hover:bg-slate-900 rounded-xl transition-colors"><X className="h-5 w-5"/></button>
             </div>
-            <form onSubmit={handleUpdateUserSubmit} className="p-6 space-y-4 text-xs">
+            <form onSubmit={handleUpdateUserSubmit} className="p-6 space-y-4 text-xs overflow-y-auto">
               <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Full Name</label><input type="text" required value={editUserForm.name} onChange={e=>setEditUserForm({...editUserForm,name:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-blue-500"/></div>
               <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Username / Email</label><input type="text" required value={editUserForm.email} onChange={e=>setEditUserForm({...editUserForm,email:e.target.value.toLowerCase().replace(/\s/g,'')})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-blue-500 font-mono"/></div>
               <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Phone Number</label><input type="tel" required value={editUserForm.phone} onChange={e=>setEditUserForm({...editUserForm,phone:stripPhone(e.target.value)})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-blue-500 font-mono"/></div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Role</label><select value={editUserForm.role} onChange={e=>setEditUserForm({...editUserForm,role:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-blue-500"><option value="Manager">Manager</option><option value="Executive">Executive</option><option value="Telecaller">Telecaller</option></select></div>
                 <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Branch</label><select value={editUserForm.branch} onChange={e=>setEditUserForm({...editUserForm,branch:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-blue-500">{BRANCHES.map(b=><option key={b} value={b}>{b}</option>)}</select></div>
+              </div>
+              <label className="flex items-center justify-between gap-3 bg-slate-900/70 border border-slate-800 rounded-xl px-3 py-2.5 cursor-pointer">
+                <span><span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wide">Login Active</span><span className="block text-[10px] text-slate-600 mt-0.5">Turn off to block this staff login.</span></span>
+                <input type="checkbox" checked={editUserForm.active!==false} onChange={e=>setEditUserForm({...editUserForm,active:e.target.checked})} className="h-4 w-4 accent-blue-600"/>
+              </label>
+              <div className="bg-blue-950/20 border border-blue-500/20 rounded-xl p-3 space-y-3">
+                <p className="text-[10px] text-blue-300 font-black uppercase tracking-wider flex items-center gap-1.5"><KeyRound className="h-3.5 w-3.5"/> Change Password</p>
+                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">New Password</label><input type="password" minLength={6} value={editUserForm.newPassword||""} onChange={e=>setEditUserForm({...editUserForm,newPassword:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-blue-500" placeholder="Leave blank to keep current password"/></div>
+                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Confirm New Password</label><input type="password" value={editUserForm.confirmNewPassword||""} onChange={e=>setEditUserForm({...editUserForm,confirmNewPassword:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-blue-500" placeholder="Re-enter new password"/></div>
               </div>
               <div className="pt-4 border-t border-slate-800 flex justify-end gap-3"><button type="button" onClick={()=>{setIsEditUserModalOpen(false);setEditUserForm(null);}} className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors">Cancel</button><button type="submit" className="px-5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition-all">Save Changes</button></div>
             </form>

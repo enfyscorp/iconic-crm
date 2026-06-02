@@ -140,8 +140,9 @@ export const supabase = {
         const auth = await authHeaders();
         if (!auth) return localStore.from(table).select(columns);
         try {
-          const response = await fetch(`${auth.baseUrl}/rest/v1/${table}?select=${encodeURIComponent(columns)}`, {
+          const response = await fetch(`${auth.baseUrl}/rest/v1/${table}?select=${encodeURIComponent(columns)}&_=${Date.now()}`, {
             headers: auth.headers,
+            cache: "no-store",
           });
           const data = await response.json();
           return response.ok ? { data, error: null } : { data: null, error: data };
@@ -149,17 +150,20 @@ export const supabase = {
           return { data: null, error };
         }
       },
-      async upsert(row) {
+      async upsert(row, options = {}) {
         const auth = await authHeaders();
         if (!auth) return localStore.from(table).upsert(row);
+        const onConflict = encodeURIComponent(options.onConflict || "key");
+        const payload = table === "crm_state_store" ? { ...row, updated_at: new Date().toISOString() } : row;
         try {
-          const response = await fetch(`${auth.baseUrl}/rest/v1/${table}`, {
+          const response = await fetch(`${auth.baseUrl}/rest/v1/${table}?on_conflict=${onConflict}`, {
             method: "POST",
             headers: {
               ...auth.headers,
               Prefer: "resolution=merge-duplicates,return=representation",
             },
-            body: JSON.stringify(row),
+            body: JSON.stringify(payload),
+            cache: "no-store",
           });
           const data = await response.json().catch(() => null);
           return response.ok ? { data, error: null } : { data: null, error: data };

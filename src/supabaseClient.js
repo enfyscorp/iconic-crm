@@ -151,8 +151,12 @@ export const supabase = {
         const auth = await authHeaders();
         if (!auth) return localStore.from(table).select(columns);
         try {
-          const response = await fetch(`${auth.baseUrl}/rest/v1/${table}?select=${encodeURIComponent(columns)}&_=${Date.now()}`, {
-            headers: auth.headers,
+          const response = await fetch(`${auth.baseUrl}/rest/v1/${table}?select=${encodeURIComponent(columns)}`, {
+            headers: {
+              ...auth.headers,
+              "Cache-Control": "no-cache",
+              Pragma: "no-cache",
+            },
             cache: "no-store",
           });
           const data = await response.json();

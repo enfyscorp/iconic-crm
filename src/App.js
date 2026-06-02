@@ -891,8 +891,9 @@ export default function App() {
   const [actStartDate, setActStartDate] = useState(TODAY_STR);
   const [actEndDate, setActEndDate] = useState(TODAY_STR);
   const [activitySearch, setActivitySearch] = useState("");
-  const [reportStartDate, setReportStartDate] = useState(TODAY_STR);
+  const [reportStartDate, setReportStartDate] = useState(`${TODAY_STR.slice(0,7)}-01`);
   const [reportEndDate, setReportEndDate] = useState(TODAY_STR);
+  const [selectedMatrixReport, setSelectedMatrixReport] = useState("ExecutiveWise");
 
   const [leads, setLeadsState] = useState([]);
   const [adminUsers, setAdminUsersState] = useState([]);
@@ -1128,7 +1129,7 @@ export default function App() {
   const [statusEditLeadId, setStatusEditLeadId] = useState(null);
   const [projectEditLeadId, setProjectEditLeadId] = useState(null);
   const [selectedWhatsappTemplateId, setSelectedWhatsappTemplateId] = useState("");
-  const [newWhatsappTemplateForm, setNewWhatsappTemplateForm] = useState({ project:"All", title:"", message:"", imageUrl:"" });
+  const [newWhatsappTemplateForm, setNewWhatsappTemplateForm] = useState({ project:"All", title:"", message:"", imageUrl:"", imageDataUrl:"" });
 
   useEffect(() => {
     setSelectedWhatsappTemplateId("");
@@ -1330,11 +1331,11 @@ export default function App() {
   const summarizePeopleActivity = useCallback((logs)=>{
     const map = {};
     visibleUsers.filter(u=>["Manager","Executive","Telecaller"].includes(u.role)).forEach(u=>{
-      map[u.name]={name:u.name,role:u.role,calls:0,followup:0,siteVisit:0,booking:0,registration:0,cancellation:0};
+      map[u.name]={name:u.name,role:u.role,calls:0,followup:0,siteVisit:0,booking:0,registration:0,cancellation:0,productivity:0};
     });
     logs.forEach(l=>{
       const name = l.executive || "System";
-      if(!map[name])map[name]={name,role:visibleUsers.find(u=>u.name===name)?.role||"User",calls:0,followup:0,siteVisit:0,booking:0,registration:0,cancellation:0};
+      if(!map[name])map[name]={name,role:visibleUsers.find(u=>u.name===name)?.role||"User",calls:0,followup:0,siteVisit:0,booking:0,registration:0,cancellation:0,productivity:0};
       map[name].calls += l.callsMade || 0;
       map[name].followup += l.followup || 0;
       map[name].siteVisit += l.siteVisit || 0;
@@ -1342,7 +1343,7 @@ export default function App() {
       map[name].registration += l.registration || 0;
       map[name].cancellation += l.cancellation || 0;
     });
-    return Object.values(map).sort((a,b)=>a.name.localeCompare(b.name));
+    return Object.values(map).map(row=>({...row,productivity:(row.calls||0)+(row.followup||0)+(row.siteVisit||0)+(row.booking||0)+(row.registration||0)})).sort((a,b)=>a.name.localeCompare(b.name));
   },[visibleUsers]);
 
   const todayPeopleActivitySummary = useMemo(()=>summarizePeopleActivity(reportScopedActivityLogs.filter(l=>l.date===TODAY_STR)),[summarizePeopleActivity,reportScopedActivityLogs,TODAY_STR]);
@@ -1353,7 +1354,7 @@ export default function App() {
     const map = {};
     const ensure = (source) => {
       const key = source || "Unknown";
-      if(!map[key])map[key]={source:key,enquirySet:new Set(),siteVisitSet:new Set(),conversionSet:new Set()};
+      if(!map[key])map[key]={source:key,enquirySet:new Set(),siteVisitSet:new Set(),bookingSet:new Set(),conversionSet:new Set(),cancellationSet:new Set()};
       return map[key];
     };
     reportScopedLeads.forEach(lead=>{
@@ -1363,19 +1364,70 @@ export default function App() {
       if(!isDateInRange(log.date,start,end))return;
       const row = ensure(log.source);
       if(log.siteVisit)row.siteVisitSet.add(log.leadId || `${log.phone}-${log.leadName}`);
+      if(log.booking)row.bookingSet.add(log.leadId || `${log.phone}-${log.leadName}`);
       if(log.booking || log.registration)row.conversionSet.add(log.leadId || `${log.phone}-${log.leadName}`);
+      if(log.cancellation)row.cancellationSet.add(log.leadId || `${log.phone}-${log.leadName}`);
     });
     return Object.values(map).map(row=>{
       const enquiry = row.enquirySet.size;
       const siteVisit = row.siteVisitSet.size;
+      const booking = row.bookingSet.size;
       const conversion = row.conversionSet.size;
-      return { source:row.source, enquiry, siteVisit, conversion, percentage: enquiry ? ((conversion/enquiry)*100).toFixed(1) : "0.0" };
+      const cancellation = row.cancellationSet.size;
+      return { source:row.source, enquiry, siteVisit, booking, conversion, cancellation, percentage: enquiry ? ((conversion/enquiry)*100).toFixed(1) : "0.0" };
     }).sort((a,b)=>b.enquiry-a.enquiry || b.conversion-a.conversion);
   },[reportScopedLeads,reportScopedActivityLogs,isDateInRange]);
 
   const todaySourceReport = useMemo(()=>summarizeSourceReport(TODAY_STR,TODAY_STR),[summarizeSourceReport,TODAY_STR]);
   const monthSourceReport = useMemo(()=>summarizeSourceReport(monthStartDate,TODAY_STR),[summarizeSourceReport,monthStartDate,TODAY_STR]);
   const rangeSourceReport = useMemo(()=>summarizeSourceReport(reportStartDate,reportEndDate),[summarizeSourceReport,reportStartDate,reportEndDate]);
+
+  const rangeProjectReport = useMemo(()=>{
+    const map = {};
+    const ensure = (project) => {
+      const key = project || "Unknown";
+      if(!map[key])map[key]={project:key,enquirySet:new Set(),siteVisitSet:new Set(),bookingSet:new Set(),conversionSet:new Set(),cancellationSet:new Set()};
+      return map[key];
+    };
+    reportScopedLeads.forEach(lead=>{ if(isDateInRange(lead.dateCreated,reportStartDate,reportEndDate))ensure(lead.project).enquirySet.add(lead.id); });
+    reportScopedActivityLogs.forEach(log=>{
+      if(!isDateInRange(log.date,reportStartDate,reportEndDate))return;
+      const row=ensure(log.project);
+      const id=log.leadId || `${log.phone}-${log.leadName}`;
+      if(log.siteVisit)row.siteVisitSet.add(id);
+      if(log.booking)row.bookingSet.add(id);
+      if(log.booking || log.registration)row.conversionSet.add(id);
+      if(log.cancellation)row.cancellationSet.add(id);
+    });
+    return Object.values(map).map(row=>{
+      const enquiry=row.enquirySet.size, siteVisit=row.siteVisitSet.size, booking=row.bookingSet.size, conversion=row.conversionSet.size, cancellation=row.cancellationSet.size;
+      return { project:row.project,enquiry,siteVisit,booking,conversion,cancellation,percentage:enquiry?((conversion/enquiry)*100).toFixed(1):"0.0" };
+    }).sort((a,b)=>b.enquiry-a.enquiry || b.conversion-a.conversion);
+  },[reportScopedLeads,reportScopedActivityLogs,isDateInRange,reportStartDate,reportEndDate]);
+
+  const rangeSourceProjectReport = useMemo(()=>{
+    const map = {};
+    reportScopedLeads.forEach(lead=>{
+      if(!isDateInRange(lead.dateCreated,reportStartDate,reportEndDate))return;
+      const key=`${lead.source||"Unknown"}|${lead.project||"Unknown"}`;
+      if(!map[key])map[key]={source:lead.source||"Unknown",project:lead.project||"Unknown",enquirySet:new Set(),siteVisitSet:new Set(),bookingSet:new Set(),conversionSet:new Set(),cancellationSet:new Set()};
+      map[key].enquirySet.add(lead.id);
+    });
+    reportScopedActivityLogs.forEach(log=>{
+      if(!isDateInRange(log.date,reportStartDate,reportEndDate))return;
+      const key=`${log.source||"Unknown"}|${log.project||"Unknown"}`;
+      if(!map[key])map[key]={source:log.source||"Unknown",project:log.project||"Unknown",enquirySet:new Set(),siteVisitSet:new Set(),bookingSet:new Set(),conversionSet:new Set(),cancellationSet:new Set()};
+      const id=log.leadId || `${log.phone}-${log.leadName}`;
+      if(log.siteVisit)map[key].siteVisitSet.add(id);
+      if(log.booking)map[key].bookingSet.add(id);
+      if(log.booking || log.registration)map[key].conversionSet.add(id);
+      if(log.cancellation)map[key].cancellationSet.add(id);
+    });
+    return Object.values(map).map(row=>{
+      const enquiry=row.enquirySet.size, siteVisit=row.siteVisitSet.size, booking=row.bookingSet.size, conversion=row.conversionSet.size, cancellation=row.cancellationSet.size;
+      return { source:row.source,project:row.project,enquiry,siteVisit,booking,conversion,cancellation,percentage:enquiry?((conversion/enquiry)*100).toFixed(1):"0.0" };
+    }).sort((a,b)=>a.source.localeCompare(b.source)||b.enquiry-a.enquiry);
+  },[reportScopedLeads,reportScopedActivityLogs,isDateInRange,reportStartDate,reportEndDate]);
 
   const dashboardActivityLogs = useMemo(()=>{
     let logs=systemActivityLogs;
@@ -1522,13 +1574,23 @@ export default function App() {
       title: newWhatsappTemplateForm.title.trim(),
       message: newWhatsappTemplateForm.message.trim(),
       imageUrl: newWhatsappTemplateForm.imageUrl.trim(),
+      imageDataUrl: newWhatsappTemplateForm.imageDataUrl,
       createdBy: currentUser.name,
       createdAt: TODAY_STR,
     };
     const saved = await setWhatsappTemplates([template, ...whatsappTemplates]);
     if(!saved){ triggerToastAlert("Could not save WhatsApp template."); return; }
-    setNewWhatsappTemplateForm({ project:"All", title:"", message:"", imageUrl:"" });
+    setNewWhatsappTemplateForm({ project:"All", title:"", message:"", imageUrl:"", imageDataUrl:"" });
     triggerToastAlert("WhatsApp template saved.");
+  };
+
+  const handleWhatsappTemplateImageUpload = (file) => {
+    if(!file)return;
+    if(!file.type?.startsWith("image/")){ triggerToastAlert("Please select an image file."); return; }
+    if(file.size > 750000){ triggerToastAlert("Please upload an image below 750 KB."); return; }
+    const reader = new FileReader();
+    reader.onload = () => setNewWhatsappTemplateForm(prev=>({...prev,imageDataUrl:String(reader.result || "")}));
+    reader.readAsDataURL(file);
   };
 
   const handleDeleteWhatsappTemplate = async (templateId) => {
@@ -1714,9 +1776,9 @@ export default function App() {
 
   const selectedRangeReportTotals = useMemo(()=>{
     const people = rangePeopleActivitySummary.reduce((acc,row)=>{
-      acc.calls += row.calls || 0; acc.followup += row.followup || 0; acc.siteVisit += row.siteVisit || 0; acc.booking += row.booking || 0; acc.registration += row.registration || 0; acc.cancellation += row.cancellation || 0;
+      acc.calls += row.calls || 0; acc.followup += row.followup || 0; acc.siteVisit += row.siteVisit || 0; acc.booking += row.booking || 0; acc.registration += row.registration || 0; acc.cancellation += row.cancellation || 0; acc.productivity += row.productivity || 0;
       return acc;
-    },{calls:0,followup:0,siteVisit:0,booking:0,registration:0,cancellation:0});
+    },{calls:0,followup:0,siteVisit:0,booking:0,registration:0,cancellation:0,productivity:0});
     const source = rangeSourceReport.reduce((acc,row)=>{
       acc.enquiry += row.enquiry || 0; acc.siteVisit += row.siteVisit || 0; acc.conversion += row.conversion || 0;
       return acc;
@@ -1725,16 +1787,34 @@ export default function App() {
     return { people, source };
   },[rangePeopleActivitySummary,rangeSourceReport]);
 
+  const activeRangeReport = useMemo(()=>{
+    const sumRows = (rows, fields) => fields.reduce((acc, field)=>{acc[field]=rows.reduce((s,r)=>s+(Number(r[field])||0),0);return acc;},{});
+    if(selectedMatrixReport==="Projectwise"){
+      const totals=sumRows(rangeProjectReport,["enquiry","siteVisit","booking","conversion","cancellation"]);
+      totals.percentage=totals.enquiry?((totals.conversion/totals.enquiry)*100).toFixed(1):"0.0";
+      return {title:"Projectwise Report",headers:["Project","Enquiry","Site Visit","Booking","Conversion","Cancellation","Percentage"],rows:rangeProjectReport.map(r=>[r.project,r.enquiry,r.siteVisit,r.booking,r.conversion,r.cancellation,`${r.percentage}%`]),totals:["TOTAL",totals.enquiry,totals.siteVisit,totals.booking,totals.conversion,totals.cancellation,`${totals.percentage}%`]};
+    }
+    if(selectedMatrixReport==="Sourcewise"){
+      const totals=sumRows(rangeSourceReport,["enquiry","siteVisit","booking","conversion","cancellation"]);
+      totals.percentage=totals.enquiry?((totals.conversion/totals.enquiry)*100).toFixed(1):"0.0";
+      return {title:"Sourcewise Report",headers:["Source","Enquiry","Site Visit","Booking","Conversion","Cancellation","Percentage"],rows:rangeSourceReport.map(r=>[r.source,r.enquiry,r.siteVisit,r.booking,r.conversion,r.cancellation,`${r.percentage}%`]),totals:["TOTAL",totals.enquiry,totals.siteVisit,totals.booking,totals.conversion,totals.cancellation,`${totals.percentage}%`]};
+    }
+    if(selectedMatrixReport==="SourceProjectwise"){
+      const totals=sumRows(rangeSourceProjectReport,["enquiry","siteVisit","booking","conversion","cancellation"]);
+      totals.percentage=totals.enquiry?((totals.conversion/totals.enquiry)*100).toFixed(1):"0.0";
+      return {title:"Sourcewise-Projectwise Report",headers:["Source","Project","Enquiry","Site Visit","Booking","Conversion","Cancellation","Percentage"],rows:rangeSourceProjectReport.map(r=>[r.source,r.project,r.enquiry,r.siteVisit,r.booking,r.conversion,r.cancellation,`${r.percentage}%`]),totals:["TOTAL","",totals.enquiry,totals.siteVisit,totals.booking,totals.conversion,totals.cancellation,`${totals.percentage}%`]};
+    }
+    const totals=sumRows(rangePeopleActivitySummary,["calls","followup","siteVisit","booking","registration","cancellation","productivity"]);
+    return {title:"Executivewise Report",headers:["Name","Calls","Followup","Site Visit","Booking","Registration","Cancellation","Productivity"],rows:rangePeopleActivitySummary.map(r=>[r.name,r.calls,r.followup,r.siteVisit,r.booking,r.registration,r.cancellation,r.productivity]),totals:["TOTAL",totals.calls,totals.followup,totals.siteVisit,totals.booking,totals.registration,totals.cancellation,totals.productivity]};
+  },[selectedMatrixReport,rangePeopleActivitySummary,rangeSourceReport,rangeProjectReport,rangeSourceProjectReport]);
+
   const exportSelectedRangeReport = (formatType) => {
-    const peopleHeaders = ["Name","Role","Calls","Followup","Site Visit","Booking","Registration","Cancellation"];
-    const peopleRows = rangePeopleActivitySummary.map(r=>[r.name,r.role,r.calls,r.followup,r.siteVisit,r.booking,r.registration,r.cancellation]);
-    const sourceHeaders = ["Source","Enquiry","Site Visit","Conversion","Percentage"];
-    const sourceRows = rangeSourceReport.map(r=>[r.source,r.enquiry,r.siteVisit,r.conversion,`${r.percentage}%`]);
-    const fileStem = `Desam_Selected_Range_Report_${reportStartDate}_to_${reportEndDate}`;
+    const headers = activeRangeReport.headers;
+    const rows = [...activeRangeReport.rows, activeRangeReport.totals];
+    const fileStem = `Desam_${activeRangeReport.title.replaceAll(" ","_")}_${reportStartDate}_to_${reportEndDate}`;
     if(formatType==="excel"){
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([peopleHeaders,...peopleRows]), "Staff Activity");
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([sourceHeaders,...sourceRows]), "Sourcewise");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers,...rows]), activeRangeReport.title.slice(0,31));
       const buffer = XLSX.write(wb, { bookType:"xlsx", type:"array" });
       const blob = new Blob([buffer], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${fileStem}.xlsx`;document.body.appendChild(a);a.click();URL.revokeObjectURL(a.href);document.body.removeChild(a);
@@ -1746,24 +1826,20 @@ export default function App() {
       const lines = [
         `Selected Range Report,${reportStartDate} to ${reportEndDate}`,
         "",
-        "Staff Activity",
-        peopleHeaders.map(fmtCell).join(","),
-        ...peopleRows.map(r=>r.map(fmtCell).join(",")),
-        "",
-        "Sourcewise Report",
-        sourceHeaders.map(fmtCell).join(","),
-        ...sourceRows.map(r=>r.map(fmtCell).join(",")),
+        activeRangeReport.title,
+        headers.map(fmtCell).join(","),
+        ...rows.map(r=>r.map(fmtCell).join(",")),
       ];
       const blob=new Blob([lines.join("\n")],{type:"text/csv;charset=utf-8;"});
       const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${fileStem}.csv`;document.body.appendChild(a);a.click();URL.revokeObjectURL(a.href);document.body.removeChild(a);
       triggerToastAlert("Selected range exported as CSV.");
       return;
     }
-    const peopleBody = peopleRows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("");
-    const sourceBody = sourceRows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("");
+    const bodyRows = activeRangeReport.rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("");
+    const totalRow = `<tr style="font-weight:700;background:#f8fafc">${activeRangeReport.totals.map(c=>`<td>${c}</td>`).join("")}</tr>`;
     const win = window.open("", "_blank");
     if(!win){ triggerToastAlert("Allow popup to export PDF."); return; }
-    win.document.write(`<html><head><title>${fileStem}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px}h2{font-size:15px;margin-top:24px}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px}th,td{border:1px solid #ddd;padding:7px;text-align:left}th{background:#f1f5f9}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:16px 0}.box{border:1px solid #ddd;padding:10px}.box b{display:block;font-size:16px}</style></head><body><h1>Selected Range Report</h1><p>${reportStartDate} to ${reportEndDate}</p><div class="summary"><div class="box">Calls<b>${selectedRangeReportTotals.people.calls}</b></div><div class="box">Followup<b>${selectedRangeReportTotals.people.followup}</b></div><div class="box">Site Visit<b>${selectedRangeReportTotals.people.siteVisit}</b></div><div class="box">Conversion %<b>${selectedRangeReportTotals.source.percentage}%</b></div></div><h2>Staff Activity</h2><table><thead><tr>${peopleHeaders.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${peopleBody}</tbody></table><h2>Sourcewise Report</h2><table><thead><tr>${sourceHeaders.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${sourceBody}</tbody></table><script>window.onload=()=>{window.print();}</script></body></html>`);
+    win.document.write(`<html><head><title>${fileStem}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px}h2{font-size:15px;margin-top:24px}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px}th,td{border:1px solid #ddd;padding:7px;text-align:left}th{background:#f1f5f9}.summary{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:16px 0}.box{border:1px solid #ddd;padding:10px}.box b{display:block;font-size:16px}</style></head><body><h1>${activeRangeReport.title}</h1><p>${reportStartDate} to ${reportEndDate}</p><div class="summary"><div class="box">Calls<b>${selectedRangeReportTotals.people.calls}</b></div><div class="box">Followup<b>${selectedRangeReportTotals.people.followup}</b></div><div class="box">Site Visit<b>${selectedRangeReportTotals.people.siteVisit}</b></div><div class="box">Booking<b>${selectedRangeReportTotals.people.booking}</b></div><div class="box">Conversion %<b>${selectedRangeReportTotals.source.percentage}%</b></div><div class="box">Cancellation<b>${selectedRangeReportTotals.people.cancellation}</b></div></div><h2>${activeRangeReport.title}</h2><table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${bodyRows}${totalRow}</tbody></table><script>window.onload=()=>{window.print();}</script></body></html>`);
     win.document.close();
     triggerToastAlert("PDF report opened.");
   };
@@ -1773,14 +1849,15 @@ export default function App() {
       <h3 className="text-xs font-black text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2"><Users className="h-4 w-4 text-blue-400"/>{title}</h3>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-[10px] whitespace-nowrap">
-          <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold"><tr><th className="p-3">Name</th><th className="p-3">Role</th><th className="p-3 text-center">Calls</th><th className="p-3 text-center">Followup</th><th className="p-3 text-center">Site Visit</th><th className="p-3 text-center">Booking</th><th className="p-3 text-center">Registration</th><th className="p-3 text-center">Cancellation</th></tr></thead>
+          <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold"><tr><th className="p-3">Name</th><th className="p-3 text-center">Calls</th><th className="p-3 text-center">Followup</th><th className="p-3 text-center">Site Visit</th><th className="p-3 text-center">Booking</th><th className="p-3 text-center">Registration</th><th className="p-3 text-center">Cancellation</th><th className="p-3 text-center">Productivity</th></tr></thead>
           <tbody className="divide-y divide-slate-800">
             {rows.length===0?<tr><td colSpan="8" className="p-5 text-center text-slate-500 font-bold uppercase tracking-wider">No activity</td></tr>:rows.map(row=>(
               <tr key={`${title}-${row.name}`} className="hover:bg-slate-900/50">
-                <td className="p-3 font-black text-white">{row.name}</td><td className="p-3 text-slate-400">{row.role}</td><td className="p-3 text-center font-mono">{row.calls}</td><td className="p-3 text-center font-mono text-blue-400">{row.followup}</td><td className="p-3 text-center font-mono text-emerald-400">{row.siteVisit}</td><td className="p-3 text-center font-mono text-purple-400">{row.booking}</td><td className="p-3 text-center font-mono text-amber-400">{row.registration}</td><td className="p-3 text-center font-mono text-rose-400">{row.cancellation}</td>
+                <td className="p-3 font-black text-white">{row.name}</td><td className="p-3 text-center font-mono">{row.calls}</td><td className="p-3 text-center font-mono text-blue-400">{row.followup}</td><td className="p-3 text-center font-mono text-emerald-400">{row.siteVisit}</td><td className="p-3 text-center font-mono text-purple-400">{row.booking}</td><td className="p-3 text-center font-mono text-amber-400">{row.registration}</td><td className="p-3 text-center font-mono text-rose-400">{row.cancellation}</td><td className="p-3 text-center font-mono text-orange-400 font-black">{row.productivity}</td>
               </tr>
             ))}
           </tbody>
+          {rows.length>0&&<tfoot className="border-t border-slate-700 bg-slate-900/70 text-white font-black"><tr><td className="p-3">TOTAL</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.calls||0),0)}</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.followup||0),0)}</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.siteVisit||0),0)}</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.booking||0),0)}</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.registration||0),0)}</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.cancellation||0),0)}</td><td className="p-3 text-center font-mono text-orange-400">{rows.reduce((s,r)=>s+(r.productivity||0),0)}</td></tr></tfoot>}
         </table>
       </div>
     </div>
@@ -1791,14 +1868,30 @@ export default function App() {
       <h3 className="text-xs font-black text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2"><PieChart className="h-4 w-4 text-orange-400"/>{title}</h3>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-[10px] whitespace-nowrap">
-          <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold"><tr><th className="p-3">Source</th><th className="p-3 text-center">Enquiry</th><th className="p-3 text-center">Site Visit</th><th className="p-3 text-center">Conversion</th><th className="p-3 text-center">Percentage</th></tr></thead>
+          <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold"><tr><th className="p-3">Source</th><th className="p-3 text-center">Enquiry</th><th className="p-3 text-center">Site Visit</th><th className="p-3 text-center">Booking</th><th className="p-3 text-center">Conversion</th><th className="p-3 text-center">Cancellation</th><th className="p-3 text-center">Percentage</th></tr></thead>
           <tbody className="divide-y divide-slate-800">
-            {rows.length===0?<tr><td colSpan="5" className="p-5 text-center text-slate-500 font-bold uppercase tracking-wider">No source data</td></tr>:rows.map(row=>(
+            {rows.length===0?<tr><td colSpan="7" className="p-5 text-center text-slate-500 font-bold uppercase tracking-wider">No source data</td></tr>:rows.map(row=>(
               <tr key={`${title}-${row.source}`} className="hover:bg-slate-900/50">
-                <td className="p-3 font-black text-white">{row.source}</td><td className="p-3 text-center font-mono">{row.enquiry}</td><td className="p-3 text-center font-mono text-emerald-400">{row.siteVisit}</td><td className="p-3 text-center font-mono text-purple-400">{row.conversion}</td><td className="p-3 text-center font-mono text-orange-400 font-black">{row.percentage}%</td>
+                <td className="p-3 font-black text-white">{row.source}</td><td className="p-3 text-center font-mono">{row.enquiry}</td><td className="p-3 text-center font-mono text-emerald-400">{row.siteVisit}</td><td className="p-3 text-center font-mono text-purple-400">{row.booking}</td><td className="p-3 text-center font-mono text-orange-400">{row.conversion}</td><td className="p-3 text-center font-mono text-rose-400">{row.cancellation}</td><td className="p-3 text-center font-mono text-orange-400 font-black">{row.percentage}%</td>
               </tr>
             ))}
           </tbody>
+          {rows.length>0&&<tfoot className="border-t border-slate-700 bg-slate-900/70 text-white font-black"><tr><td className="p-3">TOTAL</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.enquiry||0),0)}</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.siteVisit||0),0)}</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.booking||0),0)}</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.conversion||0),0)}</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.cancellation||0),0)}</td><td className="p-3 text-center font-mono text-orange-400">{rows.reduce((s,r)=>s+(r.enquiry||0),0)?((rows.reduce((s,r)=>s+(r.conversion||0),0)/rows.reduce((s,r)=>s+(r.enquiry||0),0))*100).toFixed(1):"0.0"}%</td></tr></tfoot>}
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderActiveRangeReportTable = () => (
+    <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl">
+      <h3 className="text-xs font-black text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2"><BarChart3 className="h-4 w-4 text-blue-400"/>{activeRangeReport.title}</h3>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-[10px] whitespace-nowrap">
+          <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold"><tr>{activeRangeReport.headers.map(h=><th key={h} className="p-3">{h}</th>)}</tr></thead>
+          <tbody className="divide-y divide-slate-800">
+            {activeRangeReport.rows.length===0?<tr><td colSpan={activeRangeReport.headers.length} className="p-5 text-center text-slate-500 font-bold uppercase tracking-wider">No report data</td></tr>:activeRangeReport.rows.map((row,idx)=><tr key={idx} className="hover:bg-slate-900/50">{row.map((cell,i)=><td key={`${idx}-${i}`} className={`p-3 ${i===0?"font-black text-white":"font-mono text-slate-300"}`}>{cell}</td>)}</tr>)}
+          </tbody>
+          {activeRangeReport.rows.length>0&&<tfoot className="border-t border-slate-700 bg-slate-900/80 text-white font-black"><tr>{activeRangeReport.totals.map((cell,i)=><td key={`total-${i}`} className={`p-3 ${i===0?"":"font-mono text-orange-400"}`}>{cell}</td>)}</tr></tfoot>}
         </table>
       </div>
     </div>
@@ -2132,12 +2225,22 @@ export default function App() {
                       <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Project</label><select value={newWhatsappTemplateForm.project} onChange={e=>setNewWhatsappTemplateForm({...newWhatsappTemplateForm,project:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-emerald-500"><option value="All">All Projects</option>{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
                       <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Title</label><input type="text" required value={newWhatsappTemplateForm.title} onChange={e=>setNewWhatsappTemplateForm({...newWhatsappTemplateForm,title:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-emerald-500" placeholder="Initial call message"/></div>
                       <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Image URL</label><input type="url" value={newWhatsappTemplateForm.imageUrl} onChange={e=>setNewWhatsappTemplateForm({...newWhatsappTemplateForm,imageUrl:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-emerald-500" placeholder="https://..."/></div>
+                      <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Upload Image</label><input type="file" accept="image/*" onChange={e=>handleWhatsappTemplateImageUpload(e.target.files?.[0])} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 file:mr-3 file:border-0 file:bg-emerald-600 file:text-white file:rounded-lg file:px-3 file:py-1.5 file:text-[10px] file:font-black"/></div>
                       <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Message</label><textarea required rows={8} value={newWhatsappTemplateForm.message} onChange={e=>setNewWhatsappTemplateForm({...newWhatsappTemplateForm,message:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-emerald-500 resize-none" placeholder="Hello {name}, thank you for your interest in {project}."/></div>
                       <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider transition-colors flex items-center justify-center gap-2"><CheckCircle2 className="h-4 w-4"/> Save Template</button>
                     </form>
                   </div>
                 )}
                 <div className={`${["Admin","Manager"].includes(currentUser.role)?"xl:col-span-2":"xl:col-span-3"} grid grid-cols-1 md:grid-cols-2 gap-4`}>
+                  {["Admin","Manager"].includes(currentUser.role)&&(
+                    <div className="md:col-span-2 bg-slate-950 border border-emerald-500/20 rounded-2xl p-5 shadow-xl">
+                      <h3 className="text-sm font-black text-white uppercase tracking-wider mb-4 flex items-center gap-2"><Eye className="h-4 w-4 text-emerald-500"/> Template Preview</h3>
+                      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden max-w-md">
+                        {(newWhatsappTemplateForm.imageDataUrl||newWhatsappTemplateForm.imageUrl)&&<img src={newWhatsappTemplateForm.imageDataUrl||newWhatsappTemplateForm.imageUrl} alt="Template preview" className="w-full h-44 object-cover" onError={e=>{e.currentTarget.style.display='none';}}/>}
+                        <div className="p-4 space-y-2"><p className="text-[10px] text-emerald-400 font-black uppercase tracking-wider">{newWhatsappTemplateForm.project}</p><h4 className="text-sm font-black text-white">{newWhatsappTemplateForm.title||"Template title"}</h4><p className="text-xs text-slate-400 whitespace-pre-wrap leading-relaxed">{newWhatsappTemplateForm.message||"Message preview will appear here."}</p>{newWhatsappTemplateForm.imageUrl&&<p className="text-[10px] text-emerald-400 truncate font-mono">{newWhatsappTemplateForm.imageUrl}</p>}</div>
+                      </div>
+                    </div>
+                  )}
                   {whatsappTemplates.length===0&&<div className="md:col-span-2 flex flex-col items-center justify-center py-16 bg-slate-950/40 border border-slate-800 border-dashed rounded-2xl"><MessageSquare className="h-8 w-8 text-slate-700 mb-3"/><p className="text-slate-500 text-xs font-bold uppercase tracking-wider">No templates saved</p></div>}
                   {whatsappTemplates.map(t=>(
                     <div key={t.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl hover:border-emerald-500/40 transition-colors">
@@ -2145,7 +2248,7 @@ export default function App() {
                         <div><h3 className="text-sm font-black text-white">{t.title}</h3><p className="text-[10px] text-emerald-400 font-bold mt-1">{t.project}</p></div>
                         {["Admin","Manager"].includes(currentUser.role)&&<button onClick={()=>handleDeleteWhatsappTemplate(t.id)} className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-500 hover:text-rose-400"><Trash2 className="h-3.5 w-3.5"/></button>}
                       </div>
-                      {t.imageUrl&&<div className="mb-3 overflow-hidden rounded-xl border border-slate-800 bg-slate-900"><img src={t.imageUrl} alt={t.title} className="w-full h-32 object-cover" onError={e=>{e.currentTarget.style.display='none';}}/></div>}
+                      {(t.imageDataUrl||t.imageUrl)&&<div className="mb-3 overflow-hidden rounded-xl border border-slate-800 bg-slate-900"><img src={t.imageDataUrl||t.imageUrl} alt={t.title} className="w-full h-32 object-cover" onError={e=>{e.currentTarget.style.display='none';}}/></div>}
                       <p className="text-xs text-slate-400 leading-relaxed whitespace-pre-wrap">{t.message}</p>
                       {t.imageUrl&&<p className="text-[10px] text-emerald-400 mt-3 truncate font-mono">{t.imageUrl}</p>}
                       <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-[9px] text-slate-600 font-bold uppercase tracking-wider"><span>{t.createdBy}</span><span>{t.createdAt}</span></div>
@@ -2175,21 +2278,23 @@ export default function App() {
                     {(reportStartDate!==TODAY_STR||reportEndDate!==TODAY_STR)&&<button onClick={()=>{setReportStartDate(TODAY_STR);setReportEndDate(TODAY_STR);}} className="text-blue-400 hover:text-blue-300 font-bold px-3 py-2 border border-blue-500/30 rounded-lg flex items-center justify-center gap-1 bg-blue-500/10"><X className="h-3.5 w-3.5"/> Clear</button>}
                   </div>
                 </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {[{id:"ExecutiveWise",label:"Executivewise Report"},{id:"Projectwise",label:"Projectwise Report"},{id:"Sourcewise",label:"Sourcewise Report"},{id:"SourceProjectwise",label:"Sourcewise-Projectwise"}].map(item=><button key={item.id} onClick={()=>setSelectedMatrixReport(item.id)} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-colors ${selectedMatrixReport===item.id?"bg-blue-600 border-blue-500 text-white":"bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-blue-500/40"}`}>{item.label}</button>)}
+                </div>
               </div>
               <div className="space-y-5">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                   <div><h3 className="text-sm font-black text-white uppercase tracking-wider">Selected Range Full View</h3><p className="text-[10px] text-slate-500 mt-1">{reportStartDate} to {reportEndDate}</p></div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px]">
-                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Calls</p><p className="text-lg font-black text-white font-mono">{selectedRangeReportTotals.people.calls}</p></div>
-                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Followup</p><p className="text-lg font-black text-blue-400 font-mono">{selectedRangeReportTotals.people.followup}</p></div>
-                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Site Visit</p><p className="text-lg font-black text-emerald-400 font-mono">{selectedRangeReportTotals.people.siteVisit}</p></div>
-                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Conversion</p><p className="text-lg font-black text-orange-400 font-mono">{selectedRangeReportTotals.source.percentage}%</p></div>
-                  </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 text-[10px]">
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Calls</p><p className="text-lg font-black text-white font-mono">{selectedRangeReportTotals.people.calls}</p></div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Followup</p><p className="text-lg font-black text-blue-400 font-mono">{selectedRangeReportTotals.people.followup}</p></div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Site Visit</p><p className="text-lg font-black text-emerald-400 font-mono">{selectedRangeReportTotals.people.siteVisit}</p></div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Booking</p><p className="text-lg font-black text-purple-400 font-mono">{selectedRangeReportTotals.people.booking}</p></div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Conversion</p><p className="text-lg font-black text-orange-400 font-mono">{selectedRangeReportTotals.source.percentage}%</p></div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Cancellation</p><p className="text-lg font-black text-rose-400 font-mono">{selectedRangeReportTotals.people.cancellation}</p></div>
                 </div>
-                <div className="grid grid-cols-1 2xl:grid-cols-2 gap-5">
-                  {renderPeopleActivityTable("Staff Activity", rangePeopleActivitySummary)}
-                  {renderSourceReportTable("Sourcewise Result", rangeSourceReport)}
-                </div>
+              </div>
+                {renderActiveRangeReportTable()}
               </div>
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
                 {renderPeopleActivityTable(`Today Activity (${TODAY_STR})`, todayPeopleActivitySummary)}

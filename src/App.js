@@ -990,15 +990,25 @@ export default function App() {
 
         let admins = Array.isArray(stateMap["admin_users"]) ? stateMap["admin_users"] : readLocalState("admin_users", []);
         let nonAdmins = Array.isArray(stateMap["non_admin_users"]) ? stateMap["non_admin_users"] : null;
-        if (!nonAdmins) {
-          nonAdmins = readLocalState("non_admin_users", BOOTSTRAP_NON_ADMIN_USERS);
+        const localNonAdmins = readLocalState("non_admin_users", []);
+        let mergedLocalStaff = false;
+        if (nonAdmins) {
+          const backendIds = new Set(nonAdmins.map(u => u.id));
+          const backendEmails = new Set(nonAdmins.map(u => (u.email || "").toLowerCase()));
+          const localOnlyUsers = localNonAdmins.filter(u => !backendIds.has(u.id) && !backendEmails.has((u.email || "").toLowerCase()));
+          if (localOnlyUsers.length) {
+            nonAdmins = [...nonAdmins, ...localOnlyUsers];
+            mergedLocalStaff = true;
+          }
+        } else {
+          nonAdmins = localNonAdmins.length ? localNonAdmins : BOOTSTRAP_NON_ADMIN_USERS;
         }
         const adminMigration = await migratePlainPasswords(admins);
         const nonAdminMigration = await migratePlainPasswords(nonAdmins);
         admins = adminMigration.users;
         nonAdmins = nonAdminMigration.users;
         if (adminMigration.changed) await persistState("admin_users", admins);
-        if (nonAdminMigration.changed || !stateMap["non_admin_users"]) await persistState("non_admin_users", nonAdmins);
+        if (nonAdminMigration.changed || mergedLocalStaff || !stateMap["non_admin_users"]) await persistState("non_admin_users", nonAdmins);
         let p = Array.isArray(stateMap["projects"]) ? stateMap["projects"] : null;
         if (!p) {
           p = readLocalState("projects", BOOTSTRAP_PROJECTS);
@@ -1220,6 +1230,19 @@ export default function App() {
     e.preventDefault();
     setLoginError("");
     const emailOrUsername = loginEmail.toLowerCase().trim();
+    const allUsers = users.filter(u => u.role !== "Admin");
+    const found = allUsers.find(u => u.email.toLowerCase() === emailOrUsername && u.active);
+    if (found) {
+      const acc = await verifyPassword(found, loginPassword) ? found : null;
+      if (acc) {
+        setCurrentUser(acc);
+        setLoginError("");
+        triggerToastAlert(`Welcome, ${acc.name}!`);
+        return;
+      }
+      setLoginError("Invalid credentials.");
+      return;
+    }
     if (emailOrUsername.includes("@")) {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: emailOrUsername,
@@ -1237,25 +1260,12 @@ export default function App() {
         setTimeout(() => window.location.reload(), 250);
         return;
       }
-      if (error?.message && !users.some(u => u.email.toLowerCase() === emailOrUsername)) {
+      if (error?.message) {
         setLoginError(error.message);
         return;
       }
     }
-    const allUsers = users.filter(u => u.role !== "Admin");
-    const found = allUsers.find(u => u.email.toLowerCase() === emailOrUsername && u.active);
-    const acc = found && await verifyPassword(found, loginPassword) ? found : null;
-    if (acc) {
-      setCurrentUser(acc);
-      setLoginError("");
-      triggerToastAlert(`Welcome, ${acc.name}!`);
-      if (acc.role === "Admin") {
-        const pendingCount = resetRequests.filter(r => r.expiresAt > Date.now() && !r.consumed).length;
-        if (pendingCount > 0) setShowAdminLoginPopup(true);
-      }
-    } else {
-      setLoginError("Invalid credentials.");
-    }
+    setLoginError("Invalid credentials.");
   };
 
   const handleLogout=async()=>{ await supabase.auth.signOut(); setCurrentUser(null);setLoginEmail("");setLoginPassword("");setGlobalSearch("");setActiveTab("dashboard");setNavHistory([]);setIsMobileMenuOpen(false); };

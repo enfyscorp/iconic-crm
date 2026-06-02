@@ -48,21 +48,18 @@ const CALL_STATUSES = ["Warm","Cold","Not Reachable","Callback Requested"];
 const PIE_COLORS = ['#ea580c','#3b82f6','#10b981','#8b5cf6','#ec4899','#f59e0b','#64748b','#14b8a6','#ef4444','#06b6d4','#a3e635','#fb923c'];
 
 // ─── ADMIN CREDENTIALS (hardcoded — never stored in DB) ───────────────────
-const HARDCODED_ADMINS = [
-  { id: 101, name: "Shaj", email: "admin@desam", pass: "saamrat@123", role: "Admin", branch: "All Branches", phone: "9840000001", active: true, avatar: "S" },
-  { id: 110, name: "Digital Marketing", email: "dm@desam", pass: "m@rketing", role: "Admin", branch: "All Branches", phone: "9840000001", active: true, avatar: "D" },
-];
+const HARDCODED_ADMINS = [];
 
 // ─── BOOTSTRAP DATA COPIED FOR SYSTEM RESERVES ────────────────────────────
 const BOOTSTRAP_NON_ADMIN_USERS = [
-  { id: 102, name: "Jibril", email: "jibril@desam", pass: "angel@26", role: "Manager", branch: "Madurai Desk", phone: "9840000002", active: true, avatar: "J" },
-  { id: 103, name: "AryaLakshmi", email: "arya@lakshmi", pass: "manager123", role: "Manager", branch: "Madurai Desk", phone: "9840000003", active: true, avatar: "A" },
-  { id: 104, name: "Rohini", email: "rohini@desam", pass: "rohu@desam", role: "Executive", branch: "Madurai Desk", phone: "9840000004", active: true, avatar: "R" },
-  { id: 105, name: "Priyadarshini", email: "priya@desam", pass: "agent123", role: "Executive", branch: "Madurai Desk", phone: "9840000005", active: true, avatar: "P" },
-  { id: 106, name: "Arun", email: "arun@desam", pass: "arun@desam", role: "Executive", branch: "Madurai Desk", phone: "9840000006", active: true, avatar: "A" },
-  { id: 107, name: "Sumathi", email: "sumathi@desam", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "9840000007", active: true, avatar: "S" },
-  { id: 108, name: "Shakila", email: "shakila@desam", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "9840000008", active: true, avatar: "S" },
-  { id: 109, name: "Gowshika", email: "gowshika@desam", pass: "caller123", role: "Telecaller", branch: "Madurai Desk", phone: "9840000009", active: true, avatar: "G" },
+  { id: 102, name: "Jibril", email: "jibril@desam", role: "Manager", branch: "Madurai Desk", phone: "9840000002", active: true, avatar: "J" },
+  { id: 103, name: "AryaLakshmi", email: "arya@lakshmi", role: "Manager", branch: "Madurai Desk", phone: "9840000003", active: true, avatar: "A" },
+  { id: 104, name: "Rohini", email: "rohini@desam", role: "Executive", branch: "Madurai Desk", phone: "9840000004", active: true, avatar: "R" },
+  { id: 105, name: "Priyadarshini", email: "priya@desam", role: "Executive", branch: "Madurai Desk", phone: "9840000005", active: true, avatar: "P" },
+  { id: 106, name: "Arun", email: "arun@desam", role: "Executive", branch: "Madurai Desk", phone: "9840000006", active: true, avatar: "A" },
+  { id: 107, name: "Sumathi", email: "sumathi@desam", role: "Telecaller", branch: "Madurai Desk", phone: "9840000007", active: true, avatar: "S" },
+  { id: 108, name: "Shakila", email: "shakila@desam", role: "Telecaller", branch: "Madurai Desk", phone: "9840000008", active: true, avatar: "S" },
+  { id: 109, name: "Gowshika", email: "gowshika@desam", role: "Telecaller", branch: "Madurai Desk", phone: "9840000009", active: true, avatar: "G" },
 ];
 
 const BOOTSTRAP_PROJECTS = [
@@ -131,6 +128,63 @@ function normaliseCallStatus(raw) {
 }
 
 // ─── MOBILE DETECTION ────────────────────────────────────────────────────
+const makeSecureToken = (bytesLength = 16) => {
+  const bytes = new Uint8Array(bytesLength);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+};
+
+const makeRecoveryCode = () => {
+  const raw = makeSecureToken(9).toUpperCase();
+  return `${raw.slice(0, 6)}-${raw.slice(6, 12)}-${raw.slice(12, 18)}`;
+};
+
+async function sha256Hex(value) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function makePasswordFields(password) {
+  const passwordSalt = makeSecureToken();
+  const passwordHash = await sha256Hex(`${passwordSalt}:${password}`);
+  return { passwordSalt, passwordHash };
+}
+
+async function verifyPassword(user, password) {
+  if (!user?.passwordSalt || !user?.passwordHash) return false;
+  const hash = await sha256Hex(`${user.passwordSalt}:${password}`);
+  return hash === user.passwordHash;
+}
+
+async function makeRecoveryFields(recoveryCode) {
+  const recoverySalt = makeSecureToken();
+  const recoveryHash = await sha256Hex(`${recoverySalt}:${recoveryCode.trim().toUpperCase()}`);
+  return { recoverySalt, recoveryHash };
+}
+
+async function verifyRecoveryCode(user, recoveryCode) {
+  if (!user?.recoverySalt || !user?.recoveryHash) return false;
+  const hash = await sha256Hex(`${user.recoverySalt}:${recoveryCode.trim().toUpperCase()}`);
+  return hash === user.recoveryHash;
+}
+
+async function migratePlainPasswords(rawUsers) {
+  let changed = false;
+  const users = [];
+  for (const rawUser of rawUsers || []) {
+    const { pass, ...user } = rawUser;
+    if (pass && !user.passwordHash) {
+      users.push({ ...user, ...(await makePasswordFields(pass)) });
+      changed = true;
+    } else {
+      users.push(user);
+      if (pass) changed = true;
+    }
+  }
+  return { users, changed };
+}
+
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -556,6 +610,139 @@ function AdminLoginResetPopup({ count, onGoToHub, onDismiss }) {
 }
 
 // ─── PASSWORD RESET MODAL ─────────────────────────────────────────────────
+function AdminSetupPanel({ users, setUsers, triggerToastAlert }) {
+  const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "" });
+  const [recoveryCode, setRecoveryCode] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    const email = form.email.trim().toLowerCase();
+    if (!email) { setError("Enter an admin username."); return; }
+    if (users.some(u => u.email.toLowerCase() === email)) { setError("That username already exists."); return; }
+    if (form.password.length < 8) { setError("Admin password must be at least 8 characters."); return; }
+    if (form.password !== form.confirm) { setError("Passwords do not match."); return; }
+    const code = makeRecoveryCode();
+    const admin = {
+      id: Date.now(),
+      name: form.name.trim() || "Administrator",
+      email,
+      role: "Admin",
+      branch: "All Branches",
+      phone: "",
+      active: true,
+      avatar: (form.name.trim() || "A").charAt(0).toUpperCase(),
+      ...(await makePasswordFields(form.password)),
+      ...(await makeRecoveryFields(code)),
+    };
+    await setUsers([admin, ...users]);
+    setRecoveryCode(code);
+    setForm({ name: "", email: "", password: "", confirm: "" });
+    triggerToastAlert("Admin account created.");
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
+      <div className="sm:mx-auto w-full max-w-md px-4">
+        <div className="bg-slate-950 py-8 px-6 border border-slate-800 rounded-2xl shadow-2xl space-y-6">
+          <div className="text-center space-y-2">
+            <ShieldCheck className="h-10 w-10 text-orange-400 mx-auto" />
+            <h1 className="text-lg font-black text-white uppercase tracking-wide">Create First Admin</h1>
+            <p className="text-xs text-slate-500">No admin account exists yet. Create one to unlock the CRM.</p>
+          </div>
+          {!recoveryCode ? (
+            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+              <input type="text" required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="Admin name" />
+              <input type="text" required value={form.email} onChange={e=>setForm({...form,email:e.target.value.toLowerCase().replace(/\s/g,'')})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono" placeholder="admin@desam" />
+              <input type="password" required minLength={8} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="Admin password" />
+              <input type="password" required minLength={8} value={form.confirm} onChange={e=>setForm({...form,confirm:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="Confirm password" />
+              {error && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20">{error}</p>}
+              <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg">Create Admin</button>
+            </form>
+          ) : (
+            <div className="space-y-4 text-center">
+              <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-xl p-4">
+                <p className="text-[10px] text-emerald-400 uppercase font-black tracking-wider">Admin Recovery Code</p>
+                <p className="text-xl font-black text-white font-mono tracking-widest mt-2">{recoveryCode}</p>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">Keep this code privately. It is the only way to reset the admin username/password if every admin gets locked out.</p>
+              <button onClick={()=>window.location.reload()} className="w-full bg-slate-900 hover:bg-slate-800 border border-slate-800 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all">Go to Login</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminRecoveryModal({ users, setUsers, onClose }) {
+  const [form, setForm] = useState({ recoveryCode: "", email: "", password: "", confirm: "" });
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    if (form.password.length < 8) { setError("Admin password must be at least 8 characters."); return; }
+    if (form.password !== form.confirm) { setError("Passwords do not match."); return; }
+    const admins = users.filter(u => u.role === "Admin");
+    let matched = null;
+    for (const admin of admins) {
+      if (await verifyRecoveryCode(admin, form.recoveryCode)) {
+        matched = admin;
+        break;
+      }
+    }
+    if (!matched) { setError("Recovery code did not match any admin account."); return; }
+    const newRecoveryCode = makeRecoveryCode();
+    const email = form.email.trim().toLowerCase();
+    if (users.some(u => u.id !== matched.id && u.email.toLowerCase() === email)) {
+      setError("That username already exists.");
+      return;
+    }
+    const updatedAdmin = {
+      ...matched,
+      email,
+      ...(await makePasswordFields(form.password)),
+      ...(await makeRecoveryFields(newRecoveryCode)),
+    };
+    await setUsers(users.map(u => u.id === matched.id ? updatedAdmin : u));
+    setForm({ recoveryCode: newRecoveryCode, email: "", password: "", confirm: "" });
+    setSuccess(true);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[250] flex items-center justify-center p-4">
+      <div className="bg-slate-950 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl p-6 space-y-5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-black text-white uppercase tracking-wide flex items-center gap-2"><KeyRound className="h-4 w-4 text-orange-400" /> Admin Recovery</h3>
+          <button onClick={onClose} className="text-slate-500 hover:text-white p-1.5 hover:bg-slate-900 rounded-lg"><X className="h-5 w-5" /></button>
+        </div>
+        {!success ? (
+          <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+            <input type="text" required value={form.recoveryCode} onChange={e=>setForm({...form,recoveryCode:e.target.value.toUpperCase()})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono" placeholder="Recovery code" />
+            <input type="text" required value={form.email} onChange={e=>setForm({...form,email:e.target.value.toLowerCase().replace(/\s/g,'')})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono" placeholder="New admin username" />
+            <input type="password" required minLength={8} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="New admin password" />
+            <input type="password" required minLength={8} value={form.confirm} onChange={e=>setForm({...form,confirm:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="Confirm password" />
+            {error && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20">{error}</p>}
+            <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg">Reset Admin</button>
+          </form>
+        ) : (
+          <div className="space-y-4 text-center">
+            <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-xl p-4">
+              <p className="text-[10px] text-emerald-400 uppercase font-black tracking-wider">New Recovery Code</p>
+              <p className="text-xl font-black text-white font-mono tracking-widest mt-2">{form.recoveryCode}</p>
+            </div>
+            <p className="text-xs text-slate-400">Admin login was reset. Keep this new recovery code privately.</p>
+            <button onClick={onClose} className="w-full bg-slate-900 hover:bg-slate-800 border border-slate-800 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all">Back to Login</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, onClose }) {
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
@@ -585,7 +772,6 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
     const trimmed = email.trim().toLowerCase();
     const found = users.find(u => u.email.toLowerCase() === trimmed && u.active);
     if (!found) { setError("No active account found with this username."); return; }
-    if (found.role === "Admin") { setError("Admin passwords are fixed in code. Ask the developer to change the admin password safely."); return; }
     setTargetUser(found);
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiry = Date.now() + 5 * 60 * 1000;
@@ -613,11 +799,12 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
     setCurrentReqId(reqId); setOtpExpiry(expiry); setOtpTimeLeft(300); setOtp(""); setError("");
   };
 
-  const handlePasswordSubmit = (e) => {
+  const handlePasswordSubmit = async (e) => {
     e.preventDefault(); setError("");
     if (newPass.length < 6) { setError("Password must be at least 6 characters."); return; }
     if (newPass !== confirmPass) { setError("Passwords do not match."); return; }
-    setUsers(users.map(u => u.id === targetUser.id ? { ...u, pass: newPass } : u));
+    const passwordFields = await makePasswordFields(newPass);
+    setUsers(users.map(u => u.id === targetUser.id ? { ...u, ...passwordFields } : u));
     setStep(4);
   };
 
@@ -708,6 +895,7 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [showResetModal, setShowResetModal] = useState(false);
+  const [showAdminRecoveryModal, setShowAdminRecoveryModal] = useState(false);
   const [showAdminLoginPopup, setShowAdminLoginPopup] = useState(false);
 
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -730,12 +918,13 @@ export default function App() {
   const [actEndDate, setActEndDate] = useState("");
 
   const [leads, setLeadsState] = useState([]);
+  const [adminUsers, setAdminUsersState] = useState([]);
   const [nonAdminUsers, setNonAdminUsersState] = useState([]);
   const [projects, setProjectsState] = useState([]);
   const [activityLogs, setActivityLogsState] = useState([]);
   const [resetRequests, setResetRequestsState] = useState([]);
 
-  const users = useMemo(() => [...HARDCODED_ADMINS, ...nonAdminUsers], [nonAdminUsers]);
+  const users = useMemo(() => [...adminUsers, ...nonAdminUsers], [adminUsers, nonAdminUsers]);
 
   const persistState = useCallback(async (key, value) => {
     try {
@@ -770,8 +959,11 @@ export default function App() {
 
   const setUsers = useCallback(async (val) => {
     const allData = typeof val === "function" ? val(users) : val;
+    const admins = allData.filter(u => u.role === "Admin");
     const nonAdmins = allData.filter(u => u.role !== "Admin");
+    setAdminUsersState(admins);
     setNonAdminUsersState(nonAdmins);
+    await persistState("admin_users", admins);
     await persistState("non_admin_users", nonAdmins);
   }, [users, persistState]);
 
@@ -809,11 +1001,17 @@ export default function App() {
           dbRows.forEach(row => { stateMap[row.key] = row.value; });
         }
 
+        let admins = Array.isArray(stateMap["admin_users"]) ? stateMap["admin_users"] : readLocalState("admin_users", []);
         let nonAdmins = Array.isArray(stateMap["non_admin_users"]) ? stateMap["non_admin_users"] : null;
         if (!nonAdmins) {
           nonAdmins = readLocalState("non_admin_users", BOOTSTRAP_NON_ADMIN_USERS);
-          await persistState("non_admin_users", nonAdmins);
         }
+        const adminMigration = await migratePlainPasswords(admins);
+        const nonAdminMigration = await migratePlainPasswords(nonAdmins);
+        admins = adminMigration.users;
+        nonAdmins = nonAdminMigration.users;
+        if (adminMigration.changed) await persistState("admin_users", admins);
+        if (nonAdminMigration.changed || !stateMap["non_admin_users"]) await persistState("non_admin_users", nonAdmins);
         let p = Array.isArray(stateMap["projects"]) ? stateMap["projects"] : null;
         if (!p) {
           p = readLocalState("projects", BOOTSTRAP_PROJECTS);
@@ -824,6 +1022,7 @@ export default function App() {
         const r = Array.isArray(stateMap["reset_requests"]) ? stateMap["reset_requests"] : readLocalState("reset_requests", []);
 
         if (!isMounted) return;
+        setAdminUsersState(admins);
         setNonAdminUsersState(nonAdmins);
         setProjectsState(p);
         setLeadsState(l);
@@ -832,7 +1031,12 @@ export default function App() {
       } catch (err) {
         console.error("Failed to load Supabase state, using local fallback:", err);
         if (!isMounted) return;
-        setNonAdminUsersState(readLocalState("non_admin_users", BOOTSTRAP_NON_ADMIN_USERS));
+        const fallbackAdmins = await migratePlainPasswords(readLocalState("admin_users", []));
+        const fallbackNonAdmins = await migratePlainPasswords(readLocalState("non_admin_users", BOOTSTRAP_NON_ADMIN_USERS));
+        setAdminUsersState(fallbackAdmins.users);
+        if (fallbackAdmins.changed) persistState("admin_users", fallbackAdmins.users);
+        if (fallbackNonAdmins.changed) persistState("non_admin_users", fallbackNonAdmins.users);
+        setNonAdminUsersState(fallbackNonAdmins.users);
         setProjectsState(readLocalState("projects", BOOTSTRAP_PROJECTS));
         setLeadsState(readLocalState("leads", []));
         setActivityLogsState(readLocalState("activity_logs", []));
@@ -885,6 +1089,7 @@ export default function App() {
 
   const visibleProjects = useMemo(()=>{ if(!currentUser)return[]; if(currentUser.role==="Admin")return projects; return projects.filter(p=>p.branch===currentUser.branch); },[projects,currentUser]);
   const visibleUsers = useMemo(()=>{ if(!currentUser)return[]; if(currentUser.role==="Admin")return users; return users.filter(u=>u.branch===currentUser.branch); },[users,currentUser]);
+  const assignableUsers = useMemo(()=>visibleUsers.filter(u=>["Manager","Executive","Telecaller"].includes(u.role)&&u.active),[visibleUsers]);
 
   useEffect(() => {
     if (!visibleProjects.length) return;
@@ -1005,10 +1210,11 @@ export default function App() {
     triggerToastAlert(`Exported as .${ext.toUpperCase()}`);
   };
 
-  const handleLoginSubmit = (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
-    const allUsers = [...HARDCODED_ADMINS, ...nonAdminUsers];
-    const acc = allUsers.find(u => u.email.toLowerCase() === loginEmail.toLowerCase().trim() && u.pass === loginPassword && u.active);
+    const allUsers = users;
+    const found = allUsers.find(u => u.email.toLowerCase() === loginEmail.toLowerCase().trim() && u.active);
+    const acc = found && await verifyPassword(found, loginPassword) ? found : null;
     if (acc) {
       setCurrentUser(acc);
       setLoginError("");
@@ -1043,7 +1249,7 @@ export default function App() {
   const handleDataImportSubmit=async (e)=>{ e.preventDefault(); if(!importText.trim())return; try{ const lines=importText.split("\n").map(l=>l.trim()).filter(Boolean); const newLeads=[]; lines.forEach(line=>{const cols=line.split("\t"); if(cols.length>=4){const matchedProj=projects.find(p=>p.name.toLowerCase()===(cols[3]||"").toLowerCase().trim()); const branchHome=matchedProj?matchedProj.branch:"Madurai Desk"; newLeads.push({id:Date.now()+Math.floor(Math.random()*10000),name:cols[0]||"Lead",phone:stripPhone(cols[1]||"00000"),email:cols[2]||"",project:cols[3]||"",location:cols[4]||"Inbound",budget:parseInt(cols[5])||25,source:cols[6]||"Website",assignedTo:"Unassigned",assignedByRole:"",status:"New",branch:branchHome,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,history:[{date:TODAY_STR,by:currentUser.name,action:"Imported via paste."}],siteVisitTentativeDate:"",bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false});}});if(newLeads.length>0){setLeads([...newLeads,...leads]);triggerToastAlert(`Imported ${newLeads.length} leads.`);setImportText("");}
   }catch(err){alert(err.message);} };
 
-  const handleCreateUserSubmit=async (e)=>{ e.preventDefault(); const prefix=newUserForm.emailPrefix.trim().toLowerCase(); const role = newUserForm.role; if (role === "Admin") { triggerToastAlert("Admin accounts cannot be created here."); return; } if(users.some(u=>u.email.toLowerCase()===`${prefix}@desam`)){triggerToastAlert("That username already exists.");return;} const u={id:Date.now(),name:newUserForm.name.trim(),email:`${prefix}@desam`,pass:newUserForm.pass,role,branch:newUserForm.branch,phone:stripPhone(newUserForm.phone)||"9840000000",active:true,avatar:newUserForm.name.charAt(0).toUpperCase()}; setUsers([...users, u]); setNewUserForm({name:"",emailPrefix:"",pass:"",role:"Executive",branch:"Madurai Desk",phone:""}); triggerToastAlert(`Profile for ${u.name} created.`); };
+  const handleCreateUserSubmit=async (e)=>{ e.preventDefault(); const prefix=newUserForm.emailPrefix.trim().toLowerCase(); const role = newUserForm.role; if (role === "Admin") { triggerToastAlert("Use Admin Recovery or create another admin from secure backend controls."); return; } if(users.some(u=>u.email.toLowerCase()===`${prefix}@desam`)){triggerToastAlert("That username already exists.");return;} const u={id:Date.now(),name:newUserForm.name.trim(),email:`${prefix}@desam`,...(await makePasswordFields(newUserForm.pass)),role,branch:newUserForm.branch,phone:stripPhone(newUserForm.phone)||"9840000000",active:true,avatar:newUserForm.name.charAt(0).toUpperCase()}; setUsers([...users, u]); setNewUserForm({name:"",emailPrefix:"",pass:"",role:"Executive",branch:"Madurai Desk",phone:""}); triggerToastAlert(`Profile for ${u.name} created.`); };
 
   const handleDeleteUser=async (userId)=>{
     if(userId===currentUser.id){triggerToastAlert("Cannot delete your own account.");return;}
@@ -1135,10 +1341,15 @@ export default function App() {
     );
   }
 
+  if (adminUsers.length === 0) {
+    return <AdminSetupPanel users={users} setUsers={setUsers} triggerToastAlert={triggerToastAlert} />;
+  }
+
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
         {showResetModal && <PasswordResetModal users={users} setUsers={setUsers} resetRequests={resetRequests} setResetRequests={setResetRequests} onClose={() => setShowResetModal(false)} />}
+        {showAdminRecoveryModal && <AdminRecoveryModal users={users} setUsers={setUsers} onClose={() => setShowAdminRecoveryModal(false)} />}
         <div className="sm:mx-auto w-full max-w-md text-center space-y-4">
           <div className="flex justify-center mb-2"><img src={DESAM_LOGO_ASSET} alt="Desam Developers Logo" className="h-16 w-auto object-contain drop-shadow-lg"/></div>
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Operational Control Platform</p>
@@ -1153,6 +1364,9 @@ export default function App() {
             </form>
             <div className="pt-2 border-t border-slate-900 flex justify-center">
               <button onClick={() => setShowResetModal(true)} className="flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-orange-400 transition-colors font-bold uppercase tracking-wide"><KeyRound className="h-3.5 w-3.5" /> Forgot Password?</button>
+            </div>
+            <div className="flex justify-center">
+              <button onClick={() => setShowAdminRecoveryModal(true)} className="flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-rose-400 transition-colors font-bold uppercase tracking-wide"><ShieldAlert className="h-3.5 w-3.5" /> Admin Recovery</button>
             </div>
           </div>
         </div>
@@ -1242,7 +1456,7 @@ export default function App() {
                 <select value={filterSource} onChange={e=>setFilterSource(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 flex-1 min-w-[140px]"><option value="All">All Sources</option>{SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select>
                 <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 flex-1 min-w-[140px]"><option value="All">All Statuses</option>{STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select>
                 <select value={filterProject} onChange={e=>setFilterProject(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 flex-1 min-w-[140px]"><option value="All">All Projects</option>{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select>
-                {["Admin","Manager"].includes(currentUser.role)&&<select value={filterExecutive} onChange={e=>setFilterExecutive(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 flex-1 min-w-[140px]"><option value="All">All Executives</option><option value="Unassigned">Unassigned</option>{visibleUsers.filter(u=>["Executive","Telecaller"].includes(u.role)).map(u=><option key={u.id} value={u.name}>{u.name}</option>)}</select>}
+                {["Admin","Manager"].includes(currentUser.role)&&<select value={filterExecutive} onChange={e=>setFilterExecutive(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 flex-1 min-w-[140px]"><option value="All">All Assignees</option><option value="Unassigned">Unassigned</option>{assignableUsers.map(u=><option key={u.id} value={u.name}>{u.name}</option>)}</select>}
                 <div className="flex items-center gap-2 flex-1 min-w-[200px]"><input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 font-mono text-[10px]"/><span className="text-slate-600">-</span><input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 font-mono text-[10px]"/></div>
                 {(filterSource!=="All"||filterStatus!=="All"||filterProject!=="All"||filterExecutive!=="All"||startDate||endDate)&&<button onClick={()=>{setFilterSource("All");setFilterStatus("All");setFilterProject("All");setFilterExecutive("All");setStartDate("");setEndDate("");}} className="text-orange-400 hover:text-orange-300 font-bold px-3 py-2 border border-orange-500/30 rounded-lg flex items-center gap-1 bg-orange-500/10"><X className="h-3.5 w-3.5"/> Clear</button>}
               </div>
@@ -1430,7 +1644,7 @@ export default function App() {
           <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-slate-950">
              <div className="grid grid-cols-2 gap-3 text-xs">
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Status</p><div className="mt-1 flex items-center justify-between"><span className="font-black" style={{color:SC[selectedLead.status]?.text}}>{selectedLead.status}</span><button onClick={()=>requestStatusTransitionPopup(selectedLead.id,"Closed")} className="text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded transition-colors">Edit</button></div></div>
-               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Assigned</p><div className="mt-1 flex items-center justify-between"><span className="font-bold text-white truncate">{selectedLead.assignedTo}</span>{["Admin","Manager"].includes(currentUser.role)&&<button onClick={()=>requestOwnerAssignmentPopup(selectedLead.id,"Unassigned")} className="text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded transition-colors">Reassign</button>}</div></div>
+               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Assigned</p>{["Admin","Manager"].includes(currentUser.role)?<select value={selectedLead.assignedTo||"Unassigned"} onChange={e=>requestOwnerAssignmentPopup(selectedLead.id,e.target.value)} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500"><option value="Unassigned">Unassigned</option>{assignableUsers.map(u=><option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}</select>:<p className="font-bold text-white truncate mt-1">{selectedLead.assignedTo}</p>}</div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Project / Budget</p><p className="font-bold text-orange-400 mt-1 truncate">{selectedLead.project} <span className="text-slate-500 mx-1">•</span> <span className="font-mono text-emerald-400">₹{selectedLead.budget}L</span></p></div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Source</p><p className="font-bold text-slate-300 mt-1 truncate">{selectedLead.source}</p></div>
              </div>
@@ -1484,7 +1698,7 @@ export default function App() {
                   <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Interest Project *</label><select required value={newLeadForm.project} onChange={e=>setNewLeadForm({...newLeadForm,project:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-orange-500">{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
                   <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Budget (₹ Lakhs) *</label><input type="number" required min="5" value={newLeadForm.budget} onChange={e=>setNewLeadForm({...newLeadForm,budget:parseInt(e.target.value)||0})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono"/></div>
                   <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Lead Source *</label><select required value={newLeadForm.source} onChange={e=>setNewLeadForm({...newLeadForm,source:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-orange-500">{SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
-                  {["Admin","Manager"].includes(currentUser.role)&&<div className="space-y-1.5 sm:col-span-2"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Assign To</label><select value={newLeadForm.assignedTo} onChange={e=>setNewLeadForm({...newLeadForm,assignedTo:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-orange-500"><option value="Unassigned">Leave Unassigned (Pool)</option>{visibleUsers.filter(u=>["Executive","Telecaller"].includes(u.role)).map(u=><option key={u.id} value={u.name}>{u.name} ({u.branch})</option>)}</select></div>}
+                  {["Admin","Manager"].includes(currentUser.role)&&<div className="space-y-1.5 sm:col-span-2"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Assign To</label><select value={newLeadForm.assignedTo} onChange={e=>setNewLeadForm({...newLeadForm,assignedTo:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-orange-500"><option value="Unassigned">Leave Unassigned (Pool)</option>{assignableUsers.map(u=><option key={u.id} value={u.name}>{u.name} ({u.role} - {u.branch})</option>)}</select></div>}
                   <div className="space-y-1.5 sm:col-span-2"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Initial Notes / Remarks</label><textarea rows={3} value={newLeadForm.notes} onChange={e=>setNewLeadForm({...newLeadForm,notes:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 resize-none"/></div>
                 </div>
                 <div className="pt-4 border-t border-slate-800 flex justify-end gap-3"><button type="button" onClick={()=>setIsLeadModalOpen(false)} className="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors">Cancel</button><button type="submit" disabled={!!duplicateConflictRecord} className="px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 disabled:opacity-50 disabled:cursor-not-allowed text-white shadow-lg transition-all flex items-center gap-2"><CheckCircle2 className="h-4 w-4"/> Save Lead</button></div>

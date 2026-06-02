@@ -1,9 +1,21 @@
 const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || "";
 const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || "";
+const AUTH_SESSION_KEY = "desam_supabase_auth_session";
 
 const localKey = (table, key) => `${table}:${key}`;
 
 const localStore = {
+  auth: {
+    async signInWithPassword() {
+      return { data: null, error: { message: "Supabase Auth is not configured." } };
+    },
+    async signOut() {
+      return { error: null };
+    },
+    async getSession() {
+      return { data: { session: null }, error: null };
+    },
+  },
   from(table) {
     return {
       async select() {
@@ -27,19 +39,62 @@ const localStore = {
 
 function createRestClient(url, anonKey) {
   const baseUrl = url.replace(/\/$/, "");
-  const headers = {
+  const baseHeaders = {
     apikey: anonKey,
-    Authorization: `Bearer ${anonKey}`,
     "Content-Type": "application/json",
+  };
+  const getSession = () => {
+    try {
+      return JSON.parse(localStorage.getItem(AUTH_SESSION_KEY) || "null");
+    } catch {
+      return null;
+    }
+  };
+  const authHeaders = () => {
+    const session = getSession();
+    return {
+      ...baseHeaders,
+      Authorization: `Bearer ${session?.access_token || anonKey}`,
+    };
   };
 
   return {
+    auth: {
+      async signInWithPassword({ email, password }) {
+        try {
+          const response = await fetch(`${baseUrl}/auth/v1/token?grant_type=password`, {
+            method: "POST",
+            headers: baseHeaders,
+            body: JSON.stringify({ email, password }),
+          });
+          const data = await response.json().catch(() => null);
+          if (!response.ok) return { data: null, error: data || { message: "Login failed." } };
+          const session = {
+            access_token: data.access_token,
+            refresh_token: data.refresh_token,
+            expires_at: data.expires_at,
+            user: data.user,
+          };
+          localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+          return { data: { session, user: data.user }, error: null };
+        } catch (error) {
+          return { data: null, error };
+        }
+      },
+      async signOut() {
+        localStorage.removeItem(AUTH_SESSION_KEY);
+        return { error: null };
+      },
+      async getSession() {
+        return { data: { session: getSession() }, error: null };
+      },
+    },
     from(table) {
       return {
         async select(columns = "*") {
           try {
             const response = await fetch(`${baseUrl}/rest/v1/${table}?select=${encodeURIComponent(columns)}`, {
-              headers,
+              headers: authHeaders(),
             });
             const data = await response.json();
             return response.ok ? { data, error: null } : { data: null, error: data };
@@ -52,7 +107,7 @@ function createRestClient(url, anonKey) {
             const response = await fetch(`${baseUrl}/rest/v1/${table}`, {
               method: "POST",
               headers: {
-                ...headers,
+                ...authHeaders(),
                 Prefer: "resolution=merge-duplicates,return=representation",
               },
               body: JSON.stringify(row),

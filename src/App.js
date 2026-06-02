@@ -1107,6 +1107,7 @@ export default function App() {
   const [importText, setImportText] = useState("");
   const [customPopup, setCustomPopup] = useState({ isOpen:false, leadId:null, targetValue:"", type:"status", title:"", message:"" });
   const [toastNotification, setToastNotification] = useState({ isVisible:false, message:"" });
+  const [showExitAppPopup, setShowExitAppPopup] = useState(false);
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isActivityLogModalOpen, setIsActivityLogModalOpen] = useState(false);
@@ -1130,6 +1131,7 @@ export default function App() {
   const [projectEditLeadId, setProjectEditLeadId] = useState(null);
   const [selectedWhatsappTemplateId, setSelectedWhatsappTemplateId] = useState("");
   const [newWhatsappTemplateForm, setNewWhatsappTemplateForm] = useState({ project:"All", title:"", message:"", imageUrl:"", imageDataUrl:"" });
+  const allowBrowserExitRef = useRef(false);
 
   useEffect(() => {
     setSelectedWhatsappTemplateId("");
@@ -1154,11 +1156,19 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!currentUser) return;
     window.history.pushState({inApp:true},"");
-    const h=()=>{ window.history.pushState({inApp:true},""); if(navHistory.length>0){setNavHistory(prev=>{const h=[...prev];const l=h.pop();setActiveTab(l);return h;});}};
+    const h=()=>{
+      if (allowBrowserExitRef.current) return;
+      window.history.pushState({inApp:true},"");
+      if (selectedLead) { setSelectedLead(null); return; }
+      if (isMobileMenuOpen) { setIsMobileMenuOpen(false); return; }
+      if(navHistory.length>0){setNavHistory(prev=>{const h=[...prev];const l=h.pop();setActiveTab(l);return h;});return;}
+      setShowExitAppPopup(true);
+    };
     window.addEventListener("popstate",h);
     return ()=>window.removeEventListener("popstate",h);
-  }, [navHistory]);
+  }, [navHistory, currentUser, selectedLead, isMobileMenuOpen]);
 
   const stripPhone = (val) => { if(!val)return""; return val.toString().replace(/\s+/g,"").replace(/\D/g,""); };
   const copyToClipboard = (text) => { if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).catch(() => {}); triggerToastAlert("Copied!"); };
@@ -1692,6 +1702,8 @@ export default function App() {
   };
 
   const handleLogout=async()=>{ await supabase.auth.signOut(); setCurrentUser(null);setLoginEmail("");setLoginPassword("");setGlobalSearch("");setActiveTab("dashboard");setNavHistory([]);setIsMobileMenuOpen(false); };
+  const handleStayInApp=()=>{ setShowExitAppPopup(false); triggerToastAlert("You are still in the CRM."); };
+  const handleLeaveApp=()=>{ allowBrowserExitRef.current=true; setShowExitAppPopup(false); window.history.back(); };
 
   const requestStatusTransitionPopup=(leadId,nextStatus)=>{ const t=leads.find(l=>l.id===leadId); if(!t)return; setCustomPopup({isOpen:true,leadId,targetValue:nextStatus,type:"status",title:"Confirm Status Shift",message:`Transition "${t.name}" to "${nextStatus}"?`}); };
   const requestOwnerAssignmentPopup=(leadId,personnelName)=>{ const t=leads.find(l=>l.id===leadId); if(!t)return; setCustomPopup({isOpen:true,leadId,targetValue:personnelName,type:"assign",title:"Confirm Assignment",message:`Assign "${t.name}" to "${personnelName}"?`}); };
@@ -2231,9 +2243,9 @@ export default function App() {
                     </form>
                   </div>
                 )}
-                <div className={`${["Admin","Manager"].includes(currentUser.role)?"xl:col-span-1":"xl:col-span-2"} grid grid-cols-1 gap-4`}>
+                <div className={`${["Admin","Manager"].includes(currentUser.role)?"xl:col-span-1":"xl:col-span-2"}`}>
                   {["Admin","Manager"].includes(currentUser.role)&&(
-                    <div className="md:col-span-2 bg-slate-950 border border-emerald-500/20 rounded-2xl p-5 shadow-xl">
+                    <div className="bg-slate-950 border border-emerald-500/20 rounded-2xl p-5 shadow-xl">
                       <h3 className="text-sm font-black text-white uppercase tracking-wider mb-4 flex items-center gap-2"><Eye className="h-4 w-4 text-emerald-500"/> Template Preview</h3>
                       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden max-w-md">
                         {(newWhatsappTemplateForm.imageDataUrl||newWhatsappTemplateForm.imageUrl)&&<img src={newWhatsappTemplateForm.imageDataUrl||newWhatsappTemplateForm.imageUrl} alt="Template preview" className="w-full h-44 object-cover" onError={e=>{e.currentTarget.style.display='none';}}/>}
@@ -2241,7 +2253,10 @@ export default function App() {
                       </div>
                     </div>
                   )}
-                  {whatsappTemplates.length===0&&<div className="flex flex-col items-center justify-center py-16 bg-slate-950/40 border border-slate-800 border-dashed rounded-2xl"><MessageSquare className="h-8 w-8 text-slate-700 mb-3"/><p className="text-slate-500 text-xs font-bold uppercase tracking-wider">No templates saved</p></div>}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {whatsappTemplates.length===0&&<div className="md:col-span-2 flex flex-col items-center justify-center py-16 bg-slate-950/40 border border-slate-800 border-dashed rounded-2xl"><MessageSquare className="h-8 w-8 text-slate-700 mb-3"/><p className="text-slate-500 text-xs font-bold uppercase tracking-wider">No templates saved</p></div>}
                   {whatsappTemplates.map(t=>(
                     <div key={t.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl hover:border-emerald-500/40 transition-colors">
                       <div className="flex items-start justify-between gap-3 mb-3">
@@ -2254,7 +2269,6 @@ export default function App() {
                       <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-[9px] text-slate-600 font-bold uppercase tracking-wider"><span>{t.createdBy}</span><span>{t.createdAt}</span></div>
                     </div>
                   ))}
-                </div>
               </div>
             </div>
           )}
@@ -2523,6 +2537,16 @@ export default function App() {
               </div>
               <div className="pt-4 border-t border-slate-800 flex justify-end gap-3"><button type="button" onClick={()=>{setIsEditUserModalOpen(false);setEditUserForm(null);}} className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors">Cancel</button><button type="submit" className="px-5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition-all">Save Changes</button></div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showExitAppPopup&&(
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[220] flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 w-full max-w-sm rounded-2xl shadow-2xl p-6 text-center space-y-5">
+            <div className="mx-auto w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mb-2"><LogOut className="h-6 w-6 text-rose-400"/></div>
+            <div><h3 className="text-lg font-black text-white">You are leaving the app</h3><p className="text-xs text-slate-400 mt-2 leading-relaxed">Press Stay to continue using the CRM, or Leave to close this screen.</p></div>
+            <div className="grid grid-cols-2 gap-3 pt-2"><button onClick={handleStayInApp} className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-300 hover:text-white transition-colors">Stay</button><button onClick={handleLeaveApp} className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-700 text-white shadow-lg transition-all">Leave</button></div>
           </div>
         </div>
       )}

@@ -11,6 +11,15 @@ const readBuildConfig = () => {
 
 let runtimeConfigPromise = null;
 
+function normalizeSupabaseUrl(url) {
+  return String(url || "")
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/rest\/v1$/i, "")
+    .replace(/\/auth\/v1$/i, "")
+    .replace(/\/storage\/v1$/i, "");
+}
+
 async function readRuntimeConfig() {
   if (!runtimeConfigPromise) {
     runtimeConfigPromise = fetch("/supabase-config.json", { cache: "no-store" })
@@ -22,11 +31,13 @@ async function readRuntimeConfig() {
 
 async function getConfig() {
   const buildConfig = readBuildConfig();
-  if (buildConfig.url && buildConfig.anonKey) return buildConfig;
+  if (buildConfig.url && buildConfig.anonKey) {
+    return { ...buildConfig, url: normalizeSupabaseUrl(buildConfig.url) };
+  }
 
   const runtimeConfig = await readRuntimeConfig();
   return {
-    url: runtimeConfig.VITE_SUPABASE_URL || runtimeConfig.REACT_APP_SUPABASE_URL || runtimeConfig.url || buildConfig.url || "",
+    url: normalizeSupabaseUrl(runtimeConfig.VITE_SUPABASE_URL || runtimeConfig.REACT_APP_SUPABASE_URL || runtimeConfig.url || buildConfig.url || ""),
     anonKey: runtimeConfig.VITE_SUPABASE_ANON_KEY || runtimeConfig.REACT_APP_SUPABASE_ANON_KEY || runtimeConfig.anonKey || buildConfig.anonKey || "",
   };
 }

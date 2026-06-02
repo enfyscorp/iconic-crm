@@ -1323,6 +1323,10 @@ export default function App() {
       setLoginError("Invalid credentials.");
       return;
     }
+    if (emailOrUsername.endsWith("@desam")) {
+      setLoginError("Staff login not found on this device. Login as Admin on laptop, open System Control Hub, edit this staff user, set a new password, and Save Changes. If you see Backend save failed, Supabase table permissions must be fixed.");
+      return;
+    }
     if (emailOrUsername.includes("@")) {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: emailOrUsername,

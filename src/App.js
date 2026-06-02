@@ -610,66 +610,20 @@ function AdminLoginResetPopup({ count, onGoToHub, onDismiss }) {
 }
 
 // ─── PASSWORD RESET MODAL ─────────────────────────────────────────────────
-function AdminSetupPanel({ users, setUsers, triggerToastAlert }) {
-  const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "" });
-  const [recoveryCode, setRecoveryCode] = useState("");
-  const [error, setError] = useState("");
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    const email = form.email.trim().toLowerCase();
-    if (!email) { setError("Enter an admin username."); return; }
-    if (users.some(u => u.email.toLowerCase() === email)) { setError("That username already exists."); return; }
-    if (form.password.length < 8) { setError("Admin password must be at least 8 characters."); return; }
-    if (form.password !== form.confirm) { setError("Passwords do not match."); return; }
-    const code = makeRecoveryCode();
-    const admin = {
-      id: Date.now(),
-      name: form.name.trim() || "Administrator",
-      email,
-      role: "Admin",
-      branch: "All Branches",
-      phone: "",
-      active: true,
-      avatar: (form.name.trim() || "A").charAt(0).toUpperCase(),
-      ...(await makePasswordFields(form.password)),
-      ...(await makeRecoveryFields(code)),
-    };
-    await setUsers([admin, ...users]);
-    setRecoveryCode(code);
-    setForm({ name: "", email: "", password: "", confirm: "" });
-    triggerToastAlert("Admin account created.");
-  };
-
+function AdminSetupPanel() {
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
       <div className="sm:mx-auto w-full max-w-md px-4">
         <div className="bg-slate-950 py-8 px-6 border border-slate-800 rounded-2xl shadow-2xl space-y-6">
           <div className="text-center space-y-2">
-            <ShieldCheck className="h-10 w-10 text-orange-400 mx-auto" />
-            <h1 className="text-lg font-black text-white uppercase tracking-wide">Create First Admin</h1>
-            <p className="text-xs text-slate-500">No admin account exists yet. Create one to unlock the CRM.</p>
+            <ShieldAlert className="h-10 w-10 text-rose-400 mx-auto" />
+            <h1 className="text-lg font-black text-white uppercase tracking-wide">Admin Not Configured</h1>
+            <p className="text-xs text-slate-500 leading-relaxed">This CRM is locked because no backend admin account exists. Admin accounts cannot be created from this public page.</p>
           </div>
-          {!recoveryCode ? (
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-              <input type="text" required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="Admin name" />
-              <input type="text" required value={form.email} onChange={e=>setForm({...form,email:e.target.value.toLowerCase().replace(/\s/g,'')})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono" placeholder="admin@desam" />
-              <input type="password" required minLength={8} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="Admin password" />
-              <input type="password" required minLength={8} value={form.confirm} onChange={e=>setForm({...form,confirm:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500" placeholder="Confirm password" />
-              {error && <p className="text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20">{error}</p>}
-              <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg">Create Admin</button>
-            </form>
-          ) : (
-            <div className="space-y-4 text-center">
-              <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-xl p-4">
-                <p className="text-[10px] text-emerald-400 uppercase font-black tracking-wider">Admin Recovery Code</p>
-                <p className="text-xl font-black text-white font-mono tracking-widest mt-2">{recoveryCode}</p>
-              </div>
-              <p className="text-xs text-slate-400 leading-relaxed">Keep this code privately. It is the only way to reset the admin username/password if every admin gets locked out.</p>
-              <button onClick={()=>window.location.reload()} className="w-full bg-slate-900 hover:bg-slate-800 border border-slate-800 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all">Go to Login</button>
-            </div>
-          )}
+          <div className="bg-rose-950/30 border border-rose-500/20 rounded-xl p-4 space-y-2">
+            <p className="text-[10px] font-black text-rose-300 uppercase tracking-wider">Backend setup required</p>
+            <p className="text-xs text-rose-100/70 leading-relaxed">Ask the developer or database admin to create the first admin record privately in the backend. After that, this screen will become the normal login page on every device.</p>
+          </div>
         </div>
       </div>
     </div>
@@ -1342,7 +1296,7 @@ export default function App() {
   }
 
   if (adminUsers.length === 0) {
-    return <AdminSetupPanel users={users} setUsers={setUsers} triggerToastAlert={triggerToastAlert} />;
+    return <AdminSetupPanel />;
   }
 
   if (!currentUser) {

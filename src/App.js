@@ -2231,7 +2231,7 @@ export default function App() {
                     </form>
                   </div>
                 )}
-                <div className={`${["Admin","Manager"].includes(currentUser.role)?"xl:col-span-2":"xl:col-span-3"} grid grid-cols-1 md:grid-cols-2 gap-4`}>
+                <div className={`${["Admin","Manager"].includes(currentUser.role)?"xl:col-span-1":"xl:col-span-2"} grid grid-cols-1 md:grid-cols-2 gap-4`}>
                   {["Admin","Manager"].includes(currentUser.role)&&(
                     <div className="md:col-span-2 bg-slate-950 border border-emerald-500/20 rounded-2xl p-5 shadow-xl">
                       <h3 className="text-sm font-black text-white uppercase tracking-wider mb-4 flex items-center gap-2"><Eye className="h-4 w-4 text-emerald-500"/> Template Preview</h3>

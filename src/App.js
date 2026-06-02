@@ -2231,7 +2231,7 @@ export default function App() {
                     </form>
                   </div>
                 )}
-                <div className={`${["Admin","Manager"].includes(currentUser.role)?"xl:col-span-1":"xl:col-span-2"} grid grid-cols-1 md:grid-cols-2 gap-4`}>
+                <div className={`${["Admin","Manager"].includes(currentUser.role)?"xl:col-span-1":"xl:col-span-2"} grid grid-cols-1 gap-4`}>
                   {["Admin","Manager"].includes(currentUser.role)&&(
                     <div className="md:col-span-2 bg-slate-950 border border-emerald-500/20 rounded-2xl p-5 shadow-xl">
                       <h3 className="text-sm font-black text-white uppercase tracking-wider mb-4 flex items-center gap-2"><Eye className="h-4 w-4 text-emerald-500"/> Template Preview</h3>
@@ -2241,7 +2241,7 @@ export default function App() {
                       </div>
                     </div>
                   )}
-                  {whatsappTemplates.length===0&&<div className="md:col-span-2 flex flex-col items-center justify-center py-16 bg-slate-950/40 border border-slate-800 border-dashed rounded-2xl"><MessageSquare className="h-8 w-8 text-slate-700 mb-3"/><p className="text-slate-500 text-xs font-bold uppercase tracking-wider">No templates saved</p></div>}
+                  {whatsappTemplates.length===0&&<div className="flex flex-col items-center justify-center py-16 bg-slate-950/40 border border-slate-800 border-dashed rounded-2xl"><MessageSquare className="h-8 w-8 text-slate-700 mb-3"/><p className="text-slate-500 text-xs font-bold uppercase tracking-wider">No templates saved</p></div>}
                   {whatsappTemplates.map(t=>(
                     <div key={t.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl hover:border-emerald-500/40 transition-colors">
                       <div className="flex items-start justify-between gap-3 mb-3">

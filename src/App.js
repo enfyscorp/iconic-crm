@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
+import { supabase } from "./supabaseClient"; // ─── INTEGRATED BACKEND BRIDGE ───
 import {
   Users, ShieldAlert, BarChart3, Building2, Briefcase,
   Layers, PhoneCall, Calendar, Search, Plus, TrendingUp,
@@ -52,7 +53,7 @@ const HARDCODED_ADMINS = [
   { id: 110, name: "Digital Marketing", email: "dm@desam", pass: "m@rketing", role: "Admin", branch: "All Branches", phone: "9840000001", active: true, avatar: "D" },
 ];
 
-// ─── BOOTSTRAP NON-ADMIN USERS ────────────────────────────────────────────
+// ─── BOOTSTRAP DATA COPIED FOR SYSTEM RESERVES ────────────────────────────
 const BOOTSTRAP_NON_ADMIN_USERS = [
   { id: 102, name: "Jibril", email: "jibril@desam", pass: "angel@26", role: "Manager", branch: "Madurai Desk", phone: "9840000002", active: true, avatar: "J" },
   { id: 103, name: "AryaLakshmi", email: "arya@lakshmi", pass: "manager123", role: "Manager", branch: "Madurai Desk", phone: "9840000003", active: true, avatar: "A" },
@@ -72,25 +73,6 @@ const BOOTSTRAP_PROJECTS = [
   { id: 5, name: "Anbu Desam", location: "Saravanampatti, CBE", branch: "Coimbatore", type: "Villa", price: 140, units: 40, sold: 12, status: "Pre-Launch" },
   { id: 6, name: "Alagar Homes", location: "Alagar Kovil Road, Madurai", branch: "Madurai Desk", type: "Apartment", price: 55, units: 60, sold: 10, status: "Ongoing" },
 ];
-
-// ─── STORAGE HELPERS ──────────────────────────────────────────────────────
-const SK = {
-  nonAdminUsers: "desam_crm_non_admin_users",
-  projects: "desam_crm_projects",
-  leads: "desam_crm_leads",
-  activityLogs: "desam_crm_activity_logs",
-  resetRequests: "desam_crm_reset_requests",
-};
-
-async function storageGet(key) {
-  try {
-    const r = await window.storage.get(key);
-    return r ? JSON.parse(r.value) : null;
-  } catch { return null; }
-}
-async function storageSet(key, value) {
-  try { await window.storage.set(key, JSON.stringify(value)); } catch {}
-}
 
 // ─── STATUS COLORS ────────────────────────────────────────────────────────
 const SC = {
@@ -214,6 +196,12 @@ function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY
   };
 
   const formatDur = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
 
   return (
     <>
@@ -449,7 +437,9 @@ function AdminResetRequestsPanel({ resetRequests, setResetRequests, triggerToast
   };
 
   const copyOtp = (req) => {
-    navigator.clipboard.writeText(req.otp);
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(req.otp).catch(() => {});
+    }
     setCopiedId(req.id);
     triggerToastAlert("OTP copied to clipboard!");
     setTimeout(() => setCopiedId(null), 2000);
@@ -595,6 +585,7 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
     const trimmed = email.trim().toLowerCase();
     const found = users.find(u => u.email.toLowerCase() === trimmed && u.active);
     if (!found) { setError("No active account found with this username."); return; }
+    if (found.role === "Admin") { setError("Admin passwords are fixed in code. Ask the developer to change the admin password safely."); return; }
     setTargetUser(found);
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiry = Date.now() + 5 * 60 * 1000;
@@ -649,7 +640,7 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
               <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-black transition-all ${step > s ? "bg-emerald-500 text-white" : step === s ? "bg-orange-500 text-white ring-4 ring-orange-500/20" : "bg-slate-800 text-slate-500"}`}>
                 {step > s ? <Check className="h-3 w-3" /> : s}
               </div>
-              {s < 4 && <div className={`h-0.5 w-8 sm:w-14 rounded-full transition-all ${step > s ? "bg-emerald-500/60" : "bg-slate-800"}`} />}
+              {s < 4 && <div className={`h-0.5 w-8 sm:w-14 rounded-full transition-all ${step > s ? "bg-emerald-500/60" : "bg-slate-800"} `} />}
             </div>
           ))}
         </div>
@@ -705,7 +696,7 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MAIN APP
+// MAIN APP COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 export default function App() {
   const TODAY_STR = new Date().toISOString().slice(0,10);
@@ -746,50 +737,112 @@ export default function App() {
 
   const users = useMemo(() => [...HARDCODED_ADMINS, ...nonAdminUsers], [nonAdminUsers]);
 
-  const setLeads = useCallback((val) => { const data = typeof val === "function" ? val(leads) : val; setLeadsState(data); storageSet(SK.leads, data); }, [leads]);
+  const persistState = useCallback(async (key, value) => {
+    try {
+      const { error } = await supabase
+        .from("crm_state_store")
+        .upsert({ key, value }, { onConflict: "key" });
+      if (error) throw error;
+      localStorage.setItem(`crm_state_store:${key}`, JSON.stringify(value));
+    } catch (err) {
+      console.error(`Failed to save ${key}:`, err);
+      try {
+        localStorage.setItem(`crm_state_store:${key}`, JSON.stringify(value));
+      } catch {}
+    }
+  }, []);
 
-  const setUsers = useCallback((val) => {
+  const readLocalState = useCallback((key, fallback) => {
+    try {
+      const raw = localStorage.getItem(`crm_state_store:${key}`);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch {
+      return fallback;
+    }
+  }, []);
+
+  // ─── SUPABASE COUPLING WRAPPERS ───
+  const setLeads = useCallback(async (val) => {
+    const data = typeof val === "function" ? val(leads) : val;
+    setLeadsState(data);
+    await persistState("leads", data);
+  }, [leads, persistState]);
+
+  const setUsers = useCallback(async (val) => {
     const allData = typeof val === "function" ? val(users) : val;
     const nonAdmins = allData.filter(u => u.role !== "Admin");
     setNonAdminUsersState(nonAdmins);
-    storageSet(SK.nonAdminUsers, nonAdmins);
-  }, [users]);
+    await persistState("non_admin_users", nonAdmins);
+  }, [users, persistState]);
 
-  const setProjects = useCallback((val) => { const data = typeof val === "function" ? val(projects) : val; setProjectsState(data); storageSet(SK.projects, data); }, [projects]);
-  const setActivityLogs = useCallback((val) => { const data = typeof val === "function" ? val(activityLogs) : val; setActivityLogsState(data); storageSet(SK.activityLogs, data); }, [activityLogs]);
+  const setProjects = useCallback(async (val) => {
+    const data = typeof val === "function" ? val(projects) : val;
+    setProjectsState(data);
+    await persistState("projects", data);
+  }, [projects, persistState]);
+
+  const setActivityLogsStateWrapped = useCallback((val) => {
+    setActivityLogsState(prev => {
+      const data = typeof val === "function" ? val(prev) : val;
+      persistState("activity_logs", data);
+      return data;
+    });
+  }, [persistState]);
+
   const setResetRequests = useCallback((val) => {
     setResetRequestsState(prev => {
       const data = typeof val === "function" ? val(prev) : val;
-      storageSet(SK.resetRequests, data);
+      persistState("reset_requests", data);
       return data;
     });
-  }, []);
+  }, [persistState]);
 
+  // ─── LOAD INITIAL STATE FROM SUPABASE ───
   useEffect(() => {
+    let isMounted = true;
     (async () => {
-      let nonAdmins = await storageGet(SK.nonAdminUsers);
-      if (!nonAdmins) {
-        const oldUsers = await storageGet("desam_crm_users");
-        if (oldUsers) { nonAdmins = oldUsers.filter(u => u.role !== "Admin"); }
-        else { nonAdmins = BOOTSTRAP_NON_ADMIN_USERS; }
-        await storageSet(SK.nonAdminUsers, nonAdmins);
+      try {
+        const { data: dbRows, error } = await supabase.from("crm_state_store").select("*");
+        if (error) throw error;
+        const stateMap = {};
+        if (Array.isArray(dbRows)) {
+          dbRows.forEach(row => { stateMap[row.key] = row.value; });
+        }
+
+        let nonAdmins = Array.isArray(stateMap["non_admin_users"]) ? stateMap["non_admin_users"] : null;
+        if (!nonAdmins) {
+          nonAdmins = readLocalState("non_admin_users", BOOTSTRAP_NON_ADMIN_USERS);
+          await persistState("non_admin_users", nonAdmins);
+        }
+        let p = Array.isArray(stateMap["projects"]) ? stateMap["projects"] : null;
+        if (!p) {
+          p = readLocalState("projects", BOOTSTRAP_PROJECTS);
+          await persistState("projects", p);
+        }
+        const l = Array.isArray(stateMap["leads"]) ? stateMap["leads"] : readLocalState("leads", []);
+        const a = Array.isArray(stateMap["activity_logs"]) ? stateMap["activity_logs"] : readLocalState("activity_logs", []);
+        const r = Array.isArray(stateMap["reset_requests"]) ? stateMap["reset_requests"] : readLocalState("reset_requests", []);
+
+        if (!isMounted) return;
+        setNonAdminUsersState(nonAdmins);
+        setProjectsState(p);
+        setLeadsState(l);
+        setActivityLogsState(a);
+        setResetRequestsState(r);
+      } catch (err) {
+        console.error("Failed to load Supabase state, using local fallback:", err);
+        if (!isMounted) return;
+        setNonAdminUsersState(readLocalState("non_admin_users", BOOTSTRAP_NON_ADMIN_USERS));
+        setProjectsState(readLocalState("projects", BOOTSTRAP_PROJECTS));
+        setLeadsState(readLocalState("leads", []));
+        setActivityLogsState(readLocalState("activity_logs", []));
+        setResetRequestsState(readLocalState("reset_requests", []));
+      } finally {
+        if (isMounted) setStorageReady(true);
       }
-      let p = await storageGet(SK.projects);
-      let l = await storageGet(SK.leads);
-      let a = await storageGet(SK.activityLogs);
-      let r = await storageGet(SK.resetRequests);
-      if (!p) { p = BOOTSTRAP_PROJECTS; await storageSet(SK.projects, p); }
-      if (!l) { l = []; await storageSet(SK.leads, l); }
-      if (!a) { a = []; await storageSet(SK.activityLogs, a); }
-      if (!r) { r = []; await storageSet(SK.resetRequests, r); }
-      setNonAdminUsersState(nonAdmins);
-      setProjectsState(p);
-      setLeadsState(l);
-      setActivityLogsState(a);
-      setResetRequestsState(r);
-      setStorageReady(true);
     })();
-  }, []);
+    return () => { isMounted = false; };
+  }, [persistState, readLocalState]);
 
   const [selectedLead, setSelectedLead] = useState(null);
   const [importText, setImportText] = useState("");
@@ -814,14 +867,6 @@ export default function App() {
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [editUserForm, setEditUserForm] = useState(null);
 
-  const setActivityLogsWrapped = useCallback((val) => {
-    setActivityLogsState(prev => {
-      const data = typeof val === "function" ? val(prev) : val;
-      storageSet(SK.activityLogs, data);
-      return data;
-    });
-  }, []);
-
   const navigateTo = useCallback((tab) => { setNavHistory(prev=>[...prev,activeTab]); setActiveTab(tab); setIsMobileMenuOpen(false); }, [activeTab]);
   const navigateBack = useCallback(() => {
     setNavHistory(prev => { if(prev.length===0)return prev; const h=[...prev]; const last=h.pop(); setActiveTab(last); return h; });
@@ -835,11 +880,17 @@ export default function App() {
   }, [navHistory]);
 
   const stripPhone = (val) => { if(!val)return""; return val.toString().replace(/\s+/g,"").replace(/\D/g,""); };
-  const copyToClipboard = (text) => { navigator.clipboard.writeText(text); triggerToastAlert("Copied!"); };
+  const copyToClipboard = (text) => { if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).catch(() => {}); triggerToastAlert("Copied!"); };
   const triggerToastAlert = (msg) => { setToastNotification({isVisible:true,message:msg}); setTimeout(()=>setToastNotification({isVisible:false,message:""}),3500); };
 
   const visibleProjects = useMemo(()=>{ if(!currentUser)return[]; if(currentUser.role==="Admin")return projects; return projects.filter(p=>p.branch===currentUser.branch); },[projects,currentUser]);
   const visibleUsers = useMemo(()=>{ if(!currentUser)return[]; if(currentUser.role==="Admin")return users; return users.filter(u=>u.branch===currentUser.branch); },[users,currentUser]);
+
+  useEffect(() => {
+    if (!visibleProjects.length) return;
+    setNewLeadForm(prev => prev.project ? prev : { ...prev, project: visibleProjects[0].name });
+    setNewActivityForm(prev => prev.project ? prev : { ...prev, project: visibleProjects[0].name });
+  }, [visibleProjects]);
 
   const processedLeads = useMemo(()=>{
     if(!currentUser)return[];
@@ -865,7 +916,7 @@ export default function App() {
     if(actFilterStatus!=="All")logs=logs.filter(l=>l.callStatus===actFilterStatus);
     if(actStartDate)logs=logs.filter(l=>l.date>=actStartDate);
     if(actEndDate)logs=logs.filter(l=>l.date<=actEndDate);
-    return logs.sort((a,b)=>b.date.localeCompare(a.date));
+    return [...logs].sort((a,b)=>b.date.localeCompare(a.date));
   },[activityLogs,currentUser,actFilterExec,actFilterProject,actFilterSource,actFilterStatus,actStartDate,actEndDate]);
 
   const activityKPIs = useMemo(()=>{
@@ -937,11 +988,20 @@ export default function App() {
     if(filteredActivityLogs.length===0){triggerToastAlert("No data to export.");return;}
     const headers=["Date","Executive","Project","Source","Calls Made","Call Status","Followup","Site Visit","Booking","Registration","Cancellation","Collection","Remark"];
     const rows=filteredActivityLogs.map(l=>[l.date,l.executive,l.project,l.source,l.callsMade,l.callStatus,l.followup,l.siteVisit,l.booking,l.registration,l.cancellation,l.collection,l.remark]);
-    const fmtCell=(val)=>{const s=val===null?"":String(val);return s.includes(",")||s.includes('"')?`"${s.replace(/"/g,'""')}"`:s;};
-    const buffer=[headers.map(fmtCell).join(","),...rows.map(r=>r.map(fmtCell).join(","))].join("\n");
     const ext=formatType==="excel"?"xlsx":"csv";
-    const blob=new Blob([buffer],{type:"text/csv;charset=utf-8;"});
-    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.setAttribute("download",`Desam_Activity_Report_${TODAY_STR}.${ext}`);document.body.appendChild(a);a.click();document.body.removeChild(a);
+    let blob;
+    if (formatType === "excel") {
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Activity Report");
+      const buffer = XLSX.write(wb, { bookType:"xlsx", type:"array" });
+      blob = new Blob([buffer], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    } else {
+      const fmtCell=(val)=>{const s=val===null||val===undefined?"":String(val);return s.includes(",")||s.includes('"')||s.includes("\n")?`"${s.replace(/"/g,'""')}"`:s;};
+      const buffer=[headers.map(fmtCell).join(","),...rows.map(r=>r.map(fmtCell).join(","))].join("\n");
+      blob=new Blob([buffer],{type:"text/csv;charset=utf-8;"});
+    }
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.setAttribute("download",`Desam_Activity_Report_${TODAY_STR}.${ext}`);document.body.appendChild(a);a.click();URL.revokeObjectURL(a.href);document.body.removeChild(a);
     triggerToastAlert(`Exported as .${ext.toUpperCase()}`);
   };
 
@@ -971,8 +1031,6 @@ export default function App() {
     const{leadId,targetValue,type}=customPopup;
     if(type==="status"){const log={date:TODAY_STR,by:currentUser.name,action:`Status updated to: ${targetValue}`};const updated=leads.map(l=>l.id===leadId?{...l,status:targetValue,history:[log,...l.history]}:l);setLeads(updated);if(selectedLead&&selectedLead.id===leadId)setSelectedLead({...selectedLead,status:targetValue,history:[log,...selectedLead.history]});triggerToastAlert("Status updated.");}
     else if(type==="assign"){
-      // FIX: when assigning, update the lead's branch to match the assigned user's branch
-      // so the lead appears correctly in Manager and Executive filtered views
       const assignedUser = users.find(u => u.name === targetValue);
       const newBranch = assignedUser ? assignedUser.branch : leads.find(l=>l.id===leadId)?.branch;
       const log={date:TODAY_STR,by:currentUser.name,action:`Assigned to: ${targetValue}`};
@@ -982,15 +1040,15 @@ export default function App() {
     setCustomPopup({isOpen:false,leadId:null,targetValue:"",type:"status",title:"",message:""});
   };
 
-  const handleDataImportSubmit=(e)=>{ e.preventDefault(); if(!importText.trim())return; try{ const lines=importText.split("\n").map(l=>l.trim()).filter(Boolean); const newLeads=[]; lines.forEach(line=>{const cols=line.split("\t"); if(cols.length>=4){const matchedProj=projects.find(p=>p.name.toLowerCase()===(cols[3]||"").toLowerCase().trim()); const branchHome=matchedProj?matchedProj.branch:"Madurai Desk"; newLeads.push({id:Date.now()+Math.floor(Math.random()*10000),name:cols[0]||"Lead",phone:stripPhone(cols[1]||"00000"),email:cols[2]||"",project:cols[3]||"",location:cols[4]||"Inbound",budget:parseInt(cols[5])||25,source:cols[6]||"Website",assignedTo:"Unassigned",assignedByRole:"",status:"New",branch:branchHome,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,history:[{date:TODAY_STR,by:currentUser.name,action:"Imported via paste."}],siteVisitTentativeDate:"",bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false});}});if(newLeads.length>0){setLeads([...newLeads,...leads]);triggerToastAlert(`Imported ${newLeads.length} leads.`);setImportText("");}
+  const handleDataImportSubmit=async (e)=>{ e.preventDefault(); if(!importText.trim())return; try{ const lines=importText.split("\n").map(l=>l.trim()).filter(Boolean); const newLeads=[]; lines.forEach(line=>{const cols=line.split("\t"); if(cols.length>=4){const matchedProj=projects.find(p=>p.name.toLowerCase()===(cols[3]||"").toLowerCase().trim()); const branchHome=matchedProj?matchedProj.branch:"Madurai Desk"; newLeads.push({id:Date.now()+Math.floor(Math.random()*10000),name:cols[0]||"Lead",phone:stripPhone(cols[1]||"00000"),email:cols[2]||"",project:cols[3]||"",location:cols[4]||"Inbound",budget:parseInt(cols[5])||25,source:cols[6]||"Website",assignedTo:"Unassigned",assignedByRole:"",status:"New",branch:branchHome,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,history:[{date:TODAY_STR,by:currentUser.name,action:"Imported via paste."}],siteVisitTentativeDate:"",bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false});}});if(newLeads.length>0){setLeads([...newLeads,...leads]);triggerToastAlert(`Imported ${newLeads.length} leads.`);setImportText("");}
   }catch(err){alert(err.message);} };
 
-  const handleCreateUserSubmit=(e)=>{ e.preventDefault(); const prefix=newUserForm.emailPrefix.trim().toLowerCase(); const role = newUserForm.role; if (role === "Admin") { triggerToastAlert("Admin accounts cannot be created here."); return; } const u={id:Date.now(),name:newUserForm.name.trim(),email:`${prefix}@desam`,pass:newUserForm.pass,role,branch:newUserForm.branch,phone:stripPhone(newUserForm.phone)||"9840000000",active:true,avatar:newUserForm.name.charAt(0).toUpperCase()}; setNonAdminUsersState(prev => { const updated = [...prev, u]; storageSet(SK.nonAdminUsers, updated); return updated; }); setNewUserForm({name:"",emailPrefix:"",pass:"",role:"Executive",branch:"Madurai Desk",phone:""}); triggerToastAlert(`Profile for ${u.name} created.`); };
+  const handleCreateUserSubmit=async (e)=>{ e.preventDefault(); const prefix=newUserForm.emailPrefix.trim().toLowerCase(); const role = newUserForm.role; if (role === "Admin") { triggerToastAlert("Admin accounts cannot be created here."); return; } if(users.some(u=>u.email.toLowerCase()===`${prefix}@desam`)){triggerToastAlert("That username already exists.");return;} const u={id:Date.now(),name:newUserForm.name.trim(),email:`${prefix}@desam`,pass:newUserForm.pass,role,branch:newUserForm.branch,phone:stripPhone(newUserForm.phone)||"9840000000",active:true,avatar:newUserForm.name.charAt(0).toUpperCase()}; setUsers([...users, u]); setNewUserForm({name:"",emailPrefix:"",pass:"",role:"Executive",branch:"Madurai Desk",phone:""}); triggerToastAlert(`Profile for ${u.name} created.`); };
 
-  const handleDeleteUser=(userId)=>{
+  const handleDeleteUser=async (userId)=>{
     if(userId===currentUser.id){triggerToastAlert("Cannot delete your own account.");return;}
     if(HARDCODED_ADMINS.some(a=>a.id===userId)){triggerToastAlert("Admin accounts cannot be deleted here.");return;}
-    setNonAdminUsersState(prev => { const updated = prev.filter(u => u.id !== userId); storageSet(SK.nonAdminUsers, updated); return updated; });
+    setUsers(users.filter(u => u.id !== userId));
     triggerToastAlert("Profile removed.");
   };
 
@@ -999,30 +1057,27 @@ export default function App() {
     setEditUserForm({...user}); setIsEditUserModalOpen(true);
   };
 
-  const handleUpdateUserSubmit=(e)=>{ e.preventDefault(); const prefix=editUserForm.email.split('@')[0].trim().toLowerCase(); const u={...editUserForm,name:editUserForm.name.trim(),email:`${prefix}@desam`,branch:editUserForm.role==="Admin"?"All Branches":editUserForm.branch,phone:stripPhone(editUserForm.phone)||"9840000000",avatar:editUserForm.name.charAt(0).toUpperCase()};
-    setNonAdminUsersState(prev => { const updated = prev.map(x => x.id === u.id ? u : x); storageSet(SK.nonAdminUsers, updated); return updated; });
+  const handleUpdateUserSubmit=async (e)=>{ e.preventDefault(); const prefix=editUserForm.email.split('@')[0].trim().toLowerCase(); const u={...editUserForm,name:editUserForm.name.trim(),email:`${prefix}@desam`,branch:editUserForm.role==="Admin"?"All Branches":editUserForm.branch,phone:stripPhone(editUserForm.phone)||"9840000000",avatar:editUserForm.name.charAt(0).toUpperCase()};
+    setUsers(users.map(x => x.id === u.id ? u : x));
     setIsEditUserModalOpen(false);setEditUserForm(null); triggerToastAlert(`Profile for ${u.name} updated.`); };
 
   const commitManualFollowUpReport=(e)=>{ e.preventDefault(); if(!followUpNotes.trim()||!nextFollowUpDate)return; const updated=leads.map(l=>{ if(l.id===selectedLead.id){const obj={...l,status:"Contacted",lastFollowUp:TODAY_STR,nextFollowUp:nextFollowUpDate,history:[{date:TODAY_STR,by:currentUser.name,action:`[Follow-Up]: ${followUpNotes.trim()} (Next: ${nextFollowUpDate})`},...l.history]};setSelectedLead(obj);return obj;}return l;}); setLeads(updated); setFollowUpNotes("");setNextFollowUpDate(""); triggerToastAlert("Follow-up logged."); };
 
-  // FIX: handleCreateLead — derive branch from assigned user first, then fallback to project branch
   const handleCreateLead=(e)=>{ e.preventDefault(); const phone=stripPhone(newLeadForm.phone); const dup=leads.find(l=>stripPhone(l.phone)===phone); if(dup){setDuplicateConflictRecord(dup);return;}
-    const assignedUser = newLeadForm.assignedTo && newLeadForm.assignedTo !== "Unassigned"
-      ? users.find(u => u.name === newLeadForm.assignedTo) : null;
+    const assignedUser = newLeadForm.assignedTo && newLeadForm.assignedTo !== "Unassigned" ? users.find(u => u.name === newLeadForm.assignedTo) : null;
     const projBranch = projects.find(p=>p.name===newLeadForm.project)?.branch || currentUser.branch || "Madurai Desk";
-    // Use assigned user's branch if available, so Manager can see it; otherwise use project branch
     const leadBranch = assignedUser ? assignedUser.branch : projBranch;
     const created={...newLeadForm,id:Date.now(),phone,altPhone:stripPhone(newLeadForm.altPhone),branch:leadBranch,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,assignedByRole:currentUser.role,bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false,siteVisitTentativeDate:"",status:newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?"Assigned":"New",history:[{date:TODAY_STR,by:currentUser.name,action:"Lead captured."+(newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?` Assigned to ${newLeadForm.assignedTo}.`:"")}]};
     setLeads([created,...leads]); setIsLeadModalOpen(false); setNewLeadForm({name:"",phone:"",altPhone:"",email:"",location:"",project:projects[0]?.name||"",budget:25,source:"Website",assignedTo:"Unassigned",notes:""}); triggerToastAlert("Lead created."); };
 
   const handleCreateProject=(e)=>{ e.preventDefault(); const p={...newProjectForm,id:Date.now(),price:parseInt(newProjectForm.price)||0,units:parseInt(newProjectForm.units)||0,sold:parseInt(newProjectForm.sold)||0}; setProjects([p,...projects]); setIsProjectModalOpen(false); setNewProjectForm({name:"",location:"",branch:"Madurai Desk",type:"Plot",price:30,units:50,sold:0,status:"Pre-Launch"}); triggerToastAlert(`Project "${p.name}" added.`); };
-  const handleCreateActivityLog=(e)=>{ e.preventDefault(); const log={...newActivityForm,id:Date.now(),executive:["Admin","Manager"].includes(currentUser.role)?newActivityForm.executive:currentUser.name,callsMade:parseInt(newActivityForm.callsMade)||0,followup:parseInt(newActivityForm.followup)||0,siteVisit:parseInt(newActivityForm.siteVisit)||0,booking:parseInt(newActivityForm.booking)||0,registration:parseInt(newActivityForm.registration)||0,cancellation:parseInt(newActivityForm.cancellation)||0,collection:parseInt(newActivityForm.collection)||0}; setActivityLogsWrapped(prev=>[log,...prev]); setIsActivityLogModalOpen(false); setNewActivityForm({date:TODAY_STR,executive:"",project:projects[0]?.name||"",source:"Own Leads",callsMade:0,callStatus:"Warm",followup:0,siteVisit:0,booking:0,registration:0,cancellation:0,collection:0,remark:""}); triggerToastAlert("Activity log saved."); };
+  const handleCreateActivityLog=(e)=>{ e.preventDefault(); const log={...newActivityForm,id:Date.now(),executive:["Admin","Manager"].includes(currentUser.role)?newActivityForm.executive:currentUser.name,callsMade:parseInt(newActivityForm.callsMade)||0,followup:parseInt(newActivityForm.followup)||0,siteVisit:parseInt(newActivityForm.siteVisit)||0,booking:parseInt(newActivityForm.booking)||0,registration:parseInt(newActivityForm.registration)||0,cancellation:parseInt(newActivityForm.cancellation)||0,collection:parseInt(newActivityForm.collection)||0}; setActivityLogsStateWrapped(prev=>[log,...prev]); setIsActivityLogModalOpen(false); setNewActivityForm({date:TODAY_STR,executive:"",project:projects[0]?.name||"",source:"Own Leads",callsMade:0,callStatus:"Warm",followup:0,siteVisit:0,booking:0,registration:0,cancellation:0,collection:0,remark:""}); triggerToastAlert("Activity log saved."); };
 
   const commitSiteWalkthroughLog=()=>{ const updated=leads.map(l=>l.id===selectedLead.id?{...l,status:"Site Visit Completed",history:[{date:svDate,by:currentUser.name,action:`[Site Visit]: Family: ${svFamily}. Feedback: ${svFeedback}`},...l.history]}:l); setLeads(updated); setSelectedLead(null); triggerToastAlert("Site visit logged."); };
   const commitFinancialBookingLog=()=>{ const updated=leads.map(l=>l.id===selectedLead.id?{...l,status:"Booking Confirmed",bookingUnit:bkUnit,history:[{date:TODAY_STR,by:currentUser.name,action:`[Booking]: Unit [${bkUnit}] booked.`},...l.history]}:l); setLeads(updated); setSelectedLead(null); triggerToastAlert("Booking logged."); };
 
   const handleCallFeedback = (leadId, feedbackData) => {
-    const { notes, outcome, followUpDate, callDuration, leadName } = feedbackData;
+    const { notes, outcome, followUpDate, callDuration } = feedbackData;
     const log = { date: TODAY_STR, by: currentUser.name, action: `[Mobile Call]: Duration ${Math.floor(callDuration/60)}m${callDuration%60}s. Outcome: ${outcome}.${notes ? ` Notes: ${notes}` : ""}${followUpDate ? ` Next follow-up: ${followUpDate}` : ""}` };
     const updated = leads.map(l => { if (l.id !== leadId) return l; return { ...l, status: outcome || l.status, lastFollowUp: TODAY_STR, nextFollowUp: followUpDate || l.nextFollowUp, history: [log, ...l.history] }; });
     setLeads(updated);
@@ -1161,408 +1216,373 @@ export default function App() {
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Site Visits <Calendar className="h-4 w-4 text-amber-400"/></p><p className="text-3xl font-black text-amber-400 mt-1">{processedLeads.filter(l=>l.status==="Site Visit Completed").length}</p></div>
               </div>
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 space-y-4">
-                <h2 className="text-xs font-black text-orange-400 uppercase tracking-widest flex items-center gap-2"><Bell className="h-4 w-4"/>{["Executive","Telecaller"].includes(currentUser.role)?"MY ACTIVE PIPELINE":"DEPLOYMENT QUEUE / SITE VISITS"}</h2>
-                {dashboardActionQueueLeads.length>0?(
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {dashboardActionQueueLeads.map(l=>(
-                      <div key={l.id} className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl flex flex-col justify-between space-y-3 relative overflow-hidden">
-                        {l.assignedByRole==="Admin"&&currentUser.role==="Manager"&&<div className="absolute top-0 right-0 bg-rose-600 text-[8px] font-black tracking-wider uppercase px-2 py-0.5 rounded-bl text-white animate-pulse">⭐ Admin Priority</div>}
-                        {l.status==="Site Visit Planned"&&l.siteVisitTentativeDate&&<div className="absolute top-0 right-0 bg-purple-600 text-[9px] font-mono font-black tracking-wider uppercase px-2.5 py-0.5 rounded-bl text-white flex items-center gap-1"><Calendar className="h-3 w-3"/> SV: {l.siteVisitTentativeDate}</div>}
-                        <div>
-                          <div className="flex justify-between items-start pr-16"><h4 className="font-bold text-white text-sm cursor-pointer hover:text-orange-400 transition-all" onClick={()=>setSelectedLead(l)}>{l.name}</h4><span className="text-[9px] bg-slate-950 border border-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono font-bold">{l.source}</span></div>
-                          <p className="text-xs text-slate-400 font-mono mt-1">{l.phone}</p>
-                          <p className="text-[11px] font-semibold text-orange-400 mt-0.5">{l.project}</p>
-                          <div className="mt-2"><span className="text-[9px] px-2 py-0.5 font-bold uppercase rounded" style={{backgroundColor:SC[l.status]?.bg||"rgba(255,255,255,0.05)",color:SC[l.status]?.text||"#FFF"}}>{l.status}</span></div>
-                        </div>
-                        <div className="flex gap-2">
-                          {isMobile && ["Executive","Telecaller"].includes(currentUser.role) && (
-                            <MobileCallButton phone={l.phone} leadName={l.name} TODAY_STR={TODAY_STR} currentUser={currentUser} onFeedbackSaved={(fb) => handleCallFeedback(l.id, fb)} />
-                          )}
-                          <button onClick={()=>setSelectedLead(l)} className="flex-1 bg-orange-600/10 hover:bg-orange-600 border border-orange-500/20 text-[10px] text-orange-400 hover:text-white font-black py-1.5 rounded-lg tracking-wide uppercase transition-all">{["Manager","Admin"].includes(currentUser.role)?"⚡ Delegate":"📝 Open Workspace"}</button>
-                        </div>
-                      </div>
-                    ))}
+                <h2 className="text-xs font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider"><Activity className="h-4 w-4"/> Action Queue</h2>
+                  <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/40">
+                    <table className="w-full text-left text-[10px]">
+                      <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold">
+                        <tr><th className="p-3">Lead Info</th><th className="p-3">Project</th><th className="p-3">Status</th><th className="p-3 text-right">Action</th></tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/50">
+                        {dashboardActionQueueLeads.length===0?<tr><td colSpan="4" className="p-4 text-center text-slate-600 font-medium">No immediate actions pending.</td></tr>:dashboardActionQueueLeads.slice(0,10).map(l=><tr key={l.id} className="hover:bg-slate-900/60"><td className="p-3"><p className="font-black text-white text-xs">{l.name}</p><p className="text-slate-500 font-mono mt-0.5">{l.phone}</p></td><td className="p-3 font-bold text-orange-400">{l.project}</td><td className="p-3"><span className="px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider" style={{backgroundColor:SC[l.status]?.bg,color:SC[l.status]?.text,border:`1px solid ${SC[l.status]?.border}`}}>{l.status}</span></td><td className="p-3 text-right"><button onClick={()=>setSelectedLead(l)} className="text-xs font-black text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg transition-colors border border-slate-700">View</button></td></tr>)}
+                      </tbody>
+                    </table>
                   </div>
-                ):<p className="text-xs text-slate-500 italic p-4 bg-slate-900/40 rounded-xl border border-slate-900">Queue is clear.</p>}
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl col-span-1 lg:col-span-2 shadow-xl">
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Calls Trend (Daily)</h3>
-                  <div className="h-[260px] w-full"><ResponsiveContainer width="100%" height="100%"><LineChart data={callsTrendData} margin={{top:10,right:10,left:-20,bottom:20}}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false}/><XAxis dataKey="date" tick={{fontSize:9,fill:'#64748b'}} axisLine={false} tickLine={false} angle={-35} textAnchor="end"/><YAxis tick={{fontSize:10,fill:'#64748b'}} axisLine={false} tickLine={false}/><Tooltip contentStyle={{backgroundColor:'#0f172a',borderColor:'#1e293b',borderRadius:'8px',fontSize:'11px',color:'#f8fafc'}}/><Legend wrapperStyle={{fontSize:'10px'}}/><Line type="monotone" dataKey="calls" stroke="#ea580c" strokeWidth={2.5} dot={{r:3}} name="Calls"/><Line type="monotone" dataKey="followups" stroke="#3b82f6" strokeWidth={2} dot={{r:2}} name="Followups"/><Line type="monotone" dataKey="siteVisits" stroke="#10b981" strokeWidth={2} dot={{r:2}} name="Site Visits"/><Line type="monotone" dataKey="bookings" stroke="#8b5cf6" strokeWidth={2} dot={{r:2}} name="Bookings"/></LineChart></ResponsiveContainer></div>
-                </div>
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl shadow-xl flex flex-col">
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Sourcewise Analysis</h3>
-                  <div className="h-[200px] w-full relative"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={sourcewisePieData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value" stroke="none">{sourcewisePieData.map((_,i)=><Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]}/>)}</Pie><Tooltip contentStyle={{backgroundColor:'#0f172a',borderColor:'#1e293b',borderRadius:'8px',fontSize:'11px',color:'#f8fafc'}}/></PieChart></ResponsiveContainer></div>
-                  <div className="mt-2 flex flex-wrap gap-1.5">{sourcewisePieData.slice(0,6).map((s,i)=><div key={s.name} className="flex items-center gap-1 text-[9px] text-slate-400"><div className="h-2 w-2 rounded-full" style={{backgroundColor:PIE_COLORS[i%PIE_COLORS.length]}}></div><span className="truncate max-w-[60px]">{s.name}</span></div>)}</div>
                 </div>
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl shadow-xl"><h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Project Performance</h3><div className="h-[260px] w-full"><ResponsiveContainer width="100%" height="100%"><BarChart data={projectPerfData} margin={{top:10,right:10,left:-20,bottom:20}}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false}/><XAxis dataKey="project" tick={{fontSize:9,fill:'#64748b'}} axisLine={false} tickLine={false} angle={-30} textAnchor="end"/><YAxis tick={{fontSize:10,fill:'#64748b'}} axisLine={false} tickLine={false}/><Tooltip contentStyle={{backgroundColor:'#0f172a',borderColor:'#1e293b',borderRadius:'8px',fontSize:'11px',color:'#f8fafc'}}/><Bar dataKey="calls" fill="#ea580c" radius={[3,3,0,0]} barSize={20} name="Calls"/><Bar dataKey="followups" fill="#3b82f6" radius={[3,3,0,0]} barSize={20} name="Followups"/></BarChart></ResponsiveContainer></div></div>
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl shadow-xl"><h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Executive Performance — MTD</h3><div className="h-[260px] w-full"><ResponsiveContainer width="100%" height="100%"><BarChart data={execPerfChartData} margin={{top:10,right:10,left:-20,bottom:20}}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false}/><XAxis dataKey="name" tick={{fontSize:9,fill:'#64748b'}} axisLine={false} tickLine={false} angle={-30} textAnchor="end"/><YAxis tick={{fontSize:10,fill:'#64748b'}} axisLine={false} tickLine={false}/><Tooltip contentStyle={{backgroundColor:'#0f172a',borderColor:'#1e293b',borderRadius:'8px',fontSize:'11px',color:'#f8fafc'}}/><Bar dataKey="calls" fill="#ea580c" radius={[3,3,0,0]} barSize={18} name="Calls"/><Bar dataKey="siteVisits" fill="#10b981" radius={[3,3,0,0]} barSize={18} name="Site Visits"/><Bar dataKey="bookings" fill="#8b5cf6" radius={[3,3,0,0]} barSize={18} name="Bookings"/></BarChart></ResponsiveContainer></div></div>
-              </div>
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Executivewise Detailed Report</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead><tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px]"><th className="pb-2 pl-2">Executive</th><th className="pb-2 text-center text-orange-400">Calls</th><th className="pb-2 text-center text-blue-400">Followups</th><th className="pb-2 text-center text-emerald-400">Site Visits</th><th className="pb-2 text-center text-purple-400">Bookings</th><th className="pb-2 text-center text-amber-400">Regi.</th></tr></thead>
-                    <tbody className="divide-y divide-slate-900">
-                      {execDetailedMatrix.map((e,i)=><tr key={i} className="hover:bg-slate-900/20"><td className="py-2.5 pl-2 font-bold text-white">{e.name}</td><td className="py-2.5 text-center font-mono font-bold text-orange-400">{e.calls.toLocaleString()}</td><td className="py-2.5 text-center font-mono text-blue-400">{e.followups}</td><td className="py-2.5 text-center font-mono text-emerald-400">{e.siteVisits}</td><td className="py-2.5 text-center font-mono text-purple-400">{e.bookings}</td><td className="py-2.5 text-center font-mono text-amber-400">{e.registrations}</td></tr>)}
-                      {execDetailedMatrix.length>0&&(<tr className="border-t border-slate-700 font-black text-[11px]"><td className="py-2.5 pl-2 text-white">TOTAL</td><td className="py-2.5 text-center font-mono text-orange-400">{execDetailedMatrix.reduce((s,e)=>s+e.calls,0).toLocaleString()}</td><td className="py-2.5 text-center font-mono text-blue-400">{execDetailedMatrix.reduce((s,e)=>s+e.followups,0)}</td><td className="py-2.5 text-center font-mono text-emerald-400">{execDetailedMatrix.reduce((s,e)=>s+e.siteVisits,0)}</td><td className="py-2.5 text-center font-mono text-purple-400">{execDetailedMatrix.reduce((s,e)=>s+e.bookings,0)}</td><td className="py-2.5 text-center font-mono text-amber-400">{execDetailedMatrix.reduce((s,e)=>s+e.registrations,0)}</td></tr>)}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
+            )}
 
-          {/* ═══ LEADS ══════════════════════════════════════════════════ */}
+          {/* ═══ LEADS TAB ══════════════════════════════════════════════ */}
           {activeTab==="leads"&&(
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                <div><h1 className="text-2xl font-black text-white tracking-tight">Active Lead Channels</h1><p className="text-xs text-slate-400 mt-0.5">Track property interaction vectors inside your regional territory.</p></div>
-                <button onClick={()=>{setNewLeadForm({name:"",phone:"",altPhone:"",email:"",location:"",project:projects[0]?.name||"",budget:25,source:"Website",assignedTo:"Unassigned",notes:""});setDuplicateConflictRecord(null);setIsLeadModalOpen(true);}} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors shadow-md w-fit"><Plus className="h-4 w-4"/> INGEST RECORD</button>
+            <div className="space-y-5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-950 p-5 border border-slate-800 rounded-2xl shadow-xl">
+                <div><h1 className="text-lg lg:text-xl font-black text-white flex items-center gap-2"><PhoneCall className="h-5 w-5 text-orange-500"/> Lead Management</h1><p className="text-[10px] text-slate-500 mt-1">{processedLeads.length} leads found based on current filters.</p></div>
+                <button onClick={()=>{setDuplicateConflictRecord(null);setNewLeadForm(prev=>({...prev,project:prev.project||visibleProjects[0]?.name||""}));setIsLeadModalOpen(true);}} className="w-full sm:w-auto bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider shadow-lg flex items-center justify-center gap-2"><Plus className="h-4 w-4"/> New Lead</button>
               </div>
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl w-full">
-                <div className="overflow-x-auto w-full">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead><tr className="bg-slate-900 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider"><th className="p-4 min-w-[150px]">Customer</th><th className="p-4 min-w-[150px]">Project</th><th className="p-4">Source</th><th className="p-4 min-w-[160px]">Assigned To</th><th className="p-4">Status</th><th className="p-4 text-right">Budget</th></tr></thead>
-                    <tbody className="divide-y divide-slate-900 text-slate-300">
-                      {processedLeads.length===0?(<tr><td colSpan={6} className="p-12 text-center text-slate-500 italic">No leads found.</td></tr>):processedLeads.map(l=>(
-                        <tr key={l.id} className="hover:bg-slate-900/30 transition-all">
-                          <td className="p-4">
-                            <p className="font-bold text-white text-sm cursor-pointer hover:text-orange-400 transition-colors" onClick={()=>setSelectedLead(l)}>{l.name}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <p className="text-[11px] text-slate-500 font-mono">{l.phone}</p>
-                              <button onClick={()=>copyToClipboard(l.phone)} className="text-slate-600 hover:text-orange-500"><Search className="h-3 w-3"/></button>
-                              {isMobile && ["Executive","Telecaller"].includes(currentUser.role) && (
-                                <MobileCallButton phone={l.phone} leadName={l.name} TODAY_STR={TODAY_STR} currentUser={currentUser} onFeedbackSaved={(fb) => handleCallFeedback(l.id, fb)} />
-                              )}
-                            </div>
-                            {(new Date(TODAY_STR)-new Date(l.lastFollowUp||l.dateCreated))/(1000*3600*24)>7&&(<span className="text-[9px] bg-rose-500/10 text-rose-500 font-black px-1.5 py-0.5 rounded uppercase tracking-wider mt-1 block w-fit">Stale Lead</span>)}
-                          </td>
-                          <td className="p-4"><p className="font-semibold text-slate-200">{l.project}</p><p className="text-[11px] text-slate-500 mt-0.5 font-mono">{l.dateCreated}</p></td>
-                          <td className="p-4"><span className="bg-slate-900 border border-slate-800 text-slate-400 px-2 py-0.5 rounded text-[10px] font-bold font-mono">{l.source}</span></td>
-                          <td className="p-4">{["Admin","Manager"].includes(currentUser.role)?(<select value={l.assignedTo} onChange={e=>requestOwnerAssignmentPopup(l.id,e.target.value)} className="bg-slate-900 border border-slate-800 text-slate-200 rounded px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:border-orange-500 cursor-pointer max-w-[170px]"><option value="Unassigned">⚠️ Select Staff</option><optgroup label="Managers">{users.filter(u=>u.role==="Manager").map(u=><option key={u.id} value={u.name}>{u.name} (Mgr)</option>)}</optgroup><optgroup label="Staff">{users.filter(u=>["Executive","Telecaller"].includes(u.role)).map(u=><option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}</optgroup></select>):(<span className="font-semibold text-slate-400 flex items-center gap-1"><Shield className="h-3.5 w-3.5 text-slate-600"/> {l.assignedTo}</span>)}</td>
-                          <td className="p-4"><div className="flex flex-col gap-1"><select value={l.status} onChange={e=>requestStatusTransitionPopup(l.id,e.target.value)} className="bg-slate-900 border border-slate-800 rounded px-2 py-1 font-bold text-xs text-slate-300 focus:outline-none cursor-pointer" style={{color:SC[l.status]?.text||"#FFF"}}>{STATUSES.map(st=><option key={st} value={st}>{st}</option>)}</select>{l.status==="Site Visit Planned"&&l.siteVisitTentativeDate&&<span className="text-[9px] text-purple-400 font-mono font-bold pl-1">📅 {l.siteVisitTentativeDate}</span>}</div></td>
-                          <td className="p-4 text-right font-mono font-bold text-emerald-400 text-sm">₹{l.budget}L</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+              <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex flex-wrap gap-3 text-xs shadow-lg">
+                <select value={filterSource} onChange={e=>setFilterSource(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 flex-1 min-w-[140px]"><option value="All">All Sources</option>{SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select>
+                <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 flex-1 min-w-[140px]"><option value="All">All Statuses</option>{STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select>
+                <select value={filterProject} onChange={e=>setFilterProject(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 flex-1 min-w-[140px]"><option value="All">All Projects</option>{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select>
+                {["Admin","Manager"].includes(currentUser.role)&&<select value={filterExecutive} onChange={e=>setFilterExecutive(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 flex-1 min-w-[140px]"><option value="All">All Executives</option><option value="Unassigned">Unassigned</option>{visibleUsers.filter(u=>["Executive","Telecaller"].includes(u.role)).map(u=><option key={u.id} value={u.name}>{u.name}</option>)}</select>}
+                <div className="flex items-center gap-2 flex-1 min-w-[200px]"><input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 font-mono text-[10px]"/><span className="text-slate-600">-</span><input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 font-mono text-[10px]"/></div>
+                {(filterSource!=="All"||filterStatus!=="All"||filterProject!=="All"||filterExecutive!=="All"||startDate||endDate)&&<button onClick={()=>{setFilterSource("All");setFilterStatus("All");setFilterProject("All");setFilterExecutive("All");setStartDate("");setEndDate("");}} className="text-orange-400 hover:text-orange-300 font-bold px-3 py-2 border border-orange-500/30 rounded-lg flex items-center gap-1 bg-orange-500/10"><X className="h-3.5 w-3.5"/> Clear</button>}
               </div>
-            </div>
-          )}
-
-          {/* ═══ ACTIVITY LOGS ══════════════════════════════════════════ */}
-          {activeTab==="activity"&&(
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                <div><h1 className="text-2xl font-black text-white tracking-tight">Daily Activity Logs</h1><p className="text-xs text-slate-400 mt-0.5">Log daily calls, follow-ups, site visits, bookings and registrations.</p></div>
-                <button onClick={()=>{setNewActivityForm({date:TODAY_STR,executive:"",project:projects[0]?.name||"",source:"Own Leads",callsMade:0,callStatus:"Warm",followup:0,siteVisit:0,booking:0,registration:0,cancellation:0,collection:0,remark:""});setIsActivityLogModalOpen(true);}} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs transition-colors shadow-md w-fit"><Plus className="h-4 w-4"/> ADD ACTIVITY LOG</button>
-              </div>
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-5 shadow-xl">
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
-                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase text-[9px]">From</label><input type="date" value={actStartDate} onChange={e=>setActStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-orange-500 font-mono"/></div>
-                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase text-[9px]">To</label><input type="date" value={actEndDate} onChange={e=>setActEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-orange-500 font-mono"/></div>
-                  {["Admin","Manager"].includes(currentUser.role)&&(<div className="space-y-1"><label className="text-slate-500 font-bold uppercase text-[9px]">Executive</label><select value={actFilterExec} onChange={e=>setActFilterExec(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none"><option value="All">All</option>{[...new Set(activityLogs.map(l=>l.executive))].sort().map(e=><option key={e} value={e}>{e}</option>)}</select></div>)}
-                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase text-[9px]">Project</label><select value={actFilterProject} onChange={e=>setActFilterProject(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none"><option value="All">All</option>{projects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
-                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase text-[9px]">Source</label><select value={actFilterSource} onChange={e=>setActFilterSource(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none"><option value="All">All</option>{SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
-                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase text-[9px]">Call Status</label><select value={actFilterStatus} onChange={e=>setActFilterStatus(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none"><option value="All">All</option>{CALL_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
-                </div>
-              </div>
-              {/* FIX: replaced <BookBook/> with <BookOpen/> — was crashing React and causing blank screen */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-                <KpiTile label="Total Calls" value={activityKPIs.totalCalls.toLocaleString()} icon={<Phone/>} color="#ea580c"/>
-                <KpiTile label="Followups" value={activityKPIs.totalFollowups.toLocaleString()} icon={<PhoneCall/>} color="#3b82f6"/>
-                <KpiTile label="Site Visits" value={activityKPIs.totalSiteVisits} icon={<MapPin/>} color="#10b981"/>
-                <KpiTile label="Bookings" value={activityKPIs.totalBookings} icon={<BookOpen/>} color="#8b5cf6"/>
-                <KpiTile label="Registration" value={activityKPIs.totalRegistrations} icon={<UserCheck/>} color="#f59e0b"/>
-                <KpiTile label="Cancellation" value={activityKPIs.totalCancellations} icon={<XCircle/>} color="#ef4444"/>
-                <KpiTile label="Collection" value={`₹${activityKPIs.totalCollection}L`} icon={<Banknote/>} color="#06b6d4"/>
-                <KpiTile label="Conversion %" value={`${activityKPIs.convRate}%`} icon={<TrendingUp/>} color="#a3e635"/>
-              </div>
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl w-full">
-                <div className="overflow-x-auto w-full">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead><tr className="bg-slate-900 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider text-[10px]"><th className="p-3">Date</th><th className="p-3">Executive/Tel</th><th className="p-3">Project</th><th className="p-3">Source</th><th className="p-3 text-center">Calls</th><th className="p-3">Status</th><th className="p-3 text-center">Followup</th><th className="p-3 text-center">Site Visit</th><th className="p-3 text-center">Booking</th><th className="p-3 text-center">Regist.</th><th className="p-3 text-center">Cancel.</th><th className="p-3 min-w-[200px]">Remark</th></tr></thead>
-                    <tbody className="divide-y divide-slate-900 text-slate-300">
-                      {filteredActivityLogs.length===0?(<tr><td colSpan={12} className="p-10 text-center text-slate-500 italic">No activity logs found.</td></tr>):filteredActivityLogs.map(l=>(
-                        <tr key={l.id} className="hover:bg-slate-900/30 transition-all">
-                          <td className="p-3 font-mono text-slate-400 text-[11px]">{l.date}</td><td className="p-3 font-bold text-white">{l.executive}</td><td className="p-3 text-orange-400 font-semibold">{l.project}</td><td className="p-3"><span className="bg-slate-900 border border-slate-800 text-slate-400 px-1.5 py-0.5 rounded text-[10px] font-mono">{l.source}</span></td><td className="p-3 text-center font-mono font-bold text-white">{l.callsMade}</td><td className="p-3"><span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase ${l.callStatus==="Warm"?"bg-amber-500/10 text-amber-400":"bg-slate-700/30 text-slate-400"}`}>{l.callStatus}</span></td><td className="p-3 text-center font-mono text-blue-400">{l.followup||""}</td><td className="p-3 text-center font-mono text-emerald-400">{l.siteVisit||""}</td><td className="p-3 text-center font-mono text-purple-400">{l.booking||""}</td><td className="p-3 text-center font-mono text-amber-400">{l.registration||""}</td><td className="p-3 text-center font-mono text-rose-400">{l.cancellation||""}</td><td className="p-3 text-[11px] text-slate-400 max-w-xs truncate" title={l.remark}>{l.remark}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    {filteredActivityLogs.length>0&&(<tfoot className="bg-slate-900/50 border-t border-slate-800 font-black text-[11px]"><tr><td className="p-3 text-white" colSpan={4}>TOTALS</td><td className="p-3 text-center font-mono text-white">{filteredActivityLogs.reduce((s,l)=>s+(l.callsMade||0),0)}</td><td className="p-3"></td><td className="p-3 text-center font-mono text-blue-400">{filteredActivityLogs.reduce((s,l)=>s+(l.followup||0),0)}</td><td className="p-3 text-center font-mono text-emerald-400">{filteredActivityLogs.reduce((s,l)=>s+(l.siteVisit||0),0)}</td><td className="p-3 text-center font-mono text-purple-400">{filteredActivityLogs.reduce((s,l)=>s+(l.booking||0),0)}</td><td className="p-3 text-center font-mono text-amber-400">{filteredActivityLogs.reduce((s,l)=>s+(l.registration||0),0)}</td><td className="p-3 text-center font-mono text-rose-400">{filteredActivityLogs.reduce((s,l)=>s+(l.cancellation||0),0)}</td><td className="p-3"></td></tr></tfoot>)}
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ═══ PROJECTS ═══════════════════════════════════════════════ */}
-          {activeTab==="projects"&&(
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                <div><h1 className="text-2xl font-black text-white tracking-tight">Corporate Asset Registry</h1><p className="text-xs text-slate-400 mt-0.5">Track property inventory capacities and structural workflows.</p></div>
-                {currentUser.role==="Admin"&&(<button onClick={()=>setIsProjectModalOpen(true)} className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md w-fit"><Plus className="h-4 w-4"/> Add Project</button>)}
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {visibleProjects.map(p=>(
-                  <div key={p.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4 relative overflow-hidden shadow-xl">
-                    <div className="flex justify-between items-start">
-                      <div><h3 className="text-sm font-black text-white flex items-center gap-1.5"><Home className="h-4 w-4 text-slate-500"/> {p.name}</h3><p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3 text-slate-600"/> {p.location} • <span className="font-bold text-orange-400">{p.branch}</span></p></div>
-                      {["Admin","Manager"].includes(currentUser.role)?(<select value={p.status} onChange={e=>handleProjectStatusChange(p.id,e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[10px] font-black focus:outline-none cursor-pointer" style={{color:PSC[p.status]?.text||"#FFF"}}>{PROJECT_STATUSES.map(st=><option key={st} value={st}>{st}</option>)}</select>):(<span className="text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider" style={{backgroundColor:PSC[p.status]?.bg,color:PSC[p.status]?.text}}>{p.status}</span>)}
-                    </div>
-                    <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-800 text-xs space-y-2">
-                      <div className="flex justify-between items-center text-[11px]"><span className="text-slate-500">Type:</span><span className="font-bold text-slate-300 uppercase bg-slate-950 px-1.5 py-0.5 rounded text-[10px]">{p.type}</span></div>
-                      <div className="flex justify-between items-center text-[11px]"><span className="text-slate-500">Starting Price:</span><span className="font-mono font-bold text-emerald-400">₹{p.price}L</span></div>
-                      <div className="pt-1.5 border-t border-slate-800"><div className="flex justify-between items-center text-[10px] font-bold text-slate-400 mb-1"><span>SOLD: {p.sold} / {p.units}</span><span className="font-mono text-orange-400">{Math.round((p.sold/p.units)*100)||0}%</span></div><div className="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden"><div className="bg-gradient-to-r from-orange-600 to-amber-400 h-full transition-all duration-500" style={{width:`${(p.sold/p.units)*100}%`}}></div></div></div>
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                {processedLeads.map(lead=>(
+                  <div key={lead.id} onClick={()=>setSelectedLead(lead)} className="bg-slate-950 border border-slate-800 rounded-xl p-4 hover:border-orange-500/50 cursor-pointer transition-all shadow-md group relative">
+                     {lead.status==="New"&&<div className="absolute top-0 right-0 h-2.5 w-2.5 bg-blue-500 rounded-full animate-ping mt-3 mr-3"/>}
+                     <div className="flex justify-between items-start mb-3">
+                       <div><h3 className="text-sm font-black text-white group-hover:text-orange-400 transition-colors">{lead.name}</h3><div className="flex items-center gap-1.5 mt-1"><Phone className="h-3 w-3 text-slate-500"/><span className="text-[11px] text-slate-400 font-mono">{lead.phone}</span></div></div>
+                       <span className="px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider" style={{backgroundColor:SC[lead.status]?.bg,color:SC[lead.status]?.text,border:`1px solid ${SC[lead.status]?.border}`}}>{lead.status}</span>
+                     </div>
+                     <div className="grid grid-cols-2 gap-y-2 gap-x-4 mb-4 p-3 bg-slate-900/50 rounded-lg border border-slate-800/50">
+                       <div><p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Project</p><p className="text-xs text-orange-400 font-bold truncate" title={lead.project}>{lead.project}</p></div>
+                       <div><p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Budget</p><p className="text-xs text-slate-300 font-mono font-bold">₹{lead.budget}L</p></div>
+                       <div><p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Assigned</p><p className="text-xs text-slate-300 font-bold truncate">{lead.assignedTo}</p></div>
+                       <div><p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Source</p><p className="text-xs text-slate-400 truncate">{lead.source}</p></div>
+                     </div>
+                     <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-800/60">
+                       <div onClick={e=>e.stopPropagation()}><MobileCallButton phone={lead.phone} leadName={lead.name} onFeedbackSaved={(f)=>handleCallFeedback(lead.id, f)} currentUser={currentUser} TODAY_STR={TODAY_STR} /></div>
+                       <div className="text-right">
+                         <p className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Next Follow-Up</p>
+                         <p className={`text-xs font-mono font-black mt-0.5 ${lead.nextFollowUp===TODAY_STR?"text-amber-400 animate-pulse":lead.nextFollowUp<TODAY_STR?"text-rose-400":"text-emerald-400"}`}>{lead.nextFollowUp==="None"?"Not Set":lead.nextFollowUp}</p>
+                       </div>
+                     </div>
                   </div>
                 ))}
+                {processedLeads.length===0&&<div className="col-span-full flex flex-col items-center justify-center py-16 bg-slate-950/40 border border-slate-800 border-dashed rounded-2xl"><div className="inline-flex h-12 w-12 rounded-full bg-slate-900 border border-slate-800 items-center justify-center mb-3"><Search className="h-5 w-5 text-slate-600"/></div><p className="text-slate-500 text-xs font-bold uppercase tracking-wider">No leads match filters</p><button onClick={()=>{setFilterSource("All");setFilterStatus("All");setFilterProject("All");setFilterExecutive("All");setStartDate("");setEndDate("");}} className="mt-3 text-[10px] text-orange-400 hover:text-orange-300 font-bold uppercase tracking-wider">Clear all filters</button></div>}
               </div>
             </div>
           )}
 
-          {/* ═══ REPORTS ════════════════════════════════════════════════ */}
-          {activeTab==="reports"&&(
-            <div className="space-y-8 pb-20">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start md:items-center gap-4 w-full">
-                <div><h1 className="text-2xl font-black text-white tracking-tight">Performance Matrix Engine</h1><p className="text-xs text-slate-400 mt-0.5">Full Excel-style report with filters, summary matrix, executivewise, sourcewise & projectwise breakdowns.</p></div>
-                <div className="flex items-center gap-2 flex-wrap text-xs font-bold tracking-wide">
-                  <button onClick={()=>executeDataExportSequence("excel")} className="flex items-center gap-1.5 bg-emerald-600/10 hover:bg-emerald-600 border border-emerald-500/20 text-emerald-400 hover:text-white px-3 py-2 rounded-xl transition-all"><FileSpreadsheet className="h-3.5 w-3.5"/> EXCEL</button>
-                  <button onClick={()=>executeDataExportSequence("csv")} className="flex items-center gap-1.5 bg-blue-600/10 hover:bg-blue-600 border border-blue-500/20 text-blue-400 hover:text-white px-3 py-2 rounded-xl transition-all"><Upload className="h-3.5 w-3.5 transform rotate-180"/> CSV</button>
+          {/* ═══ ACTIVITY LOGS TAB ════════════════════════════════════════ */}
+          {activeTab==="activity"&&(
+            <div className="space-y-5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-950 p-5 border border-slate-800 rounded-2xl shadow-xl">
+                <div><h1 className="text-lg lg:text-xl font-black text-white flex items-center gap-2"><ClipboardList className="h-5 w-5 text-emerald-500"/> Activity Tracker</h1><p className="text-[10px] text-slate-500 mt-1">{filteredActivityLogs.length} verified logs recorded.</p></div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button onClick={()=>executeDataExportSequence("excel")} className="flex-1 sm:flex-none bg-slate-900 hover:bg-slate-800 border border-slate-700 text-emerald-400 font-black text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider transition-colors flex items-center justify-center gap-2 shadow-lg"><Download className="h-4 w-4"/> Export</button>
+                  <button onClick={()=>{setNewActivityForm(prev=>({...prev,project:prev.project||visibleProjects[0]?.name||""}));setIsActivityLogModalOpen(true);}} className="flex-1 sm:flex-none bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 text-white font-black text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider shadow-lg flex items-center justify-center gap-2"><Plus className="h-4 w-4"/> Log Activity</button>
                 </div>
               </div>
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 space-y-4 shadow-xl">
-                <h3 className="text-xs font-black text-orange-400 uppercase tracking-widest">Filter Panel</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pb-4 border-b border-slate-800/60">
-                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-orange-500"/> From Date</label><input type="date" value={actStartDate} onChange={e=>setActStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono cursor-pointer"/></div>
-                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-orange-500"/> To Date</label><input type="date" value={actEndDate} onChange={e=>setActEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono cursor-pointer"/></div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                  {["Admin","Manager"].includes(currentUser.role)&&(<div className="space-y-1"><label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Executive</label><select value={actFilterExec} onChange={e=>setActFilterExec(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none"><option value="All">All Executives</option>{[...new Set(activityLogs.map(l=>l.executive))].sort().map(e=><option key={e} value={e}>{e}</option>)}</select></div>)}
-                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Project</label><select value={actFilterProject} onChange={e=>setActFilterProject(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none"><option value="All">All Projects</option>{projects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
-                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Source</label><select value={actFilterSource} onChange={e=>setActFilterSource(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none"><option value="All">All Sources</option>{SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
-                  <div className="space-y-1"><label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Call Status</label><select value={actFilterStatus} onChange={e=>setActFilterStatus(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none"><option value="All">All Status</option>{CALL_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-                <KpiTile label="Total Calls" value={activityKPIs.totalCalls.toLocaleString()} icon={<Phone/>} color="#ea580c"/>
-                <KpiTile label="Followups" value={activityKPIs.totalFollowups.toLocaleString()} icon={<PhoneCall/>} color="#3b82f6"/>
-                <KpiTile label="Site Visits" value={activityKPIs.totalSiteVisits} icon={<MapPin/>} color="#10b981"/>
-                <KpiTile label="Bookings" value={activityKPIs.totalBookings} icon={<BookOpen/>} color="#8b5cf6"/>
-                <KpiTile label="Registration" value={activityKPIs.totalRegistrations} icon={<UserCheck/>} color="#f59e0b"/>
-                <KpiTile label="Cancellation" value={activityKPIs.totalCancellations} icon={<XCircle/>} color="#ef4444"/>
-                <KpiTile label="Collection" value={`₹${activityKPIs.totalCollection}L`} icon={<Banknote/>} color="#06b6d4"/>
-                <KpiTile label="Conversion %" value={`${activityKPIs.convRate}%`} icon={<TrendingUp/>} color="#a3e635"/>
-              </div>
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl">
-                <h3 className="text-sm font-black text-orange-400 mb-4 uppercase tracking-widest">Summary — Projectwise Metrics</h3>
-                <div className="overflow-x-auto"><table className="w-full text-left text-xs border-collapse"><thead><tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px]"><th className="p-3 min-w-[130px] bg-slate-900/50">Metric</th>{reportSummaryMatrix.projectNames.map(p=><th key={p} className="p-3 text-center min-w-[100px] bg-slate-900/50">{p}</th>)}<th className="p-3 text-center bg-slate-900/80 text-white font-black">TOTAL</th></tr></thead><tbody className="divide-y divide-slate-900">{reportSummaryMatrix.metrics.map((metric,mi)=>{const rowTotal=reportSummaryMatrix.projectNames.reduce((s,p)=>s+(reportSummaryMatrix.data[metric]?.[p]||0),0);const colors=["text-orange-400","text-blue-400","text-emerald-400","text-purple-400","text-amber-400","text-rose-400"];return(<tr key={metric} className="hover:bg-slate-900/30"><td className={`p-3 font-black uppercase tracking-wide text-[10px] ${colors[mi%colors.length]}`}>{metric}</td>{reportSummaryMatrix.projectNames.map(p=><td key={p} className="p-3 text-center font-mono text-slate-300">{reportSummaryMatrix.data[metric]?.[p]||""}</td>)}<td className={`p-3 text-center font-mono font-black ${colors[mi%colors.length]}`}>{rowTotal||""}</td></tr>)})}</tbody></table></div>
-              </div>
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl">
-                <h3 className="text-sm font-black text-blue-400 mb-4 uppercase tracking-widest">Executivewise Performance Matrix</h3>
-                <div className="overflow-x-auto"><table className="w-full text-left text-xs border-collapse"><thead><tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px]"><th className="p-3 bg-slate-900/50 min-w-[120px]">Metric</th>{execDetailedMatrix.map(e=><th key={e.name} className="p-3 text-center bg-slate-900/50 min-w-[90px]">{e.name}</th>)}<th className="p-3 text-center bg-slate-900/80 text-white font-black">TOTAL</th></tr></thead><tbody className="divide-y divide-slate-900">{[{key:"calls",label:"Calls made",color:"text-orange-400"},{key:"followups",label:"Followup",color:"text-blue-400"},{key:"siteVisits",label:"Site visit",color:"text-emerald-400"},{key:"bookings",label:"Booking",color:"text-purple-400"},{key:"registrations",label:"Registration",color:"text-amber-400"},{key:"cancellations",label:"Cancellation",color:"text-rose-400"}].map(row=>(<tr key={row.key} className="hover:bg-slate-900/30"><td className={`p-3 font-black uppercase tracking-wide text-[10px] ${row.color}`}>{row.label}</td>{execDetailedMatrix.map(e=><td key={e.name} className="p-3 text-center font-mono text-slate-300">{e[row.key]||""}</td>)}<td className={`p-3 text-center font-mono font-black ${row.color}`}>{execDetailedMatrix.reduce((s,e)=>s+(e[row.key]||0),0)||""}</td></tr>))}</tbody></table></div>
-              </div>
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl">
-                <h3 className="text-sm font-black text-emerald-400 mb-4 uppercase tracking-widest">Sourcewise — Calls by Executive</h3>
-                <div className="overflow-x-auto"><table className="w-full text-left text-xs border-collapse"><thead><tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px]"><th className="p-3 bg-slate-900/50 min-w-[120px]">Source</th>{sourcewiseMatrix.execNames.map(e=><th key={e} className="p-3 text-center bg-slate-900/50 min-w-[80px]">{e}</th>)}<th className="p-3 text-center bg-slate-900/80 text-white font-black">TOTAL</th></tr></thead><tbody className="divide-y divide-slate-900">{sourcewiseMatrix.srcNames.map(src=>(<tr key={src} className="hover:bg-slate-900/30"><td className="p-3 font-bold text-slate-300">{src}</td>{sourcewiseMatrix.execNames.map(e=><td key={e} className="p-3 text-center font-mono text-slate-400">{sourcewiseMatrix.data[src]?.[e]||""}</td>)}<td className="p-3 text-center font-mono font-black text-white">{sourcewiseMatrix.srcTotals[src]||""}</td></tr>))}<tr className="border-t border-slate-700 font-black text-[11px]"><td className="p-3 text-white">TOTAL</td>{sourcewiseMatrix.execNames.map(e=><td key={e} className="p-3 text-center font-mono text-orange-400">{sourcewiseMatrix.srcNames.reduce((s,src)=>s+(sourcewiseMatrix.data[src]?.[e]||0),0)||""}</td>)}<td className="p-3 text-center font-mono text-orange-400">{Object.values(sourcewiseMatrix.srcTotals).reduce((s,v)=>s+v,0)||""}</td></tr></tbody></table></div>
-              </div>
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 shadow-xl">
-                <h3 className="text-sm font-black text-amber-400 mb-4 uppercase tracking-widest">Projectwise — Calls by Executive</h3>
-                <div className="overflow-x-auto"><table className="w-full text-left text-xs border-collapse"><thead><tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px]"><th className="p-3 bg-slate-900/50 min-w-[130px]">Project</th>{projectwiseMatrix.execNames.map(e=><th key={e} className="p-3 text-center bg-slate-900/50 min-w-[80px]">{e}</th>)}<th className="p-3 text-center bg-slate-900/80 text-white font-black">TOTAL</th></tr></thead><tbody className="divide-y divide-slate-900">{projectwiseMatrix.projNames.map(proj=>(<tr key={proj} className="hover:bg-slate-900/30"><td className="p-3 font-bold text-orange-400">{proj}</td>{projectwiseMatrix.execNames.map(e=><td key={e} className="p-3 text-center font-mono text-slate-400">{projectwiseMatrix.data[proj]?.[e]||""}</td>)}<td className="p-3 text-center font-mono font-black text-white">{projectwiseMatrix.projTotals[proj]||""}</td></tr>))}<tr className="border-t border-slate-700 font-black text-[11px]"><td className="p-3 text-white">TOTAL</td>{projectwiseMatrix.execNames.map(e=><td key={e} className="p-3 text-center font-mono text-amber-400">{projectwiseMatrix.projNames.reduce((s,proj)=>s+(projectwiseMatrix.data[proj]?.[e]||0),0)||""}</td>)}<td className="p-3 text-center font-mono text-amber-400">{Object.values(projectwiseMatrix.projTotals).reduce((s,v)=>s+v,0)||""}</td></tr></tbody></table></div>
-              </div>
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl">
-                <h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider mb-4"><BarChart3 className="h-4 w-4"/> Executive Pipeline Summary</h3>
-                <div className="overflow-x-auto w-full"><table className="w-full text-left text-xs border-collapse"><thead><tr className="text-slate-500 font-bold border-b border-slate-900 uppercase"><th className="pb-2 pl-2">Executive</th><th className="pb-2 text-center text-blue-400">Total</th><th className="pb-2 text-center">Untouched</th><th className="pb-2 text-center text-amber-400">Active</th><th className="pb-2 text-center text-purple-400">Site Visits</th><th className="pb-2 text-center text-emerald-400">Bookings</th><th className="pb-2 text-center text-rose-400">Dead</th></tr></thead><tbody className="divide-y divide-slate-900 text-slate-300">{executiveSummaryData.map((exec,idx)=>(<tr key={idx} className="hover:bg-slate-900/20"><td className="py-3 pl-2 font-bold text-white">{exec.name}</td><td className="py-3 text-center font-mono font-bold text-blue-400">{exec.total}</td><td className="py-3 text-center font-mono">{exec.new}</td><td className="py-3 text-center font-mono text-amber-400/80">{exec.active}</td><td className="py-3 text-center font-mono text-purple-400/80">{exec.siteVisits}</td><td className="py-3 text-center font-mono font-black text-emerald-400">{exec.bookings}</td><td className="py-3 text-center font-mono text-rose-400/80">{exec.dead}</td></tr>))}</tbody>{executiveSummaryData.length>0&&(<tfoot className="bg-slate-900/50 border-t border-slate-800 font-black"><tr><td className="py-3 pl-2 text-white">TOTALS</td><td className="py-3 text-center font-mono text-blue-400">{executiveSummaryData.reduce((a,c)=>a+c.total,0)}</td><td className="py-3 text-center font-mono">{executiveSummaryData.reduce((a,c)=>a+c.new,0)}</td><td className="py-3 text-center font-mono text-amber-400/80">{executiveSummaryData.reduce((a,c)=>a+c.active,0)}</td><td className="py-3 text-center font-mono text-purple-400/80">{executiveSummaryData.reduce((a,c)=>a+c.siteVisits,0)}</td><td className="py-3 text-center font-mono text-emerald-400">{executiveSummaryData.reduce((a,c)=>a+c.bookings,0)}</td><td className="py-3 text-center font-mono text-rose-400/80">{executiveSummaryData.reduce((a,c)=>a+c.dead,0)}</td></tr></tfoot>)}</table></div>
+              {["Admin","Manager"].includes(currentUser.role)&&<ExcelImportPanel activityLogs={activityLogs} setActivityLogs={setActivityLogsStateWrapped} triggerToastAlert={triggerToastAlert}/>}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4 text-xs">
+                 <div className="flex flex-wrap gap-3">
+                   {["Admin","Manager"].includes(currentUser.role)&&<select value={actFilterExec} onChange={e=>setActFilterExec(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 flex-1 min-w-[120px]"><option value="All">All Executives</option>{visibleUsers.map(u=><option key={u.id} value={u.name}>{u.name}</option>)}</select>}
+                   <select value={actFilterProject} onChange={e=>setActFilterProject(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 flex-1 min-w-[120px]"><option value="All">All Projects</option>{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select>
+                   <select value={actFilterSource} onChange={e=>setActFilterSource(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 flex-1 min-w-[120px]"><option value="All">All Sources</option>{SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select>
+                   <div className="flex items-center gap-2 flex-1 min-w-[200px]"><input type="date" value={actStartDate} onChange={e=>setActStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 font-mono"/><span className="text-slate-600">-</span><input type="date" value={actEndDate} onChange={e=>setActEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 font-mono"/></div>
+                   {(actFilterExec!=="All"||actFilterProject!=="All"||actFilterSource!=="All"||actFilterStatus!=="All"||actStartDate||actEndDate)&&<button onClick={()=>{setActFilterExec("All");setActFilterProject("All");setActFilterSource("All");setActFilterStatus("All");setActStartDate("");setActEndDate("");}} className="text-emerald-400 hover:text-emerald-300 font-bold px-3 py-2 border border-emerald-500/30 rounded-lg flex items-center gap-1 bg-emerald-500/10"><X className="h-3.5 w-3.5"/> Clear</button>}
+                 </div>
+                 <div className="overflow-x-auto border border-slate-800 rounded-xl bg-slate-900/40">
+                   <table className="w-full text-left text-[10px] whitespace-nowrap">
+                     <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold bg-slate-950">
+                       <tr><th className="p-3">Date</th><th className="p-3">Executive</th><th className="p-3">Project</th><th className="p-3">Source</th><th className="p-3 text-center">Calls</th><th className="p-3 text-center">Status</th><th className="p-3 text-center">FU</th><th className="p-3 text-center">SV</th><th className="p-3 text-center">BK</th><th className="p-3">Remark</th></tr>
+                     </thead>
+                     <tbody className="divide-y divide-slate-800">
+                       {filteredActivityLogs.length===0?<tr><td colSpan="10" className="p-6 text-center text-slate-500 font-bold uppercase tracking-wider">No activity logs found</td></tr>:filteredActivityLogs.map((log,i)=>(
+                         <tr key={log.id||i} className="hover:bg-slate-800/50 transition-colors">
+                           <td className="p-3 font-mono text-slate-400">{log.date}</td>
+                           <td className="p-3 font-bold text-white">{log.executive}</td>
+                           <td className="p-3 text-orange-400 font-bold">{log.project}</td>
+                           <td className="p-3 text-slate-400">{log.source}</td>
+                           <td className="p-3 text-center font-mono font-black text-white">{log.callsMade}</td>
+                           <td className="p-3 text-center"><span className={`px-2 py-0.5 rounded border text-[9px] font-black uppercase ${log.callStatus==="Warm"?"bg-amber-500/10 text-amber-400 border-amber-500/20":log.callStatus==="Cold"?"bg-blue-500/10 text-blue-400 border-blue-500/20":"bg-slate-800 text-slate-400 border-slate-700"}`}>{log.callStatus}</span></td>
+                           <td className="p-3 text-center text-blue-400 font-bold">{log.followup||"-"}</td>
+                           <td className="p-3 text-center text-emerald-400 font-bold">{log.siteVisit||"-"}</td>
+                           <td className="p-3 text-center text-purple-400 font-bold">{log.booking||"-"}</td>
+                           <td className="p-3 text-slate-400 max-w-[150px] truncate" title={log.remark}>{log.remark||"-"}</td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                 </div>
               </div>
             </div>
           )}
 
-          {/* ═══ SYSTEM CONTROL HUB ════════════════════════════════════ */}
-          {activeTab==="users"&&currentUser.role==="Admin"&&(
-            <div className="space-y-8">
-              <AdminResetRequestsPanel resetRequests={resetRequests} setResetRequests={setResetRequests} triggerToastAlert={triggerToastAlert} />
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
-                <div>
-                  <h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider"><Users className="h-4 w-4"/> Active Corporate Roster</h3>
-                  <p className="text-xs text-slate-400">Manage, modify, or revoke access for deployed team members.</p>
-                  <div className="mt-2 bg-blue-950/30 border border-blue-500/20 rounded-xl p-2.5 flex items-start gap-2"><Info className="h-3.5 w-3.5 text-blue-400 mt-0.5 shrink-0"/><p className="text-[10px] text-blue-300/70">Admin accounts (Shaj, Digital Marketing) are managed separately and not editable here.</p></div>
-                </div>
-                <div className="overflow-x-auto w-full pt-2">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead><tr className="text-slate-500 font-bold border-b border-slate-900 uppercase"><th className="pb-2">Personnel</th><th className="pb-2">Role & Branch</th><th className="pb-2">Contact</th><th className="pb-2 text-right">Actions</th></tr></thead>
-                    <tbody className="divide-y divide-slate-900 text-slate-300">
-                      {users.map(u=>{
-                        const isHardcodedAdmin = HARDCODED_ADMINS.some(a => a.id === u.id);
-                        return (
-                          <tr key={u.id} className={`hover:bg-slate-900/20 transition-all ${isHardcodedAdmin ? "opacity-60" : ""}`}>
-                            <td className="py-3 font-bold text-white">
-                              <div className="flex items-center gap-3">
-                                <div className="h-8 w-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-black text-orange-400">{u.avatar}</div>
-                                <div><p>{u.name} {isHardcodedAdmin && <span className="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded font-black ml-1">SYSTEM</span>}</p><p className="text-[10px] text-slate-500 font-mono font-normal">ID: {u.id}</p></div>
-                              </div>
-                            </td>
-                            <td className="py-3"><p className="font-semibold text-orange-400">{u.role}</p><p className="text-[10px] text-slate-400 font-mono">{u.branch}</p></td>
-                            <td className="py-3 font-mono text-slate-400"><p>{u.phone}</p><p className="text-[10px]">{u.email}</p></td>
-                            <td className="py-3 text-right space-x-2">
-                              {!isHardcodedAdmin ? (
-                                <><button onClick={()=>openEditUserModal(u)} className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded border border-slate-800 transition-colors"><Edit2 className="h-3.5 w-3.5"/></button><button onClick={()=>handleDeleteUser(u.id)} className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded border border-rose-500/20 transition-colors"><Trash2 className="h-3.5 w-3.5"/></button></>
-                              ) : (
-                                <span className="text-[9px] text-slate-600 font-bold uppercase tracking-wider px-2">Protected</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+          {/* ═══ PROJECTS TAB ═════════════════════════════════════════════ */}
+          {activeTab==="projects"&&(
+            <div className="space-y-5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-950 p-5 border border-slate-800 rounded-2xl shadow-xl">
+                <div><h1 className="text-lg lg:text-xl font-black text-white flex items-center gap-2"><Building2 className="h-5 w-5 text-purple-500"/> Project Master</h1><p className="text-[10px] text-slate-500 mt-1">{visibleProjects.length} active projects in system.</p></div>
+                {["Admin","Manager"].includes(currentUser.role)&&<button onClick={()=>setIsProjectModalOpen(true)} className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 text-white font-black text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider shadow-lg flex items-center justify-center gap-2"><Plus className="h-4 w-4"/> New Project</button>}
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl h-fit">
-                  <h3 className="text-sm font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider"><UserPlus className="h-4 w-4"/> Deploy New Profile</h3>
-                  <form onSubmit={handleCreateUserSubmit} className="space-y-4 text-xs pt-1">
-                    <div className="space-y-1"><label className="text-slate-400 font-bold">Full Name *</label><input type="text" required value={newUserForm.name} onChange={e=>setNewUserForm({...newUserForm,name:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-orange-500"/></div>
-                    <div className="space-y-1"><label className="text-slate-400 font-bold">Username Prefix *</label><div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl overflow-hidden focus-within:border-orange-500"><input type="text" required value={newUserForm.emailPrefix} onChange={e=>setNewUserForm({...newUserForm,emailPrefix:e.target.value})} className="w-full bg-transparent p-2.5 text-slate-200 focus:outline-none text-right pr-1" placeholder="username"/><span className="text-slate-500 font-bold pr-3 pl-1 shrink-0 font-mono">@desam</span></div></div>
-                    <div className="space-y-1"><label className="text-slate-400 font-bold">Password *</label><input type="password" required value={newUserForm.pass} onChange={e=>setNewUserForm({...newUserForm,pass:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none"/></div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1"><label className="text-slate-400 font-bold">Role</label><select value={newUserForm.role} onChange={e=>setNewUserForm({...newUserForm,role:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none">{ROLES.filter(r=>r!=="Admin").map(r=><option key={r} value={r}>{r}</option>)}</select></div>
-                      <div className="space-y-1"><label className="text-slate-400 font-bold">Branch</label><select value={newUserForm.branch} onChange={e=>setNewUserForm({...newUserForm,branch:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none">{BRANCHES.map(b=><option key={b} value={b}>{b}</option>)}</select></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                {visibleProjects.map(proj=>{
+                  const prjLeads = leads.filter(l=>l.project===proj.name);
+                  const booked = prjLeads.filter(l=>["Booking Confirmed","Closed"].includes(l.status)).length;
+                  const revenue = booked * proj.price;
+                  return (
+                    <div key={proj.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl hover:border-purple-500/50 transition-colors group">
+                      <div className="flex justify-between items-start mb-4">
+                        <div><h3 className="text-base font-black text-white group-hover:text-purple-400 transition-colors">{proj.name}</h3><div className="flex items-center gap-1.5 mt-1 text-slate-500"><MapPin className="h-3.5 w-3.5"/><span className="text-[11px] truncate max-w-[180px]">{proj.location}</span></div></div>
+                        <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider" style={{backgroundColor:PSC[proj.status]?.bg,color:PSC[proj.status]?.text}}>{proj.status}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 mb-5">
+                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Type</p><p className="text-sm font-black text-white mt-0.5">{proj.type}</p></div>
+                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Base Price</p><p className="text-sm font-black text-emerald-400 mt-0.5 font-mono">₹{proj.price}L</p></div>
+                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Inventory</p><p className="text-sm font-black text-white mt-0.5">{proj.sold} / <span className="text-slate-500">{proj.units}</span></p></div>
+                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Est. Revenue</p><p className="text-sm font-black text-purple-400 mt-0.5 font-mono">₹{revenue}L</p></div>
+                      </div>
+                      {["Admin","Manager"].includes(currentUser.role)&&(
+                        <div className="flex gap-2">
+                          <select value={proj.status} onChange={(e)=>handleProjectStatusChange(proj.id,e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-300 focus:outline-none focus:border-purple-500 uppercase tracking-wider">{PROJECT_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select>
+                        </div>
+                      )}
                     </div>
-                    <div className="space-y-1"><label className="text-slate-400 font-bold">Phone</label><input type="text" value={newUserForm.phone} onChange={e=>setNewUserForm({...newUserForm,phone:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 font-mono"/></div>
-                    <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-md mt-1">Create Profile</button>
-                  </form>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ═══ REPORTS TAB ══════════════════════════════════════════════ */}
+          {activeTab==="reports"&&(
+            <div className="space-y-6">
+              <div className="bg-slate-950 p-6 border border-slate-800 rounded-2xl shadow-xl">
+                <h1 className="text-xl font-black text-white flex items-center gap-2 mb-1"><BarChart3 className="h-6 w-6 text-blue-500"/> Matrix Intelligence</h1>
+                <p className="text-xs text-slate-500">Comprehensive analytical insights generated from system activity.</p>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl"><h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><TrendingUp className="h-4 w-4"/> Daily Activity Trajectory</h3><div className="h-72 w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={callsTrendData} margin={{top:5,right:20,left:-20,bottom:5}}><defs><linearGradient id="colorCalls" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false}/><XAxis dataKey="date" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false}/><YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false}/><Tooltip contentStyle={{backgroundColor:'#0f172a',border:'1px solid #1e293b',borderRadius:'12px',fontSize:'12px',color:'#fff'}} itemStyle={{fontWeight:'900'}}/><Legend wrapperStyle={{fontSize:'10px',fontWeight:'700',paddingTop:'10px'}}/><Area type="monotone" dataKey="calls" name="Total Calls" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorCalls)"/><Line type="monotone" dataKey="siteVisits" name="Site Visits" stroke="#10b981" strokeWidth={3} dot={{r:4}}/><Line type="monotone" dataKey="bookings" name="Bookings" stroke="#8b5cf6" strokeWidth={3} dot={{r:4}}/></ComposedChart></ResponsiveContainer></div></div>
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl"><h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><PieChart className="h-4 w-4"/> Source Origination Share</h3><div className="h-72 w-full"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={sourcewisePieData} cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={4} dataKey="value">{sourcewisePieData.map((entry,index)=><Cell key={`cell-${index}`} fill={PIE_COLORS[index%PIE_COLORS.length]} stroke="rgba(0,0,0,0.2)"/>)}</Pie><Tooltip contentStyle={{backgroundColor:'#0f172a',border:'1px solid #1e293b',borderRadius:'12px',fontSize:'12px',color:'#fff'}} itemStyle={{fontWeight:'900'}}/><Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{fontSize:'10px',fontWeight:'700'}}/></PieChart></ResponsiveContainer></div></div>
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl col-span-1 lg:col-span-2"><h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><Users className="h-4 w-4"/> Executive Matrix Board</h3><div className="overflow-x-auto"><table className="w-full text-left text-[10px] whitespace-nowrap"><thead className="border-b border-slate-800 text-slate-500 uppercase font-bold"><tr><th className="p-3">Personnel</th><th className="p-3 text-center">Calls</th><th className="p-3 text-center">Followup</th><th className="p-3 text-center text-emerald-400">Site Visits</th><th className="p-3 text-center text-purple-400">Bookings</th><th className="p-3 text-center text-amber-400">Reg.</th><th className="p-3 text-center text-rose-400">Cxl.</th><th className="p-3 text-center text-blue-400">Coll.</th></tr></thead><tbody className="divide-y divide-slate-800">{execDetailedMatrix.map(e=><tr key={e.name} className="hover:bg-slate-900/40"><td className="p-3 font-black text-white">{e.name}</td><td className="p-3 text-center font-mono">{e.calls}</td><td className="p-3 text-center font-mono">{e.followups}</td><td className="p-3 text-center font-mono text-emerald-400">{e.siteVisits}</td><td className="p-3 text-center font-mono text-purple-400">{e.bookings}</td><td className="p-3 text-center font-mono text-amber-400">{e.registrations}</td><td className="p-3 text-center font-mono text-rose-400">{e.cancellations}</td><td className="p-3 text-center font-mono text-blue-400">{e.collection}</td></tr>)}</tbody></table></div></div>
+              </div>
+            </div>
+          )}
+
+          {/* ═══ SYSTEM CONTROL HUB (Admin Only) ═════════════════════════ */}
+          {activeTab==="users"&&currentUser.role==="Admin"&&(
+            <div className="space-y-6">
+              <div className="bg-slate-950 p-6 border border-rose-500/30 rounded-2xl shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-8 opacity-5"><Shield className="h-32 w-32 text-rose-500"/></div>
+                <h1 className="text-xl lg:text-2xl font-black text-white flex items-center gap-3 mb-2 relative z-10"><ShieldCheck className="h-7 w-7 text-rose-500"/> System Control Hub</h1>
+                <p className="text-xs text-slate-400 max-w-2xl relative z-10">Administrative panel for managing personnel access, credential resets, and cross-branch assignments.</p>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider mb-6 flex items-center gap-2 border-b border-slate-800 pb-4"><Users className="h-4 w-4 text-blue-500"/> Personnel Directory</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {users.map(u=>(
+                        <div key={u.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-start gap-4 hover:border-slate-700 transition-colors group">
+                          <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-black text-lg shadow-inner flex-shrink-0 ${u.role==="Admin"?"bg-rose-500/10 text-rose-500 border border-rose-500/20":u.role==="Manager"?"bg-purple-500/10 text-purple-500 border border-purple-500/20":"bg-blue-500/10 text-blue-500 border border-blue-500/20"}`}>{u.avatar}</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between"><h4 className="text-sm font-black text-white truncate">{u.name}</h4>{u.role!=="Admin"&&<div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={()=>openEditUserModal(u)} className="p-1.5 text-slate-500 hover:text-blue-400 bg-slate-950 rounded-lg border border-slate-800"><Edit2 className="h-3 w-3"/></button><button onClick={()=>handleDeleteUser(u.id)} className="p-1.5 text-slate-500 hover:text-rose-400 bg-slate-950 rounded-lg border border-slate-800"><Trash2 className="h-3 w-3"/></button></div>}</div>
+                            <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">{u.email}</p>
+                            <div className="flex items-center gap-2 mt-2"><span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${u.role==="Admin"?"bg-rose-500/10 text-rose-400 border-rose-500/20":u.role==="Manager"?"bg-purple-500/10 text-purple-400 border-purple-500/20":"bg-slate-800 text-slate-400 border-slate-700"}`}>{u.role}</span><span className="text-[9px] text-slate-500 font-bold truncate">{u.branch}</span></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-6">
-                  <ExcelImportPanel activityLogs={activityLogs} setActivityLogs={setActivityLogsWrapped} triggerToastAlert={triggerToastAlert}/>
-                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
-                    <h3 className="text-sm font-black text-slate-500 flex items-center gap-2 uppercase tracking-wider"><Upload className="h-4 w-4"/> Lead Paste Import (Tab-Separated)</h3>
-                    <form onSubmit={handleDataImportSubmit} className="space-y-4 pt-1">
-                      <textarea rows={4} value={importText} onChange={e=>setImportText(e.target.value)} placeholder={"Name\tPhone\tEmail\tProject\tLocation\tBudget\tSource"} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-orange-500 font-mono leading-relaxed"/>
-                      <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-3 flex gap-3 items-start text-xs text-slate-400"><Info className="h-4 w-4 text-orange-500 mt-0.5 shrink-0"/><p>Tab-separated paste from Excel. Columns: Name, Phone, Email, Project, Location, Budget, Source</p></div>
-                      <button type="submit" className="w-full flex justify-center items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-black px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all"><FileSpreadsheet className="h-4 w-4"/> Import Leads (paste)</button>
+                  <AdminResetRequestsPanel resetRequests={resetRequests} setResetRequests={setResetRequests} triggerToastAlert={triggerToastAlert} />
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider mb-5 flex items-center gap-2 border-b border-slate-800 pb-4"><UserPlus className="h-4 w-4 text-emerald-500"/> Provision Identity</h3>
+                    <form onSubmit={handleCreateUserSubmit} className="space-y-4 text-xs">
+                      <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Full Name</label><input type="text" required value={newUserForm.name} onChange={e=>setNewUserForm({...newUserForm,name:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-rose-500" placeholder="e.g. John Doe"/></div>
+                      <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Username Prefix</label><div className="flex items-center"><input type="text" required value={newUserForm.emailPrefix} onChange={e=>setNewUserForm({...newUserForm,emailPrefix:e.target.value.replace(/\s+/g,'').toLowerCase()})} className="w-full bg-slate-900 border border-slate-800 rounded-l-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-rose-500 font-mono" placeholder="john"/><span className="bg-slate-800 border border-slate-800 border-l-0 rounded-r-xl px-3 py-2.5 text-slate-500 font-mono font-bold">@desam</span></div></div>
+                      <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Initial Password</label><input type="password" required minLength={6} value={newUserForm.pass} onChange={e=>setNewUserForm({...newUserForm,pass:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-rose-500" placeholder="Minimum 6 characters"/></div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Role</label><select value={newUserForm.role} onChange={e=>setNewUserForm({...newUserForm,role:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-rose-500"><option value="Manager">Manager</option><option value="Executive">Executive</option><option value="Telecaller">Telecaller</option></select></div>
+                        <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Branch</label><select value={newUserForm.branch} onChange={e=>setNewUserForm({...newUserForm,branch:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-rose-500">{BRANCHES.map(b=><option key={b} value={b}>{b}</option>)}</select></div>
+                      </div>
+                      <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Phone Number</label><input type="tel" value={newUserForm.phone} onChange={e=>setNewUserForm({...newUserForm,phone:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-rose-500 font-mono" placeholder="10-digit number"/></div>
+                      <button type="submit" className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg mt-2 flex items-center justify-center gap-2"><UserPlus className="h-4 w-4"/> Provision User</button>
                     </form>
                   </div>
                 </div>
               </div>
             </div>
           )}
-
         </main>
       </div>
 
-      {/* ── CONFIRMATION POPUP ── */}
-      {customPopup.isOpen&&(<div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4"><div className="bg-slate-950 border border-slate-800 w-full max-w-md rounded-2xl p-6 space-y-4 shadow-2xl text-center"><div className="h-12 w-12 bg-orange-500/10 text-orange-500 border border-orange-500/20 rounded-full flex items-center justify-center mx-auto"><ShieldAlert className="h-6 w-6"/></div><div className="space-y-1.5"><h3 className="text-base font-black text-white tracking-wide uppercase">{customPopup.title}</h3><p className="text-xs text-slate-400 leading-relaxed font-medium">{customPopup.message}</p></div><div className="grid grid-cols-2 gap-2.5 pt-2 text-xs uppercase font-black tracking-wider"><button onClick={()=>setCustomPopup({isOpen:false,leadId:null,targetValue:"",type:"status",title:"",message:""})} className="w-full bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white py-2.5 rounded-xl transition-all">✕ Cancel</button><button onClick={confirmCustomPopupAction} className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white py-2.5 rounded-xl transition-all shadow-md">✓ Confirm</button></div></div></div>)}
-
-      {/* ── TOAST ── */}
-      {toastNotification.isVisible&&(<div className="fixed bottom-6 right-6 bg-slate-950 border border-emerald-500/40 text-emerald-400 font-bold px-4 py-3 rounded-xl shadow-2xl z-[110] flex items-center gap-2 text-xs uppercase tracking-wide"><div className="h-5 w-5 bg-emerald-500/10 rounded-full flex items-center justify-center"><Check className="h-3 w-3"/></div>{toastNotification.message}</div>)}
-
-      {/* ── EDIT USER MODAL ── */}
-      {isEditUserModalOpen&&editUserForm&&(<div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl relative"><div className="flex justify-between items-center border-b border-slate-900 pb-3"><h2 className="text-base font-black text-white tracking-wide uppercase">Edit Profile</h2><button onClick={()=>{setIsEditUserModalOpen(false);setEditUserForm(null);}} className="text-slate-500 hover:text-white">✕</button></div><form onSubmit={handleUpdateUserSubmit} className="space-y-4 text-xs"><div className="space-y-1"><label className="text-slate-400 font-bold">Full Name *</label><input type="text" required value={editUserForm.name} onChange={e=>setEditUserForm({...editUserForm,name:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-orange-500"/></div><div className="space-y-1"><label className="text-slate-400 font-bold">Username Prefix *</label><div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl overflow-hidden focus-within:border-orange-500"><input type="text" required value={editUserForm.email.split('@')[0]} onChange={e=>setEditUserForm({...editUserForm,email:`${e.target.value}@desam`})} className="w-full bg-transparent p-2.5 text-slate-200 focus:outline-none text-right pr-1"/><span className="text-slate-500 font-bold pr-3 pl-1 shrink-0 font-mono">@desam</span></div></div><div className="space-y-1"><label className="text-slate-400 font-bold">Password *</label><input type="password" required value={editUserForm.pass} onChange={e=>setEditUserForm({...editUserForm,pass:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none"/></div><div className="grid grid-cols-2 gap-3"><div className="space-y-1"><label className="text-slate-400 font-bold">Role</label><select value={editUserForm.role} onChange={e=>setEditUserForm({...editUserForm,role:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none">{ROLES.filter(r=>r!=="Admin").map(r=><option key={r} value={r}>{r}</option>)}</select></div><div className="space-y-1"><label className="text-slate-400 font-bold">Branch</label><select value={editUserForm.branch} onChange={e=>setEditUserForm({...editUserForm,branch:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none">{BRANCHES.map(b=><option key={b} value={b}>{b}</option>)}</select></div></div><div className="space-y-1"><label className="text-slate-400 font-bold">Phone</label><input type="text" value={editUserForm.phone} onChange={e=>setEditUserForm({...editUserForm,phone:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 font-mono"/></div><button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-3 rounded-xl uppercase tracking-wider transition-all shadow-md mt-2">Update Profile</button></form></div></div>)}
-
-      {/* ── LEAD DETAIL MODAL ── */}
+      {/* ═══ MODALS & OVERLAYS ════════════════════════════════════════════ */}
       {selectedLead&&(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={()=>setSelectedLead(null)}>
-          <div className="bg-slate-950 border border-slate-800 w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl p-6 space-y-6 shadow-2xl" onClick={e=>e.stopPropagation()}>
-            <div className="border-b border-slate-900 pb-3 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
-              <div className="space-y-0.5">
-                <span className="text-[10px] bg-orange-600 font-mono font-black px-2 py-0.5 rounded text-white uppercase tracking-wider">{["Admin","Manager"].includes(currentUser.role)?"Assignment Hub":"Lead Dossier"}</span>
-                <h3 className="text-xl font-black text-white">{selectedLead.name}</h3>
-                <p className="text-xs text-slate-500 tracking-wide font-mono">#{selectedLead.id} • Assigned: <span className="text-slate-300 font-bold">{selectedLead.assignedTo}</span></p>
-                {selectedLead.siteVisitTentativeDate&&<p className="text-xs font-black text-purple-400 mt-1 flex items-center gap-1.5 bg-purple-500/10 border border-purple-500/20 px-3 py-1 rounded-xl w-fit"><Calendar className="h-3.5 w-3.5"/> WALKTHROUGH: {selectedLead.siteVisitTentativeDate}</p>}
-              </div>
-              <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
-                <div className="space-y-1"><label className="text-[9px] font-black uppercase tracking-wider text-slate-500 block">Status</label><select value={selectedLead.status} onChange={e=>handleInlineMilestoneStatusChange(selectedLead.id,e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-black focus:outline-none focus:border-orange-500 cursor-pointer min-w-[150px]" style={{color:SC[selectedLead.status]?.text||"#FFF"}}>{STATUSES.map(st=><option key={st} value={st}>{st}</option>)}</select></div>
-                {["Admin","Manager"].includes(currentUser.role)&&(<div className="space-y-1"><label className="text-[9px] font-black uppercase tracking-wider text-slate-500 block">Assign To</label><select value={selectedLead.assignedTo} onChange={e=>requestOwnerAssignmentPopup(selectedLead.id,e.target.value)} className="bg-slate-900 border border-slate-800 text-slate-100 rounded-xl px-3 py-1.5 text-xs font-black focus:outline-none focus:border-orange-500 cursor-pointer min-w-[180px]"><option value="Unassigned">⚠️ Select Staff</option><optgroup label="Managers">{users.filter(u=>u.role==="Manager").map(u=><option key={u.id} value={u.name}>{u.name} (Mgr)</option>)}</optgroup><optgroup label="Staff">{users.filter(u=>["Executive","Telecaller"].includes(u.role)).map(u=><option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}</optgroup></select></div>)}
-                <button onClick={()=>setSelectedLead(null)} className="text-slate-500 hover:text-white font-bold bg-slate-900 border border-slate-800 p-2 rounded-xl mt-4 self-end">✕</button>
-              </div>
-            </div>
-            {selectedLead.status==="Site Visit Planned"&&(<form onSubmit={commitTentativeWalkthroughPlan} className="bg-purple-950/40 p-4 border border-purple-500/30 rounded-xl space-y-3 text-xs"><div className="flex items-center gap-2 text-purple-400 font-black tracking-wide uppercase"><Calendar className="h-4 w-4"/> Set Tentative Site Visit Date</div><div className="flex gap-2"><input type="date" required min={TODAY_STR} value={tentativeWalkthroughDateInput} onChange={e=>setTentativeWalkthroughDateInput(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 font-mono focus:outline-none focus:border-purple-500 cursor-pointer"/><button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white font-black px-5 rounded-xl uppercase tracking-wider transition-colors shadow-md">Save</button></div></form>)}
-            <div className="bg-slate-900/80 p-4 border border-slate-800 rounded-xl space-y-2 text-xs">
-              <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Contact Info</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-200">
-                <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-lg border border-slate-800">
-                  <span className="text-slate-500 font-mono font-bold text-[9px] uppercase">Primary:</span>
-                  <span className="font-mono font-bold text-orange-400">{selectedLead.phone}</span>
-                  {isMobile && (<MobileCallButton phone={selectedLead.phone} leadName={selectedLead.name} TODAY_STR={TODAY_STR} currentUser={currentUser} onFeedbackSaved={(fb) => handleCallFeedback(selectedLead.id, fb)} />)}
+        <div className="fixed inset-y-0 right-0 w-full sm:w-[450px] lg:w-[500px] bg-slate-950 border-l border-slate-800 shadow-2xl z-50 flex flex-col transform transition-transform duration-300 ease-in-out">
+          <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-900/50">
+            <div><h2 className="text-lg font-black text-white flex items-center gap-2">{selectedLead.name}</h2><p className="text-[10px] text-slate-400 font-mono mt-0.5">{selectedLead.phone} {selectedLead.altPhone&&` / ${selectedLead.altPhone}`}</p></div>
+            <button onClick={()=>setSelectedLead(null)} className="text-slate-500 hover:text-white p-2 hover:bg-slate-800 rounded-xl transition-colors"><X className="h-5 w-5"/></button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-slate-950">
+             <div className="grid grid-cols-2 gap-3 text-xs">
+               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Status</p><div className="mt-1 flex items-center justify-between"><span className="font-black" style={{color:SC[selectedLead.status]?.text}}>{selectedLead.status}</span><button onClick={()=>requestStatusTransitionPopup(selectedLead.id,"Closed")} className="text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded transition-colors">Edit</button></div></div>
+               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Assigned</p><div className="mt-1 flex items-center justify-between"><span className="font-bold text-white truncate">{selectedLead.assignedTo}</span>{["Admin","Manager"].includes(currentUser.role)&&<button onClick={()=>requestOwnerAssignmentPopup(selectedLead.id,"Unassigned")} className="text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded transition-colors">Reassign</button>}</div></div>
+               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Project / Budget</p><p className="font-bold text-orange-400 mt-1 truncate">{selectedLead.project} <span className="text-slate-500 mx-1">•</span> <span className="font-mono text-emerald-400">₹{selectedLead.budget}L</span></p></div>
+               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Source</p><p className="font-bold text-slate-300 mt-1 truncate">{selectedLead.source}</p></div>
+             </div>
+             <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b border-slate-800 pb-2"><Activity className="h-4 w-4 text-blue-400"/><h3 className="text-xs font-black uppercase tracking-wider text-slate-300">Action Center</h3></div>
+                <div className="grid grid-cols-2 gap-2">
+                  <MobileCallButton phone={selectedLead.phone} leadName={selectedLead.name} onFeedbackSaved={(f)=>handleCallFeedback(selectedLead.id, f)} currentUser={currentUser} TODAY_STR={TODAY_STR} />
+                  <a href={`https://wa.me/91${stripPhone(selectedLead.phone)}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-wider bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600 hover:text-white transition-all shadow-md"><MessageSquare className="h-3.5 w-3.5"/> WhatsApp</a>
                 </div>
-                <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-lg border border-slate-800"><span className="text-slate-500 font-mono font-bold text-[9px] uppercase">Alt:</span><span className="font-mono text-slate-300">{selectedLead.altPhone||"—"}</span></div>
-                <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-lg border border-slate-800 col-span-2"><span className="text-slate-500 font-mono font-bold text-[9px] uppercase">Email:</span><span className="font-medium text-slate-300 truncate">{selectedLead.email||"—"}</span></div>
-              </div>
-            </div>
-            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-5">
-              <div className="flex items-center justify-between"><h4 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><Clock className="h-4 w-4 text-orange-500"/> INTERACTION TIMELINE</h4><span className="text-[10px] bg-slate-900 text-slate-400 px-2.5 py-0.5 rounded-full border border-slate-800 font-mono font-bold">{selectedLead.history?.length||0} Entries</span></div>
-              <div className="relative max-h-[280px] overflow-y-auto pr-2 space-y-0 pt-2 pl-2">
-                <div className="absolute left-[56px] top-0 bottom-4 w-1.5 bg-gradient-to-b from-rose-500 via-orange-500 via-amber-500 to-teal-400 rounded-full"></div>
-                {selectedLead.history&&selectedLead.history.length>0?selectedLead.history.map((log,index)=>{
-                  const stepNumber=selectedLead.history.length-index; const stepString=stepNumber<10?`0${stepNumber}`:`${stepNumber}`;
-                  const colorMap=[{text:"text-rose-500",border:"border-rose-500/30",bg:"bg-rose-500",nodeRing:"ring-rose-500/20"},{text:"text-orange-500",border:"border-orange-500/30",bg:"bg-orange-500",nodeRing:"ring-orange-500/20"},{text:"text-amber-500",border:"border-amber-500/30",bg:"bg-amber-400",nodeRing:"ring-amber-500/20"},{text:"text-teal-400",border:"border-teal-400/30",bg:"bg-teal-400",nodeRing:"ring-teal-400/20"}][index%4];
-                  return(<div key={index} className="flex gap-4 items-center pb-5 last:pb-2 group"><div className={`w-10 font-mono font-black text-xs text-right tracking-wider pr-1 shrink-0 ${colorMap.text}`}>STEP</div><div className={`h-8 w-8 rounded-full flex-shrink-0 flex items-center justify-center font-black text-[10px] text-slate-950 ring-4 shadow-md z-10 font-mono ${colorMap.bg} ${colorMap.nodeRing}`}>{stepString}</div><div className={`flex-1 bg-slate-900/50 border ${colorMap.border} p-3 rounded-xl space-y-1 hover:bg-slate-900 transition-all`}><div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1"><h5 className="font-black text-white text-[11px] uppercase tracking-wide">By: <span className={colorMap.text}>{log.by}</span></h5><span className="text-[9px] font-bold text-slate-500 font-mono bg-slate-950 px-1.5 py-0.5 rounded">{log.date}</span></div><p className="text-slate-300 text-[11px] leading-relaxed font-medium pl-1.5 border-l border-slate-800">{log.action}</p></div></div>);
-                }):<p className="text-xs text-slate-500 italic text-center py-6">No history yet.</p>}
-              </div>
-            </div>
-            {!["Admin","Manager"].includes(currentUser.role)&&(
-              <div className="space-y-5 text-xs">
-                <div className="bg-slate-900 p-4 border border-slate-800 rounded-xl grid grid-cols-2 gap-4 font-semibold text-slate-300"><div><p className="text-slate-500 text-[10px] font-bold uppercase">Project</p><p className="text-white mt-0.5 font-bold">{selectedLead.project}</p></div><div><p className="text-slate-500 text-[10px] font-bold uppercase">Budget</p><p className="text-emerald-400 mt-0.5 font-bold font-mono">₹{selectedLead.budget}L</p></div><div className="col-span-2"><p className="text-slate-500 text-[10px] font-bold uppercase">Notes</p><p className="text-slate-300 font-normal mt-0.5 italic">"{selectedLead.notes||'None.'}"</p></div></div>
-                <form onSubmit={commitManualFollowUpReport} className="bg-slate-900/50 p-4 border border-slate-800 rounded-xl space-y-3"><p className="text-[11px] font-black uppercase text-orange-400 tracking-wider">Log Follow-Up</p><div className="space-y-1"><label className="text-slate-400 font-medium text-[10px]">Notes *</label><textarea rows={2} required value={followUpNotes} onChange={e=>setFollowUpNotes(e.target.value)} placeholder="Conversation summary..." className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-slate-200 focus:outline-none"/></div><div className="space-y-1"><label className="text-slate-400 font-medium text-[10px]">Next Follow-up Date *</label><input type="date" required min={TODAY_STR} value={nextFollowUpDate} onChange={e=>setNextFollowUpDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-slate-200 focus:outline-none font-mono cursor-pointer"/></div><button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-2 rounded-xl text-xs uppercase tracking-wider transition-all">Log Follow-up</button></form>
-                <div className="bg-slate-900/50 p-4 border border-slate-800 rounded-xl space-y-3"><p className="text-[11px] font-black uppercase text-amber-400 tracking-wider">Log Site Visit</p><div className="grid grid-cols-2 gap-2"><div className="space-y-1"><label className="text-slate-400 text-[10px]">Visit Date</label><input type="date" value={svDate} onChange={e=>setSvDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-slate-200 font-mono"/></div><div className="space-y-1"><label className="text-slate-400 text-[10px]">Family / Co-Buyers</label><input type="text" value={svFamily} onChange={e=>setSvFamily(e.target.value)} placeholder="Spouse, etc." className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-slate-200"/></div></div><div className="space-y-1"><label className="text-slate-400 text-[10px]">Feedback *</label><textarea rows={1} value={svFeedback} onChange={e=>setSvFeedback(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200 focus:outline-none"/></div><button type="button" onClick={commitSiteWalkthroughLog} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 rounded-xl uppercase tracking-wider">Confirm Site Visit</button></div>
-                <div className="bg-slate-900/50 p-4 border border-slate-800 rounded-xl space-y-3"><p className="text-[11px] font-black uppercase text-emerald-400 tracking-wider">Secure Booking</p><div className="grid grid-cols-2 gap-2"><div className="space-y-1"><label className="text-slate-400 text-[10px]">Unit *</label><input type="text" value={bkUnit} onChange={e=>setBkUnit(e.target.value)} placeholder="e.g. Plot 42" className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-slate-200"/></div><div className="space-y-1"><label className="text-slate-400 text-[10px]">Amount (₹) *</label><input type="number" value={bkAmount} onChange={e=>setBkAmount(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-emerald-400 font-bold focus:outline-none"/></div></div><button type="button" onClick={commitFinancialBookingLog} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-1.5 rounded-xl uppercase tracking-wider">Confirm Booking</button></div>
-              </div>
-            )}
+                <form onSubmit={commitManualFollowUpReport} className="bg-slate-900/50 border border-slate-800 rounded-xl p-3 space-y-3">
+                  <textarea value={followUpNotes} onChange={e=>setFollowUpNotes(e.target.value)} required rows={2} placeholder="Quick follow-up notes..." className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500 resize-none"/>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex-1"><label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Next Follow-up</label><input type="date" required value={nextFollowUpDate} min={TODAY_STR} onChange={e=>setNextFollowUpDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 font-mono mt-0.5"/></div>
+                    <button type="submit" className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-wider px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5"><Send className="h-3 w-3"/> Log</button>
+                  </div>
+                </form>
+             </div>
+             <div className="space-y-3">
+                <div className="flex items-center gap-2 border-b border-slate-800 pb-2"><Calendar className="h-4 w-4 text-orange-400"/><h3 className="text-xs font-black uppercase tracking-wider text-slate-300">Timeline</h3></div>
+                <div className="space-y-3 relative before:absolute before:inset-0 before:ml-2 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-800 before:to-transparent">
+                  {selectedLead.history?.map((h,i)=>(
+                    <div key={i} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                      <div className="flex items-center justify-center w-5 h-5 rounded-full border border-slate-700 bg-slate-900 text-slate-500 group-[.is-active]:text-orange-400 group-[.is-active]:border-orange-500/50 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10"><div className="h-1.5 w-1.5 bg-current rounded-full"/></div>
+                      <div className="w-[calc(100%-2.5rem)] md:w-[calc(50%-1.5rem)] p-3 rounded-xl border border-slate-800 bg-slate-900/60 shadow text-xs">
+                        <div className="flex items-center justify-between mb-1"><span className="font-black text-slate-300">{h.by}</span><span className="font-mono text-[9px] text-slate-500">{h.date}</span></div>
+                        <p className="text-slate-400 leading-relaxed">{h.action}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+             </div>
           </div>
         </div>
       )}
 
-      {/* ── NEW LEAD MODAL ── */}
       {isLeadModalOpen&&(
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl relative">
-            <div className="flex justify-between items-center border-b border-slate-900 pb-3"><h2 className="text-base font-black text-white tracking-wide uppercase">Add New Lead</h2><button onClick={()=>{setIsLeadModalOpen(false);setDuplicateConflictRecord(null);}} className="text-slate-500 hover:text-white">✕</button></div>
-            {duplicateConflictRecord&&(
-              <div className="absolute inset-x-6 top-16 bottom-6 bg-slate-950/95 border border-rose-500/40 rounded-xl p-5 z-20 flex flex-col justify-between space-y-3 backdrop-blur-md">
-                <div className="space-y-3"><div className="flex items-center gap-2 text-rose-400 font-black tracking-wide text-xs"><AlertTriangle className="h-5 w-5 animate-bounce"/> DUPLICATE DETECTED</div><p className="text-slate-400 text-[11px]">Phone <span className="text-white font-black font-mono bg-slate-900 px-1.5 py-0.5 rounded">{duplicateConflictRecord.phone}</span> already exists.</p><div className="bg-rose-500/10 border border-rose-500/20 rounded-lg p-3 space-y-1.5 text-xs"><div className="flex justify-between"><span className="text-rose-300">Customer:</span><span className="text-white font-bold">{duplicateConflictRecord.name}</span></div><div className="flex justify-between"><span className="text-rose-300">Assigned:</span><span className="text-white font-bold">{duplicateConflictRecord.assignedTo}</span></div></div></div>
-                <button type="button" onClick={()=>setDuplicateConflictRecord(null)} className="w-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold py-2 rounded-xl uppercase transition-colors">Edit Number</button>
-              </div>
-            )}
-            <form onSubmit={handleCreateLead} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1"><label className="text-slate-400 font-semibold">Name *</label><input type="text" required value={newLeadForm.name} onChange={e=>setNewLeadForm({...newLeadForm,name:e.target.value})} className="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-slate-200 focus:outline-none focus:border-orange-500"/></div>
-                <div className="space-y-1"><label className="text-slate-400 font-semibold">Source</label><select value={newLeadForm.source} onChange={e=>setNewLeadForm({...newLeadForm,source:e.target.value})} className="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-slate-300 focus:outline-none">{SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1"><label className="text-slate-400 font-semibold">Primary Phone *</label><input type="text" required value={newLeadForm.phone} onChange={e=>handlePhoneInputChange(e.target.value,false)} className="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-slate-200 font-mono font-bold focus:outline-none focus:border-orange-500"/></div>
-                <div className="space-y-1"><label className="text-slate-400 font-semibold">Alt Phone</label><input type="text" value={newLeadForm.altPhone} onChange={e=>handlePhoneInputChange(e.target.value,true)} className="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-slate-200 font-mono focus:outline-none focus:border-orange-500"/></div>
-              </div>
-              <div className="space-y-1"><label className="text-slate-400 font-semibold">Project</label><select value={newLeadForm.project} onChange={e=>setNewLeadForm({...newLeadForm,project:e.target.value})} className="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-slate-300 focus:outline-none">{projects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
-              {currentUser.role==="Admin"&&(
-                <div className="space-y-1">
-                  <label className="text-slate-400 font-semibold flex items-center gap-1.5"><UserCheck className="h-3.5 w-3.5 text-orange-400"/> Assign To</label>
-                  <select value={newLeadForm.assignedTo} onChange={e=>setNewLeadForm({...newLeadForm,assignedTo:e.target.value})} className="w-full bg-slate-900 border border-orange-500/30 p-2.5 rounded-xl text-slate-300 focus:outline-none focus:border-orange-500">
-                    <option value="Unassigned">⚠️ Leave Unassigned</option>
-                    <optgroup label="Managers">{users.filter(u=>u.role==="Manager").map(u=><option key={u.id} value={u.name}>{u.name} (Manager)</option>)}</optgroup>
-                    <optgroup label="Executives">{users.filter(u=>u.role==="Executive").map(u=><option key={u.id} value={u.name}>{u.name} (Executive)</option>)}</optgroup>
-                    <optgroup label="Telecallers">{users.filter(u=>u.role==="Telecaller").map(u=><option key={u.id} value={u.name}>{u.name} (Telecaller)</option>)}</optgroup>
-                  </select>
-                  {newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"&&(
-                    <p className="text-[10px] text-orange-400 font-bold flex items-center gap-1 mt-0.5"><Check className="h-3 w-3"/> Lead will be directly assigned to <span className="text-white">{newLeadForm.assignedTo}</span></p>
-                  )}
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+             <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-gradient-to-r from-orange-900/20 to-transparent">
+               <h2 className="text-lg font-black text-white flex items-center gap-2"><UserPlus className="h-5 w-5 text-orange-500"/> Capture New Lead</h2>
+               <button onClick={()=>setIsLeadModalOpen(false)} className="text-slate-500 hover:text-white p-2 hover:bg-slate-900 rounded-xl transition-colors"><X className="h-5 w-5"/></button>
+             </div>
+             <form onSubmit={handleCreateLead} className="flex-1 overflow-y-auto p-6 space-y-5 text-xs">
+                {duplicateConflictRecord&&<div className="bg-rose-950/40 border border-rose-500/30 p-3 rounded-xl flex items-start gap-3"><AlertTriangle className="h-5 w-5 text-rose-500 mt-0.5 shrink-0"/><div><p className="font-bold text-rose-400">Potential Duplicate Found!</p><p className="text-rose-200/70 mt-1 mb-2">Lead <strong>{duplicateConflictRecord.name}</strong> exists with this number. Status: {duplicateConflictRecord.status}. Assigned to: {duplicateConflictRecord.assignedTo}.</p><button type="button" onClick={()=>{setSelectedLead(duplicateConflictRecord);setIsLeadModalOpen(false);setDuplicateConflictRecord(null);}} className="text-[10px] font-black uppercase tracking-wider bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 px-3 py-1.5 rounded-lg transition-colors border border-rose-500/30">View Existing Lead</button></div></div>}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Full Name *</label><input type="text" required value={newLeadForm.name} onChange={e=>setNewLeadForm({...newLeadForm,name:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500"/></div>
+                  <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Primary Phone *</label><input type="tel" required value={newLeadForm.phone} onChange={e=>handlePhoneInputChange(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono"/></div>
+                  <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Alt Phone</label><input type="tel" value={newLeadForm.altPhone} onChange={e=>handlePhoneInputChange(e.target.value,true)} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono"/></div>
+                  <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Email Address</label><input type="email" value={newLeadForm.email} onChange={e=>setNewLeadForm({...newLeadForm,email:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono"/></div>
+                  <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Location / Area *</label><input type="text" required value={newLeadForm.location} onChange={e=>setNewLeadForm({...newLeadForm,location:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500"/></div>
+                  <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Interest Project *</label><select required value={newLeadForm.project} onChange={e=>setNewLeadForm({...newLeadForm,project:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-orange-500">{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
+                  <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Budget (₹ Lakhs) *</label><input type="number" required min="5" value={newLeadForm.budget} onChange={e=>setNewLeadForm({...newLeadForm,budget:parseInt(e.target.value)||0})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono"/></div>
+                  <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Lead Source *</label><select required value={newLeadForm.source} onChange={e=>setNewLeadForm({...newLeadForm,source:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-orange-500">{SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
+                  {["Admin","Manager"].includes(currentUser.role)&&<div className="space-y-1.5 sm:col-span-2"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Assign To</label><select value={newLeadForm.assignedTo} onChange={e=>setNewLeadForm({...newLeadForm,assignedTo:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-orange-500"><option value="Unassigned">Leave Unassigned (Pool)</option>{visibleUsers.filter(u=>["Executive","Telecaller"].includes(u.role)).map(u=><option key={u.id} value={u.name}>{u.name} ({u.branch})</option>)}</select></div>}
+                  <div className="space-y-1.5 sm:col-span-2"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Initial Notes / Remarks</label><textarea rows={3} value={newLeadForm.notes} onChange={e=>setNewLeadForm({...newLeadForm,notes:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 resize-none"/></div>
                 </div>
-              )}
-              <button type="submit" disabled={!!duplicateConflictRecord} className="w-full bg-gradient-to-r from-orange-600 to-orange-500 text-white font-black py-3 rounded-xl uppercase tracking-wider shadow-lg disabled:opacity-40">Save Lead</button>
+                <div className="pt-4 border-t border-slate-800 flex justify-end gap-3"><button type="button" onClick={()=>setIsLeadModalOpen(false)} className="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors">Cancel</button><button type="submit" disabled={!!duplicateConflictRecord} className="px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 disabled:opacity-50 disabled:cursor-not-allowed text-white shadow-lg transition-all flex items-center gap-2"><CheckCircle2 className="h-4 w-4"/> Save Lead</button></div>
+             </form>
+          </div>
+        </div>
+      )}
+
+      {isActivityLogModalOpen&&(
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 w-full max-w-xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-gradient-to-r from-emerald-900/20 to-transparent">
+              <h2 className="text-lg font-black text-white flex items-center gap-2"><ClipboardList className="h-5 w-5 text-emerald-500"/> Submit Daily Activity Log</h2>
+              <button onClick={()=>setIsActivityLogModalOpen(false)} className="text-slate-500 hover:text-white p-2 hover:bg-slate-900 rounded-xl transition-colors"><X className="h-5 w-5"/></button>
+            </div>
+            <form onSubmit={handleCreateActivityLog} className="flex-1 overflow-y-auto p-6 space-y-5 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Log Date</label><input type="date" required value={newActivityForm.date} max={TODAY_STR} onChange={e=>setNewActivityForm({...newActivityForm,date:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"/></div>
+                {["Admin","Manager"].includes(currentUser.role)?<div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Executive</label><select required value={newActivityForm.executive} onChange={e=>setNewActivityForm({...newActivityForm,executive:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500"><option value="">Select Executive...</option>{visibleUsers.map(u=><option key={u.id} value={u.name}>{u.name}</option>)}</select></div>:<div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Executive</label><input type="text" readOnly value={currentUser.name} className="w-full bg-slate-900/50 border border-slate-800 rounded-xl px-3 py-2 text-slate-400 cursor-not-allowed"/></div>}
+                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Project Base</label><select required value={newActivityForm.project} onChange={e=>setNewActivityForm({...newActivityForm,project:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500">{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
+                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Primary Source</label><select required value={newActivityForm.source} onChange={e=>setNewActivityForm({...newActivityForm,source:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500">{SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
+                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Calls Made</label><input type="number" min="0" required value={newActivityForm.callsMade} onChange={e=>setNewActivityForm({...newActivityForm,callsMade:parseInt(e.target.value)||0})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"/></div>
+                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Call Status</label><select required value={newActivityForm.callStatus} onChange={e=>setNewActivityForm({...newActivityForm,callStatus:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500">{CALL_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
+              </div>
+              <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-xl">
+                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-4 border-b border-slate-800 pb-2">Outcome Metrics</h4>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                  <div className="space-y-1 text-center"><label className="text-slate-400 font-bold text-[9px] uppercase">Followups</label><input type="number" min="0" value={newActivityForm.followup} onChange={e=>setNewActivityForm({...newActivityForm,followup:parseInt(e.target.value)||0})} className="w-full bg-slate-950 border border-slate-800 rounded-lg py-1.5 text-center text-blue-400 font-mono focus:outline-none focus:border-emerald-500"/></div>
+                  <div className="space-y-1 text-center"><label className="text-slate-400 font-bold text-[9px] uppercase">Site Visit</label><input type="number" min="0" value={newActivityForm.siteVisit} onChange={e=>setNewActivityForm({...newActivityForm,siteVisit:parseInt(e.target.value)||0})} className="w-full bg-slate-950 border border-slate-800 rounded-lg py-1.5 text-center text-emerald-400 font-mono focus:outline-none focus:border-emerald-500"/></div>
+                  <div className="space-y-1 text-center"><label className="text-slate-400 font-bold text-[9px] uppercase">Booking</label><input type="number" min="0" value={newActivityForm.booking} onChange={e=>setNewActivityForm({...newActivityForm,booking:parseInt(e.target.value)||0})} className="w-full bg-slate-950 border border-slate-800 rounded-lg py-1.5 text-center text-purple-400 font-mono focus:outline-none focus:border-emerald-500"/></div>
+                  <div className="space-y-1 text-center"><label className="text-slate-400 font-bold text-[9px] uppercase">Reg.</label><input type="number" min="0" value={newActivityForm.registration} onChange={e=>setNewActivityForm({...newActivityForm,registration:parseInt(e.target.value)||0})} className="w-full bg-slate-950 border border-slate-800 rounded-lg py-1.5 text-center text-amber-400 font-mono focus:outline-none focus:border-emerald-500"/></div>
+                  <div className="space-y-1 text-center"><label className="text-slate-400 font-bold text-[9px] uppercase">Cancel.</label><input type="number" min="0" value={newActivityForm.cancellation} onChange={e=>setNewActivityForm({...newActivityForm,cancellation:parseInt(e.target.value)||0})} className="w-full bg-slate-950 border border-slate-800 rounded-lg py-1.5 text-center text-rose-400 font-mono focus:outline-none focus:border-emerald-500"/></div>
+                  <div className="space-y-1 text-center"><label className="text-slate-400 font-bold text-[9px] uppercase">Collect.</label><input type="number" min="0" value={newActivityForm.collection} onChange={e=>setNewActivityForm({...newActivityForm,collection:parseInt(e.target.value)||0})} className="w-full bg-slate-950 border border-slate-800 rounded-lg py-1.5 text-center text-cyan-400 font-mono focus:outline-none focus:border-emerald-500" title="Collection Amount"/></div>
+                </div>
+              </div>
+              <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">End of Day Remarks</label><textarea rows={2} value={newActivityForm.remark} onChange={e=>setNewActivityForm({...newActivityForm,remark:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 resize-none"/></div>
+              <div className="pt-4 border-t border-slate-800 flex justify-end gap-3"><button type="button" onClick={()=>setIsActivityLogModalOpen(false)} className="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors">Cancel</button><button type="submit" className="px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 text-white shadow-lg transition-all flex items-center gap-2"><CheckCircle2 className="h-4 w-4"/> Save Log</button></div>
             </form>
           </div>
         </div>
       )}
 
-      {/* ── NEW PROJECT MODAL ── */}
-      {isProjectModalOpen&&(<div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl"><div className="flex justify-between items-center border-b border-slate-900 pb-3"><h2 className="text-base font-black text-white tracking-wide uppercase">Add New Project</h2><button onClick={()=>setIsProjectModalOpen(false)} className="text-slate-500 hover:text-white">✕</button></div><form onSubmit={handleCreateProject} className="space-y-4 text-xs"><div className="space-y-1"><label className="text-slate-400 font-semibold">Project Name *</label><input type="text" required value={newProjectForm.name} onChange={e=>setNewProjectForm({...newProjectForm,name:e.target.value})} className="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-slate-200 focus:outline-none focus:border-orange-500"/></div><div className="grid grid-cols-2 gap-3"><div className="space-y-1"><label className="text-slate-400 font-semibold">Location *</label><input type="text" required value={newProjectForm.location} onChange={e=>setNewProjectForm({...newProjectForm,location:e.target.value})} className="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-slate-200 focus:outline-none"/></div><div className="space-y-1"><label className="text-slate-400 font-semibold">Branch</label><select value={newProjectForm.branch} onChange={e=>setNewProjectForm({...newProjectForm,branch:e.target.value})} className="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-slate-300 focus:outline-none">{BRANCHES.map(b=><option key={b} value={b}>{b}</option>)}</select></div></div><div className="grid grid-cols-3 gap-2"><div className="space-y-1"><label className="text-slate-400 font-semibold">Type</label><select value={newProjectForm.type} onChange={e=>setNewProjectForm({...newProjectForm,type:e.target.value})} className="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-slate-300 focus:outline-none">{PROJECT_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select></div><div className="space-y-1"><label className="text-slate-400 font-semibold">Price (₹L)</label><input type="number" value={newProjectForm.price} onChange={e=>setNewProjectForm({...newProjectForm,price:e.target.value})} className="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-slate-200 font-mono"/></div><div className="space-y-1"><label className="text-slate-400 font-semibold">Status</label><select value={newProjectForm.status} onChange={e=>setNewProjectForm({...newProjectForm,status:e.target.value})} className="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-slate-300 focus:outline-none">{PROJECT_STATUSES.map(st=><option key={st} value={st}>{st}</option>)}</select></div></div><div className="grid grid-cols-2 gap-3"><div className="space-y-1"><label className="text-slate-400 font-semibold">Total Units</label><input type="number" value={newProjectForm.units} onChange={e=>setNewProjectForm({...newProjectForm,units:e.target.value})} className="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-slate-200"/></div><div className="space-y-1"><label className="text-slate-400 font-semibold">Sold Units</label><input type="number" value={newProjectForm.sold} onChange={e=>setNewProjectForm({...newProjectForm,sold:e.target.value})} className="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-slate-200"/></div></div><button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 text-white font-black py-3 rounded-xl uppercase tracking-wider shadow-lg">Add Project</button></form></div></div>)}
+      {isProjectModalOpen&&(
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-gradient-to-r from-purple-900/20 to-transparent">
+              <h2 className="text-lg font-black text-white flex items-center gap-2"><Building2 className="h-5 w-5 text-purple-500"/> Create Project</h2>
+              <button onClick={()=>setIsProjectModalOpen(false)} className="text-slate-500 hover:text-white p-2 hover:bg-slate-900 rounded-xl transition-colors"><X className="h-5 w-5"/></button>
+            </div>
+            <form onSubmit={handleCreateProject} className="p-6 space-y-5 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Project Name *</label><input type="text" required value={newProjectForm.name} onChange={e=>setNewProjectForm({...newProjectForm,name:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-purple-500"/></div>
+                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Location *</label><input type="text" required value={newProjectForm.location} onChange={e=>setNewProjectForm({...newProjectForm,location:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-purple-500"/></div>
+                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Branch / Region</label><select value={newProjectForm.branch} onChange={e=>setNewProjectForm({...newProjectForm,branch:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-purple-500">{BRANCHES.map(b=><option key={b} value={b}>{b}</option>)}</select></div>
+                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Project Type</label><select value={newProjectForm.type} onChange={e=>setNewProjectForm({...newProjectForm,type:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-purple-500">{PROJECT_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
+                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Base Price (₹ Lakhs)</label><input type="number" required min="1" value={newProjectForm.price} onChange={e=>setNewProjectForm({...newProjectForm,price:parseInt(e.target.value)||0})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-purple-500 font-mono"/></div>
+                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Total Units / Plots</label><input type="number" required min="1" value={newProjectForm.units} onChange={e=>setNewProjectForm({...newProjectForm,units:parseInt(e.target.value)||0})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-purple-500 font-mono"/></div>
+              </div>
+              <div className="pt-4 border-t border-slate-800 flex justify-end gap-3"><button type="button" onClick={()=>setIsProjectModalOpen(false)} className="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors">Cancel</button><button type="submit" className="px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 text-white shadow-lg transition-all flex items-center gap-2"><CheckCircle2 className="h-4 w-4"/> Initialize Project</button></div>
+            </form>
+          </div>
+        </div>
+      )}
 
-      {/* ── ADD ACTIVITY LOG MODAL ── */}
-      {isActivityLogModalOpen&&(<div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 w-full max-w-2xl space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto"><div className="flex justify-between items-center border-b border-slate-900 pb-3"><h2 className="text-base font-black text-white tracking-wide uppercase">Add Daily Activity Log</h2><button onClick={()=>setIsActivityLogModalOpen(false)} className="text-slate-500 hover:text-white">✕</button></div><form onSubmit={handleCreateActivityLog} className="space-y-4 text-xs"><div className="grid grid-cols-2 gap-3"><div className="space-y-1"><label className="text-slate-400 font-bold">Date *</label><input type="date" required value={newActivityForm.date} onChange={e=>setNewActivityForm({...newActivityForm,date:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 font-mono focus:outline-none focus:border-orange-500"/></div><div className="space-y-1"><label className="text-slate-400 font-bold">Executive/Telecaller *</label>{["Admin","Manager"].includes(currentUser.role)?(<select value={newActivityForm.executive} onChange={e=>setNewActivityForm({...newActivityForm,executive:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none" required><option value="">Select Executive</option>{users.filter(u=>["Executive","Telecaller","Manager"].includes(u.role)).map(u=><option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}</select>):(<input type="text" value={currentUser.name} disabled className="w-full bg-slate-900/50 border border-slate-800 rounded-xl p-2.5 text-slate-400 opacity-70"/>)}</div></div><div className="grid grid-cols-2 gap-3"><div className="space-y-1"><label className="text-slate-400 font-bold">Project *</label><select required value={newActivityForm.project} onChange={e=>setNewActivityForm({...newActivityForm,project:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none">{projects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select></div><div className="space-y-1"><label className="text-slate-400 font-bold">Source *</label><select required value={newActivityForm.source} onChange={e=>setNewActivityForm({...newActivityForm,source:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none">{SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select></div></div><div className="grid grid-cols-2 gap-3"><div className="space-y-1"><label className="text-slate-400 font-bold">Calls Made</label><input type="number" min="0" value={newActivityForm.callsMade} onChange={e=>setNewActivityForm({...newActivityForm,callsMade:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 font-mono focus:outline-none"/></div><div className="space-y-1"><label className="text-slate-400 font-bold">Call Status</label><select value={newActivityForm.callStatus} onChange={e=>setNewActivityForm({...newActivityForm,callStatus:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-300 focus:outline-none">{CALL_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select></div></div><div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">{[{key:"followup",label:"Followup",color:"text-blue-400"},{key:"siteVisit",label:"Site Visit",color:"text-emerald-400"},{key:"booking",label:"Booking",color:"text-purple-400"},{key:"registration",label:"Registration",color:"text-amber-400"},{key:"cancellation",label:"Cancellation",color:"text-rose-400"},{key:"collection",label:"Collection (₹L)",color:"text-cyan-400"}].map(f=>(<div key={f.key} className="space-y-1"><label className={`font-bold text-[10px] uppercase ${f.color}`}>{f.label}</label><input type="number" min="0" value={newActivityForm[f.key]} onChange={e=>setNewActivityForm({...newActivityForm,[f.key]:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 font-mono focus:outline-none focus:border-orange-500"/></div>))}</div><div className="space-y-1"><label className="text-slate-400 font-bold">Remark</label><textarea rows={2} value={newActivityForm.remark} onChange={e=>setNewActivityForm({...newActivityForm,remark:e.target.value})} placeholder="Notes about calls, follow-ups, or client feedback..." className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-orange-500"/></div><button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-3 rounded-xl uppercase tracking-wider shadow-lg">Save Activity Log</button></form></div></div>)}
+      {isEditUserModalOpen&&editUserForm&&(
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-slate-800">
+              <h2 className="text-lg font-black text-white flex items-center gap-2"><Edit2 className="h-5 w-5 text-blue-500"/> Edit Personnel Info</h2>
+              <button onClick={()=>{setIsEditUserModalOpen(false);setEditUserForm(null);}} className="text-slate-500 hover:text-white p-2 hover:bg-slate-900 rounded-xl transition-colors"><X className="h-5 w-5"/></button>
+            </div>
+            <form onSubmit={handleUpdateUserSubmit} className="p-6 space-y-4 text-xs">
+              <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Full Name</label><input type="text" required value={editUserForm.name} onChange={e=>setEditUserForm({...editUserForm,name:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-blue-500"/></div>
+              <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Username / Email</label><input type="text" required value={editUserForm.email} onChange={e=>setEditUserForm({...editUserForm,email:e.target.value.toLowerCase().replace(/\s/g,'')})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-blue-500 font-mono"/></div>
+              <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Phone Number</label><input type="tel" required value={editUserForm.phone} onChange={e=>setEditUserForm({...editUserForm,phone:stripPhone(e.target.value)})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-blue-500 font-mono"/></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Role</label><select value={editUserForm.role} onChange={e=>setEditUserForm({...editUserForm,role:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-blue-500"><option value="Manager">Manager</option><option value="Executive">Executive</option><option value="Telecaller">Telecaller</option></select></div>
+                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Branch</label><select value={editUserForm.branch} onChange={e=>setEditUserForm({...editUserForm,branch:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-blue-500">{BRANCHES.map(b=><option key={b} value={b}>{b}</option>)}</select></div>
+              </div>
+              <div className="pt-4 border-t border-slate-800 flex justify-end gap-3"><button type="button" onClick={()=>{setIsEditUserModalOpen(false);setEditUserForm(null);}} className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors">Cancel</button><button type="submit" className="px-5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition-all">Save Changes</button></div>
+            </form>
+          </div>
+        </div>
+      )}
 
+      {customPopup.isOpen&&(
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 w-full max-w-sm rounded-2xl shadow-2xl p-6 text-center space-y-5">
+            <div className="mx-auto w-12 h-12 rounded-full bg-orange-500/10 border border-orange-500/20 flex items-center justify-center mb-2"><AlertCircle className="h-6 w-6 text-orange-400"/></div>
+            <div><h3 className="text-lg font-black text-white">{customPopup.title}</h3><p className="text-xs text-slate-400 mt-2 leading-relaxed">{customPopup.message}</p></div>
+            <div className="grid grid-cols-2 gap-3 pt-2"><button onClick={()=>setCustomPopup({isOpen:false,leadId:null,targetValue:"",type:"status",title:"",message:""})} className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors">Cancel</button><button onClick={confirmCustomPopupAction} className="py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white shadow-lg transition-all">Confirm</button></div>
+          </div>
+        </div>
+      )}
+
+      {toastNotification.isVisible&&(
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] animate-bounce"><div className="bg-slate-800 border border-slate-700 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-emerald-400"/><span className="text-xs font-black tracking-wide">{toastNotification.message}</span></div></div>
+      )}
     </div>
   );
 }

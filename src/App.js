@@ -1126,8 +1126,9 @@ export default function App() {
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [editUserForm, setEditUserForm] = useState(null);
   const [statusEditLeadId, setStatusEditLeadId] = useState(null);
+  const [projectEditLeadId, setProjectEditLeadId] = useState(null);
   const [selectedWhatsappTemplateId, setSelectedWhatsappTemplateId] = useState("");
-  const [newWhatsappTemplateForm, setNewWhatsappTemplateForm] = useState({ project:"All", title:"", message:"" });
+  const [newWhatsappTemplateForm, setNewWhatsappTemplateForm] = useState({ project:"All", title:"", message:"", imageUrl:"" });
 
   useEffect(() => {
     setSelectedWhatsappTemplateId("");
@@ -1497,13 +1498,18 @@ export default function App() {
 
   const handleLeadProjectChange = async (leadId, projectName) => {
     const lead = leads.find(l => l.id === leadId);
-    if (!lead || lead.project === projectName) return;
+    if (!lead || lead.project === projectName) {
+      setProjectEditLeadId(null);
+      return;
+    }
     const project = projects.find(p => p.name === projectName);
     const log = { date:TODAY_STR, by:currentUser.name, action:`Project changed from ${lead.project || "Not set"} to ${projectName}.` };
     const updated = leads.map(l => l.id === leadId ? { ...l, project:projectName, branch:project?.branch || l.branch, history:[log, ...(l.history || [])] } : l);
     const saved = await setLeads(updated);
     if(!saved){ triggerToastAlert("Could not save project change to Supabase."); return; }
     if(selectedLead?.id === leadId)setSelectedLead(prev => ({ ...prev, project:projectName, branch:project?.branch || prev.branch, history:[log, ...(prev.history || [])] }));
+    setProjectEditLeadId(null);
+    setSelectedWhatsappTemplateId("");
     triggerToastAlert("Project updated.");
   };
 
@@ -1515,12 +1521,13 @@ export default function App() {
       project: newWhatsappTemplateForm.project || "All",
       title: newWhatsappTemplateForm.title.trim(),
       message: newWhatsappTemplateForm.message.trim(),
+      imageUrl: newWhatsappTemplateForm.imageUrl.trim(),
       createdBy: currentUser.name,
       createdAt: TODAY_STR,
     };
     const saved = await setWhatsappTemplates([template, ...whatsappTemplates]);
     if(!saved){ triggerToastAlert("Could not save WhatsApp template."); return; }
-    setNewWhatsappTemplateForm({ project:"All", title:"", message:"" });
+    setNewWhatsappTemplateForm({ project:"All", title:"", message:"", imageUrl:"" });
     triggerToastAlert("WhatsApp template saved.");
   };
 
@@ -1531,10 +1538,11 @@ export default function App() {
   };
 
   const buildWhatsappTemplateMessage = (template, lead) => {
-    return (template?.message || "")
+    const message = (template?.message || "")
       .replaceAll("{name}", lead?.name || "")
       .replaceAll("{project}", lead?.project || "")
       .replaceAll("{phone}", lead?.phone || "");
+    return template?.imageUrl ? `${message}\n\n${template.imageUrl}` : message;
   };
 
   const handleSendWhatsappTemplate = () => {
@@ -1702,6 +1710,62 @@ export default function App() {
       try { localStorage.setItem(`crm_assignment_notices:${currentUser.id}`, JSON.stringify(next)); } catch {}
       return next;
     });
+  };
+
+  const selectedRangeReportTotals = useMemo(()=>{
+    const people = rangePeopleActivitySummary.reduce((acc,row)=>{
+      acc.calls += row.calls || 0; acc.followup += row.followup || 0; acc.siteVisit += row.siteVisit || 0; acc.booking += row.booking || 0; acc.registration += row.registration || 0; acc.cancellation += row.cancellation || 0;
+      return acc;
+    },{calls:0,followup:0,siteVisit:0,booking:0,registration:0,cancellation:0});
+    const source = rangeSourceReport.reduce((acc,row)=>{
+      acc.enquiry += row.enquiry || 0; acc.siteVisit += row.siteVisit || 0; acc.conversion += row.conversion || 0;
+      return acc;
+    },{enquiry:0,siteVisit:0,conversion:0});
+    source.percentage = source.enquiry ? ((source.conversion/source.enquiry)*100).toFixed(1) : "0.0";
+    return { people, source };
+  },[rangePeopleActivitySummary,rangeSourceReport]);
+
+  const exportSelectedRangeReport = (formatType) => {
+    const peopleHeaders = ["Name","Role","Calls","Followup","Site Visit","Booking","Registration","Cancellation"];
+    const peopleRows = rangePeopleActivitySummary.map(r=>[r.name,r.role,r.calls,r.followup,r.siteVisit,r.booking,r.registration,r.cancellation]);
+    const sourceHeaders = ["Source","Enquiry","Site Visit","Conversion","Percentage"];
+    const sourceRows = rangeSourceReport.map(r=>[r.source,r.enquiry,r.siteVisit,r.conversion,`${r.percentage}%`]);
+    const fileStem = `Desam_Selected_Range_Report_${reportStartDate}_to_${reportEndDate}`;
+    if(formatType==="excel"){
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([peopleHeaders,...peopleRows]), "Staff Activity");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([sourceHeaders,...sourceRows]), "Sourcewise");
+      const buffer = XLSX.write(wb, { bookType:"xlsx", type:"array" });
+      const blob = new Blob([buffer], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${fileStem}.xlsx`;document.body.appendChild(a);a.click();URL.revokeObjectURL(a.href);document.body.removeChild(a);
+      triggerToastAlert("Selected range exported as Excel.");
+      return;
+    }
+    if(formatType==="csv"){
+      const fmtCell=(val)=>{const s=val===null||val===undefined?"":String(val);return s.includes(",")||s.includes('"')||s.includes("\n")?`"${s.replace(/"/g,'""')}"`:s;};
+      const lines = [
+        `Selected Range Report,${reportStartDate} to ${reportEndDate}`,
+        "",
+        "Staff Activity",
+        peopleHeaders.map(fmtCell).join(","),
+        ...peopleRows.map(r=>r.map(fmtCell).join(",")),
+        "",
+        "Sourcewise Report",
+        sourceHeaders.map(fmtCell).join(","),
+        ...sourceRows.map(r=>r.map(fmtCell).join(",")),
+      ];
+      const blob=new Blob([lines.join("\n")],{type:"text/csv;charset=utf-8;"});
+      const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${fileStem}.csv`;document.body.appendChild(a);a.click();URL.revokeObjectURL(a.href);document.body.removeChild(a);
+      triggerToastAlert("Selected range exported as CSV.");
+      return;
+    }
+    const peopleBody = peopleRows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("");
+    const sourceBody = sourceRows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("");
+    const win = window.open("", "_blank");
+    if(!win){ triggerToastAlert("Allow popup to export PDF."); return; }
+    win.document.write(`<html><head><title>${fileStem}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px}h2{font-size:15px;margin-top:24px}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px}th,td{border:1px solid #ddd;padding:7px;text-align:left}th{background:#f1f5f9}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:16px 0}.box{border:1px solid #ddd;padding:10px}.box b{display:block;font-size:16px}</style></head><body><h1>Selected Range Report</h1><p>${reportStartDate} to ${reportEndDate}</p><div class="summary"><div class="box">Calls<b>${selectedRangeReportTotals.people.calls}</b></div><div class="box">Followup<b>${selectedRangeReportTotals.people.followup}</b></div><div class="box">Site Visit<b>${selectedRangeReportTotals.people.siteVisit}</b></div><div class="box">Conversion %<b>${selectedRangeReportTotals.source.percentage}%</b></div></div><h2>Staff Activity</h2><table><thead><tr>${peopleHeaders.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${peopleBody}</tbody></table><h2>Sourcewise Report</h2><table><thead><tr>${sourceHeaders.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${sourceBody}</tbody></table><script>window.onload=()=>{window.print();}</script></body></html>`);
+    win.document.close();
+    triggerToastAlert("PDF report opened.");
   };
 
   const renderPeopleActivityTable = (title, rows) => (
@@ -2060,13 +2124,14 @@ export default function App() {
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-950 p-5 border border-slate-800 rounded-2xl shadow-xl">
                 <div><h1 className="text-lg lg:text-xl font-black text-white flex items-center gap-2"><MessageSquare className="h-5 w-5 text-emerald-500"/> WhatsApp Templates</h1><p className="text-[10px] text-slate-500 mt-1">{whatsappTemplates.length} saved project messages.</p></div>
               </div>
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
                 {["Admin","Manager"].includes(currentUser.role)&&(
                   <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl xl:col-span-1">
                     <h3 className="text-sm font-black text-white uppercase tracking-wider mb-5 flex items-center gap-2"><Plus className="h-4 w-4 text-emerald-500"/> Create Template</h3>
                     <form onSubmit={handleCreateWhatsappTemplate} className="space-y-4 text-xs">
                       <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Project</label><select value={newWhatsappTemplateForm.project} onChange={e=>setNewWhatsappTemplateForm({...newWhatsappTemplateForm,project:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-emerald-500"><option value="All">All Projects</option>{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
                       <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Title</label><input type="text" required value={newWhatsappTemplateForm.title} onChange={e=>setNewWhatsappTemplateForm({...newWhatsappTemplateForm,title:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-emerald-500" placeholder="Initial call message"/></div>
+                      <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Image URL</label><input type="url" value={newWhatsappTemplateForm.imageUrl} onChange={e=>setNewWhatsappTemplateForm({...newWhatsappTemplateForm,imageUrl:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-emerald-500" placeholder="https://..."/></div>
                       <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Message</label><textarea required rows={8} value={newWhatsappTemplateForm.message} onChange={e=>setNewWhatsappTemplateForm({...newWhatsappTemplateForm,message:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-emerald-500 resize-none" placeholder="Hello {name}, thank you for your interest in {project}."/></div>
                       <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider transition-colors flex items-center justify-center gap-2"><CheckCircle2 className="h-4 w-4"/> Save Template</button>
                     </form>
@@ -2080,7 +2145,9 @@ export default function App() {
                         <div><h3 className="text-sm font-black text-white">{t.title}</h3><p className="text-[10px] text-emerald-400 font-bold mt-1">{t.project}</p></div>
                         {["Admin","Manager"].includes(currentUser.role)&&<button onClick={()=>handleDeleteWhatsappTemplate(t.id)} className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-500 hover:text-rose-400"><Trash2 className="h-3.5 w-3.5"/></button>}
                       </div>
+                      {t.imageUrl&&<div className="mb-3 overflow-hidden rounded-xl border border-slate-800 bg-slate-900"><img src={t.imageUrl} alt={t.title} className="w-full h-32 object-cover" onError={e=>{e.currentTarget.style.display='none';}}/></div>}
                       <p className="text-xs text-slate-400 leading-relaxed whitespace-pre-wrap">{t.message}</p>
+                      {t.imageUrl&&<p className="text-[10px] text-emerald-400 mt-3 truncate font-mono">{t.imageUrl}</p>}
                       <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-[9px] text-slate-600 font-bold uppercase tracking-wider"><span>{t.createdBy}</span><span>{t.createdAt}</span></div>
                     </div>
                   ))}
@@ -2102,19 +2169,35 @@ export default function App() {
                     <div className="relative"><Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500"/><input type="date" value={reportStartDate} onChange={e=>setReportStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-3 py-2 text-slate-300 focus:outline-none focus:border-blue-500 font-mono"/></div>
                     <span className="hidden sm:block text-slate-600">-</span>
                     <div className="relative"><Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500"/><input type="date" value={reportEndDate} onChange={e=>setReportEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-3 py-2 text-slate-300 focus:outline-none focus:border-blue-500 font-mono"/></div>
+                    <button onClick={()=>exportSelectedRangeReport("excel")} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><FileSpreadsheet className="h-3.5 w-3.5"/> Excel</button>
+                    <button onClick={()=>exportSelectedRangeReport("csv")} className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><Table2 className="h-3.5 w-3.5"/> CSV</button>
+                    <button onClick={()=>exportSelectedRangeReport("pdf")} className="bg-rose-600 hover:bg-rose-700 text-white font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><FileText className="h-3.5 w-3.5"/> PDF</button>
                     {(reportStartDate!==TODAY_STR||reportEndDate!==TODAY_STR)&&<button onClick={()=>{setReportStartDate(TODAY_STR);setReportEndDate(TODAY_STR);}} className="text-blue-400 hover:text-blue-300 font-bold px-3 py-2 border border-blue-500/30 rounded-lg flex items-center justify-center gap-1 bg-blue-500/10"><X className="h-3.5 w-3.5"/> Clear</button>}
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+              <div className="space-y-5">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                  <div><h3 className="text-sm font-black text-white uppercase tracking-wider">Selected Range Full View</h3><p className="text-[10px] text-slate-500 mt-1">{reportStartDate} to {reportEndDate}</p></div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px]">
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Calls</p><p className="text-lg font-black text-white font-mono">{selectedRangeReportTotals.people.calls}</p></div>
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Followup</p><p className="text-lg font-black text-blue-400 font-mono">{selectedRangeReportTotals.people.followup}</p></div>
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Site Visit</p><p className="text-lg font-black text-emerald-400 font-mono">{selectedRangeReportTotals.people.siteVisit}</p></div>
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Conversion</p><p className="text-lg font-black text-orange-400 font-mono">{selectedRangeReportTotals.source.percentage}%</p></div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 2xl:grid-cols-2 gap-5">
+                  {renderPeopleActivityTable("Staff Activity", rangePeopleActivitySummary)}
+                  {renderSourceReportTable("Sourcewise Result", rangeSourceReport)}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
                 {renderPeopleActivityTable(`Today Activity (${TODAY_STR})`, todayPeopleActivitySummary)}
                 {renderPeopleActivityTable(`Month Activity (${monthStartDate} to ${TODAY_STR})`, monthPeopleActivitySummary)}
-                {renderPeopleActivityTable("Selected Range Activity", rangePeopleActivitySummary)}
               </div>
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
                 {renderSourceReportTable(`Today Sourcewise (${TODAY_STR})`, todaySourceReport)}
                 {renderSourceReportTable(`Month Sourcewise (${monthStartDate} to ${TODAY_STR})`, monthSourceReport)}
-                {renderSourceReportTable("Selected Range Sourcewise", rangeSourceReport)}
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl"><h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><TrendingUp className="h-4 w-4"/> Daily Activity Trajectory</h3><div className="h-72 w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={callsTrendData} margin={{top:5,right:20,left:-20,bottom:5}}><defs><linearGradient id="colorCalls" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false}/><XAxis dataKey="date" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false}/><YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false}/><Tooltip contentStyle={{backgroundColor:'#0f172a',border:'1px solid #1e293b',borderRadius:'12px',fontSize:'12px',color:'#fff'}} itemStyle={{fontWeight:'900'}}/><Legend wrapperStyle={{fontSize:'10px',fontWeight:'700',paddingTop:'10px'}}/><Area type="monotone" dataKey="calls" name="Total Calls" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorCalls)"/><Line type="monotone" dataKey="siteVisits" name="Site Visits" stroke="#10b981" strokeWidth={3} dot={{r:4}}/><Line type="monotone" dataKey="bookings" name="Bookings" stroke="#8b5cf6" strokeWidth={3} dot={{r:4}}/></ComposedChart></ResponsiveContainer></div></div>
@@ -2184,10 +2267,9 @@ export default function App() {
              <div className="grid grid-cols-2 gap-3 text-xs">
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Status</p>{statusEditLeadId===selectedLead.id?<select autoFocus value={selectedLead.status} onChange={e=>handleLeadStatusDropdownChange(selectedLead.id,e.target.value)} onBlur={()=>setStatusEditLeadId(null)} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500">{STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select>:<div className="mt-1 flex items-center justify-between gap-2"><span className="font-black truncate" style={{color:SC[selectedLead.status]?.text}}>{selectedLead.status}</span><button onClick={()=>setStatusEditLeadId(selectedLead.id)} className="text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded transition-colors">Edit</button></div>}</div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Assigned</p>{["Admin","Manager"].includes(currentUser.role)?<select value={selectedLead.assignedTo||"Unassigned"} onChange={e=>requestOwnerAssignmentPopup(selectedLead.id,e.target.value)} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500"><option value="Unassigned">Unassigned</option>{assignableUsers.map(u=><option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}</select>:<p className="font-bold text-white truncate mt-1">{selectedLead.assignedTo}</p>}</div>
-               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Project / Budget</p><p className="font-bold text-orange-400 mt-1 truncate">{selectedLead.project} <span className="text-slate-500 mx-1">•</span> <span className="font-mono text-emerald-400">₹{selectedLead.budget}L</span></p></div>
+               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Project / Budget</p>{projectEditLeadId===selectedLead.id?<select autoFocus value={selectedLead.project||""} onChange={e=>handleLeadProjectChange(selectedLead.id,e.target.value)} onBlur={()=>setProjectEditLeadId(null)} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-orange-400 focus:outline-none focus:border-orange-500">{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select>:<div className="mt-1 flex items-center justify-between gap-2"><p className="font-bold text-orange-400 truncate">{selectedLead.project} <span className="text-slate-500 mx-1">•</span> <span className="font-mono text-emerald-400">₹{selectedLead.budget}L</span></p><button onClick={()=>setProjectEditLeadId(selectedLead.id)} className="text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded transition-colors">Edit</button></div>}</div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Source</p><p className="font-bold text-slate-300 mt-1 truncate">{selectedLead.source}</p></div>
              </div>
-             <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Change Project</p><select value={selectedLead.project||""} onChange={e=>handleLeadProjectChange(selectedLead.id,e.target.value)} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-2 text-[10px] font-bold text-orange-400 focus:outline-none focus:border-orange-500">{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
              <div className="space-y-4">
                 <div className="flex items-center gap-2 border-b border-slate-800 pb-2"><Activity className="h-4 w-4 text-blue-400"/><h3 className="text-xs font-black uppercase tracking-wider text-slate-300">Action Center</h3></div>
                 <div className="grid grid-cols-2 gap-2">

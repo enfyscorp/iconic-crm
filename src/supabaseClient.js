@@ -1,10 +1,22 @@
-const env = {
-  ...(typeof process !== "undefined" ? process.env || {} : {}),
-  ...(import.meta.env || {}),
-};
+const reactAppSupabaseUrl = typeof process !== "undefined" ? process.env.REACT_APP_SUPABASE_URL : "";
+const reactAppSupabaseAnonKey = typeof process !== "undefined" ? process.env.REACT_APP_SUPABASE_ANON_KEY : "";
+const viteSupabaseUrl = import.meta.env?.VITE_SUPABASE_URL || "";
+const viteSupabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || "";
+const runtimeSupabaseUrl = globalThis.DESAM_SUPABASE_URL || "";
+const runtimeSupabaseAnonKey = globalThis.DESAM_SUPABASE_ANON_KEY || "";
 
-const supabaseUrl = env.VITE_SUPABASE_URL || env.REACT_APP_SUPABASE_URL || "";
-const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY || env.REACT_APP_SUPABASE_ANON_KEY || "";
+const supabaseUrl = viteSupabaseUrl || reactAppSupabaseUrl || runtimeSupabaseUrl || "";
+const supabaseAnonKey = viteSupabaseAnonKey || reactAppSupabaseAnonKey || runtimeSupabaseAnonKey || "";
+const configStatus = {
+  hasUrl: Boolean(supabaseUrl),
+  hasAnonKey: Boolean(supabaseAnonKey),
+  checkedNames: [
+    "VITE_SUPABASE_URL",
+    "VITE_SUPABASE_ANON_KEY",
+    "REACT_APP_SUPABASE_URL",
+    "REACT_APP_SUPABASE_ANON_KEY",
+  ],
+};
 const AUTH_SESSION_KEY = "desam_supabase_auth_session";
 
 const localKey = (table, key) => `${table}:${key}`;
@@ -12,7 +24,7 @@ const localKey = (table, key) => `${table}:${key}`;
 const localStore = {
   auth: {
     async signInWithPassword() {
-      return { data: null, error: { message: "Supabase Auth is not configured." } };
+      return { data: null, error: { message: `Supabase Auth is not configured. Config status: ${JSON.stringify(configStatus)}` } };
     },
     async signOut() {
       return { error: null };

@@ -1,5 +1,10 @@
-const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || "";
-const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || "";
+const env = {
+  ...(typeof process !== "undefined" ? process.env || {} : {}),
+  ...(import.meta.env || {}),
+};
+
+const supabaseUrl = env.VITE_SUPABASE_URL || env.REACT_APP_SUPABASE_URL || "";
+const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY || env.REACT_APP_SUPABASE_ANON_KEY || "";
 const AUTH_SESSION_KEY = "desam_supabase_auth_session";
 
 const localKey = (table, key) => `${table}:${key}`;

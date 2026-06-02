@@ -909,6 +909,8 @@ export default function App() {
       localStorage.setItem(`crm_state_store:${key}`, JSON.stringify(value));
     } catch (err) {
       console.error(`Failed to save ${key}:`, err);
+      const message = typeof err?.message === "string" ? err.message : JSON.stringify(err || {});
+      window.dispatchEvent(new CustomEvent("crm-backend-error", { detail: { key, message } }));
       try {
         localStorage.setItem(`crm_state_store:${key}`, JSON.stringify(value));
       } catch {}
@@ -1063,8 +1065,17 @@ export default function App() {
   useEffect(() => {
     if (!storageReady || !currentUser) return;
     refreshLeadsFromBackend();
-    const intervalId = window.setInterval(refreshLeadsFromBackend, 5000);
-    return () => window.clearInterval(intervalId);
+    const intervalId = window.setInterval(refreshLeadsFromBackend, 2000);
+    const refreshWhenVisible = () => {
+      if (!document.hidden) refreshLeadsFromBackend();
+    };
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("focus", refreshLeadsFromBackend);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("focus", refreshLeadsFromBackend);
+    };
   }, [storageReady, currentUser, refreshLeadsFromBackend]);
 
   const [selectedLead, setSelectedLead] = useState(null);
@@ -1119,6 +1130,15 @@ export default function App() {
   const stripPhone = (val) => { if(!val)return""; return val.toString().replace(/\s+/g,"").replace(/\D/g,""); };
   const copyToClipboard = (text) => { if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).catch(() => {}); triggerToastAlert("Copied!"); };
   const triggerToastAlert = (msg) => { setToastNotification({isVisible:true,message:msg}); setTimeout(()=>setToastNotification({isVisible:false,message:""}),3500); };
+
+  useEffect(() => {
+    const showBackendError = (event) => {
+      const key = event.detail?.key || "data";
+      triggerToastAlert(`Backend save failed for ${key}. Check Supabase table/RLS.`);
+    };
+    window.addEventListener("crm-backend-error", showBackendError);
+    return () => window.removeEventListener("crm-backend-error", showBackendError);
+  }, []);
 
   useEffect(() => {
     if (!currentUser || currentUser.role === "Admin") return;

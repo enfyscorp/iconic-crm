@@ -185,6 +185,26 @@ async function migratePlainPasswords(rawUsers) {
   return { users, changed };
 }
 
+function isSupabaseAdminUser(user) {
+  const role = String(user?.app_metadata?.role || "").toLowerCase();
+  return role === "admin" || user?.app_metadata?.is_admin === true;
+}
+
+function authUserToAdmin(user) {
+  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || "Admin";
+  return {
+    id: user.id,
+    name: displayName,
+    email: user.email,
+    role: "Admin",
+    branch: "All Branches",
+    phone: user?.phone || "",
+    active: true,
+    avatar: displayName.charAt(0).toUpperCase(),
+    authProvider: "supabase",
+  };
+}
+
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -726,6 +746,7 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
     const trimmed = email.trim().toLowerCase();
     const found = users.find(u => u.email.toLowerCase() === trimmed && u.active);
     if (!found) { setError("No active account found with this username."); return; }
+    if (found.role === "Admin") { setError("Admin password recovery is handled in Supabase Auth."); return; }
     setTargetUser(found);
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiry = Date.now() + 5 * 60 * 1000;
@@ -849,7 +870,6 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [showResetModal, setShowResetModal] = useState(false);
-  const [showAdminRecoveryModal, setShowAdminRecoveryModal] = useState(false);
   const [showAdminLoginPopup, setShowAdminLoginPopup] = useState(false);
 
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -982,6 +1002,10 @@ export default function App() {
         setLeadsState(l);
         setActivityLogsState(a);
         setResetRequestsState(r);
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (isSupabaseAdminUser(sessionData?.session?.user)) {
+          setCurrentUser(authUserToAdmin(sessionData.session.user));
+        }
       } catch (err) {
         console.error("Failed to load Supabase state, using local fallback:", err);
         if (!isMounted) return;
@@ -995,6 +1019,10 @@ export default function App() {
         setLeadsState(readLocalState("leads", []));
         setActivityLogsState(readLocalState("activity_logs", []));
         setResetRequestsState(readLocalState("reset_requests", []));
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (isSupabaseAdminUser(sessionData?.session?.user)) {
+          setCurrentUser(authUserToAdmin(sessionData.session.user));
+        }
       } finally {
         if (isMounted) setStorageReady(true);
       }
@@ -1166,8 +1194,32 @@ export default function App() {
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
-    const allUsers = users;
-    const found = allUsers.find(u => u.email.toLowerCase() === loginEmail.toLowerCase().trim() && u.active);
+    setLoginError("");
+    const emailOrUsername = loginEmail.toLowerCase().trim();
+    if (emailOrUsername.includes("@")) {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: emailOrUsername,
+        password: loginPassword,
+      });
+      if (data?.user) {
+        if (!isSupabaseAdminUser(data.user)) {
+          await supabase.auth.signOut();
+          setLoginError("This Supabase account is not marked as Admin.");
+          return;
+        }
+        const admin = authUserToAdmin(data.user);
+        setCurrentUser(admin);
+        triggerToastAlert(`Welcome, ${admin.name}!`);
+        setTimeout(() => window.location.reload(), 250);
+        return;
+      }
+      if (error?.message && !users.some(u => u.email.toLowerCase() === emailOrUsername)) {
+        setLoginError(error.message);
+        return;
+      }
+    }
+    const allUsers = users.filter(u => u.role !== "Admin");
+    const found = allUsers.find(u => u.email.toLowerCase() === emailOrUsername && u.active);
     const acc = found && await verifyPassword(found, loginPassword) ? found : null;
     if (acc) {
       setCurrentUser(acc);
@@ -1182,7 +1234,7 @@ export default function App() {
     }
   };
 
-  const handleLogout=()=>{ setCurrentUser(null);setLoginEmail("");setLoginPassword("");setGlobalSearch("");setActiveTab("dashboard");setNavHistory([]);setIsMobileMenuOpen(false); };
+  const handleLogout=async()=>{ await supabase.auth.signOut(); setCurrentUser(null);setLoginEmail("");setLoginPassword("");setGlobalSearch("");setActiveTab("dashboard");setNavHistory([]);setIsMobileMenuOpen(false); };
 
   const requestStatusTransitionPopup=(leadId,nextStatus)=>{ const t=leads.find(l=>l.id===leadId); if(!t)return; setCustomPopup({isOpen:true,leadId,targetValue:nextStatus,type:"status",title:"Confirm Status Shift",message:`Transition "${t.name}" to "${nextStatus}"?`}); };
   const requestOwnerAssignmentPopup=(leadId,personnelName)=>{ const t=leads.find(l=>l.id===leadId); if(!t)return; setCustomPopup({isOpen:true,leadId,targetValue:personnelName,type:"assign",title:"Confirm Assignment",message:`Assign "${t.name}" to "${personnelName}"?`}); };
@@ -1295,15 +1347,10 @@ export default function App() {
     );
   }
 
-  if (adminUsers.length === 0) {
-    return <AdminSetupPanel />;
-  }
-
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
         {showResetModal && <PasswordResetModal users={users} setUsers={setUsers} resetRequests={resetRequests} setResetRequests={setResetRequests} onClose={() => setShowResetModal(false)} />}
-        {showAdminRecoveryModal && <AdminRecoveryModal users={users} setUsers={setUsers} onClose={() => setShowAdminRecoveryModal(false)} />}
         <div className="sm:mx-auto w-full max-w-md text-center space-y-4">
           <div className="flex justify-center mb-2"><img src={DESAM_LOGO_ASSET} alt="Desam Developers Logo" className="h-16 w-auto object-contain drop-shadow-lg"/></div>
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Operational Control Platform</p>
@@ -1318,9 +1365,6 @@ export default function App() {
             </form>
             <div className="pt-2 border-t border-slate-900 flex justify-center">
               <button onClick={() => setShowResetModal(true)} className="flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-orange-400 transition-colors font-bold uppercase tracking-wide"><KeyRound className="h-3.5 w-3.5" /> Forgot Password?</button>
-            </div>
-            <div className="flex justify-center">
-              <button onClick={() => setShowAdminRecoveryModal(true)} className="flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-rose-400 transition-colors font-bold uppercase tracking-wide"><ShieldAlert className="h-3.5 w-3.5" /> Admin Recovery</button>
             </div>
           </div>
         </div>

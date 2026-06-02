@@ -963,6 +963,19 @@ export default function App() {
     });
   }, [persistState]);
 
+  const refreshLeadsFromBackend = useCallback(async () => {
+    try {
+      const { data: dbRows, error } = await supabase.from("crm_state_store").select("*");
+      if (error) throw error;
+      const leadsRow = Array.isArray(dbRows) ? dbRows.find(row => row.key === "leads") : null;
+      if (Array.isArray(leadsRow?.value)) {
+        setLeadsState(leadsRow.value);
+      }
+    } catch (err) {
+      console.error("Failed to refresh leads from backend:", err);
+    }
+  }, []);
+
   // ─── LOAD INITIAL STATE FROM SUPABASE ───
   useEffect(() => {
     let isMounted = true;
@@ -1030,6 +1043,13 @@ export default function App() {
     return () => { isMounted = false; };
   }, [persistState, readLocalState]);
 
+  useEffect(() => {
+    if (!storageReady || !currentUser) return;
+    refreshLeadsFromBackend();
+    const intervalId = window.setInterval(refreshLeadsFromBackend, 5000);
+    return () => window.clearInterval(intervalId);
+  }, [storageReady, currentUser, refreshLeadsFromBackend]);
+
   const [selectedLead, setSelectedLead] = useState(null);
   const [importText, setImportText] = useState("");
   const [customPopup, setCustomPopup] = useState({ isOpen:false, leadId:null, targetValue:"", type:"status", title:"", message:"" });
@@ -1072,6 +1092,10 @@ export default function App() {
   const visibleProjects = useMemo(()=>{ if(!currentUser)return[]; if(currentUser.role==="Admin")return projects; return projects.filter(p=>p.branch===currentUser.branch); },[projects,currentUser]);
   const visibleUsers = useMemo(()=>{ if(!currentUser)return[]; if(currentUser.role==="Admin")return users; return users.filter(u=>u.branch===currentUser.branch); },[users,currentUser]);
   const assignableUsers = useMemo(()=>visibleUsers.filter(u=>["Manager","Executive","Telecaller"].includes(u.role)&&u.active),[visibleUsers]);
+  const isAssignedToCurrentUser = useCallback((lead) => {
+    if (!currentUser || !lead) return false;
+    return lead.assignedToId === currentUser.id || lead.assignedTo === currentUser.name || lead.assignedTo === currentUser.email;
+  }, [currentUser]);
 
   useEffect(() => {
     if (!visibleProjects.length) return;
@@ -1083,7 +1107,7 @@ export default function App() {
     if(!currentUser)return[];
     let result=leads;
     if(currentUser.role==="Manager")result=leads.filter(l=>l.branch===currentUser.branch);
-    else if(["Executive","Telecaller"].includes(currentUser.role))result=leads.filter(l=>l.assignedTo===currentUser.name);
+    else if(["Executive","Telecaller"].includes(currentUser.role))result=leads.filter(isAssignedToCurrentUser);
     if(globalSearch.trim()){const t=globalSearch.toLowerCase();result=result.filter(l=>l.name.toLowerCase().includes(t)||l.phone.includes(t)||l.project.toLowerCase().includes(t)||l.status.toLowerCase().includes(t));}
     if(filterSource!=="All")result=result.filter(l=>l.source===filterSource);
     if(filterStatus!=="All")result=result.filter(l=>l.status===filterStatus);
@@ -1092,7 +1116,7 @@ export default function App() {
     if(startDate)result=result.filter(l=>l.dateCreated>=startDate);
     if(endDate)result=result.filter(l=>l.dateCreated<=endDate);
     return result;
-  },[leads,currentUser,globalSearch,filterSource,filterStatus,filterProject,filterExecutive,startDate,endDate]);
+  },[leads,currentUser,isAssignedToCurrentUser,globalSearch,filterSource,filterStatus,filterProject,filterExecutive,startDate,endDate]);
 
   const filteredActivityLogs = useMemo(()=>{
     let logs=activityLogs;
@@ -1138,10 +1162,10 @@ export default function App() {
   const dashboardActionQueueLeads = useMemo(()=>{
     if(!currentUser)return[];
     if(currentUser.role==="Admin")return leads.filter(l=>l.assignedTo==="Unassigned"||l.status==="Site Visit Planned");
-    if(currentUser.role==="Manager")return leads.filter(l=>l.branch===currentUser.branch&&(l.assignedTo==="Unassigned"||l.assignedTo===currentUser.name||l.status==="Site Visit Planned"));
-    if(["Executive","Telecaller"].includes(currentUser.role))return leads.filter(l=>l.assignedTo===currentUser.name);
+    if(currentUser.role==="Manager")return leads.filter(l=>l.branch===currentUser.branch&&(l.assignedTo==="Unassigned"||isAssignedToCurrentUser(l)||l.status==="Site Visit Planned"));
+    if(["Executive","Telecaller"].includes(currentUser.role))return leads.filter(isAssignedToCurrentUser);
     return[];
-  },[leads,currentUser]);
+  },[leads,currentUser,isAssignedToCurrentUser]);
 
   const unattendedManagerAlerts = useMemo(()=>{
     if(!currentUser||currentUser.role!=="Manager")return[];
@@ -1246,13 +1270,13 @@ export default function App() {
       const assignedUser = users.find(u => u.name === targetValue);
       const newBranch = assignedUser ? assignedUser.branch : leads.find(l=>l.id===leadId)?.branch;
       const log={date:TODAY_STR,by:currentUser.name,action:`Assigned to: ${targetValue}`};
-      const updated=leads.map(l=>l.id===leadId?{...l,assignedTo:targetValue,assignedByRole:currentUser.role,branch:newBranch||l.branch,status:targetValue==="Unassigned"?"New":"Assigned",history:[log,...l.history]}:l);
+      const updated=leads.map(l=>l.id===leadId?{...l,assignedTo:targetValue,assignedToId:assignedUser?.id||null,assignedByRole:currentUser.role,branch:newBranch||l.branch,status:targetValue==="Unassigned"?"New":"Assigned",history:[log,...l.history]}:l);
       setLeads(updated);setSelectedLead(null);triggerToastAlert(`Assigned to ${targetValue}`);
     }
     setCustomPopup({isOpen:false,leadId:null,targetValue:"",type:"status",title:"",message:""});
   };
 
-  const handleDataImportSubmit=async (e)=>{ e.preventDefault(); if(!importText.trim())return; try{ const lines=importText.split("\n").map(l=>l.trim()).filter(Boolean); const newLeads=[]; lines.forEach(line=>{const cols=line.split("\t"); if(cols.length>=4){const matchedProj=projects.find(p=>p.name.toLowerCase()===(cols[3]||"").toLowerCase().trim()); const branchHome=matchedProj?matchedProj.branch:"Madurai Desk"; newLeads.push({id:Date.now()+Math.floor(Math.random()*10000),name:cols[0]||"Lead",phone:stripPhone(cols[1]||"00000"),email:cols[2]||"",project:cols[3]||"",location:cols[4]||"Inbound",budget:parseInt(cols[5])||25,source:cols[6]||"Website",assignedTo:"Unassigned",assignedByRole:"",status:"New",branch:branchHome,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,history:[{date:TODAY_STR,by:currentUser.name,action:"Imported via paste."}],siteVisitTentativeDate:"",bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false});}});if(newLeads.length>0){setLeads([...newLeads,...leads]);triggerToastAlert(`Imported ${newLeads.length} leads.`);setImportText("");}
+  const handleDataImportSubmit=async (e)=>{ e.preventDefault(); if(!importText.trim())return; try{ const lines=importText.split("\n").map(l=>l.trim()).filter(Boolean); const newLeads=[]; lines.forEach(line=>{const cols=line.split("\t"); if(cols.length>=4){const matchedProj=projects.find(p=>p.name.toLowerCase()===(cols[3]||"").toLowerCase().trim()); const branchHome=matchedProj?matchedProj.branch:"Madurai Desk"; newLeads.push({id:Date.now()+Math.floor(Math.random()*10000),name:cols[0]||"Lead",phone:stripPhone(cols[1]||"00000"),email:cols[2]||"",project:cols[3]||"",location:cols[4]||"Inbound",budget:parseInt(cols[5])||25,source:cols[6]||"Website",assignedTo:"Unassigned",assignedToId:null,assignedByRole:"",status:"New",branch:branchHome,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,history:[{date:TODAY_STR,by:currentUser.name,action:"Imported via paste."}],siteVisitTentativeDate:"",bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false});}});if(newLeads.length>0){setLeads([...newLeads,...leads]);triggerToastAlert(`Imported ${newLeads.length} leads.`);setImportText("");}
   }catch(err){alert(err.message);} };
 
   const handleCreateUserSubmit=async (e)=>{ e.preventDefault(); const prefix=newUserForm.emailPrefix.trim().toLowerCase(); const role = newUserForm.role; if (role === "Admin") { triggerToastAlert("Use Admin Recovery or create another admin from secure backend controls."); return; } if(users.some(u=>u.email.toLowerCase()===`${prefix}@desam`)){triggerToastAlert("That username already exists.");return;} const u={id:Date.now(),name:newUserForm.name.trim(),email:`${prefix}@desam`,...(await makePasswordFields(newUserForm.pass)),role,branch:newUserForm.branch,phone:stripPhone(newUserForm.phone)||"9840000000",active:true,avatar:newUserForm.name.charAt(0).toUpperCase()}; setUsers([...users, u]); setNewUserForm({name:"",emailPrefix:"",pass:"",role:"Executive",branch:"Madurai Desk",phone:""}); triggerToastAlert(`Profile for ${u.name} created.`); };
@@ -1279,7 +1303,7 @@ export default function App() {
     const assignedUser = newLeadForm.assignedTo && newLeadForm.assignedTo !== "Unassigned" ? users.find(u => u.name === newLeadForm.assignedTo) : null;
     const projBranch = projects.find(p=>p.name===newLeadForm.project)?.branch || currentUser.branch || "Madurai Desk";
     const leadBranch = assignedUser ? assignedUser.branch : projBranch;
-    const created={...newLeadForm,id:Date.now(),phone,altPhone:stripPhone(newLeadForm.altPhone),branch:leadBranch,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,assignedByRole:currentUser.role,bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false,siteVisitTentativeDate:"",status:newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?"Assigned":"New",history:[{date:TODAY_STR,by:currentUser.name,action:"Lead captured."+(newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?` Assigned to ${newLeadForm.assignedTo}.`:"")}]};
+    const created={...newLeadForm,id:Date.now(),phone,altPhone:stripPhone(newLeadForm.altPhone),branch:leadBranch,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,assignedToId:assignedUser?.id||null,assignedByRole:currentUser.role,bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false,siteVisitTentativeDate:"",status:newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?"Assigned":"New",history:[{date:TODAY_STR,by:currentUser.name,action:"Lead captured."+(newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?` Assigned to ${newLeadForm.assignedTo}.`:"")}]};
     setLeads([created,...leads]); setIsLeadModalOpen(false); setNewLeadForm({name:"",phone:"",altPhone:"",email:"",location:"",project:projects[0]?.name||"",budget:25,source:"Website",assignedTo:"Unassigned",notes:""}); triggerToastAlert("Lead created."); };
 
   const handleCreateProject=(e)=>{ e.preventDefault(); const p={...newProjectForm,id:Date.now(),price:parseInt(newProjectForm.price)||0,units:parseInt(newProjectForm.units)||0,sold:parseInt(newProjectForm.sold)||0}; setProjects([p,...projects]); setIsProjectModalOpen(false); setNewProjectForm({name:"",location:"",branch:"Madurai Desk",type:"Plot",price:30,units:50,sold:0,status:"Pre-Launch"}); triggerToastAlert(`Project "${p.name}" added.`); };

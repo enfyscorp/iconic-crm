@@ -888,8 +888,9 @@ export default function App() {
   const [actFilterProject, setActFilterProject] = useState("All");
   const [actFilterSource, setActFilterSource] = useState("All");
   const [actFilterStatus, setActFilterStatus] = useState("All");
-  const [actStartDate, setActStartDate] = useState("");
-  const [actEndDate, setActEndDate] = useState("");
+  const [actStartDate, setActStartDate] = useState(TODAY_STR);
+  const [actEndDate, setActEndDate] = useState(TODAY_STR);
+  const [activitySearch, setActivitySearch] = useState("");
 
   const [leads, setLeadsState] = useState([]);
   const [adminUsers, setAdminUsersState] = useState([]);
@@ -1194,8 +1195,37 @@ export default function App() {
     return result;
   },[leads,currentUser,isAssignedToCurrentUser,globalSearch,filterSource,filterStatus,filterProject,filterExecutive,startDate,endDate]);
 
+  const systemActivityLogs = useMemo(()=>{
+    const classify = (action = "") => {
+      const text = action.toLowerCase();
+      if (text.includes("mobile call")) return { type:"Call", callStatus:"Call", callsMade:1, followup:0, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
+      if (text.includes("follow-up") || text.includes("follow up")) return { type:"Follow-Up", callStatus:"Follow-Up", callsMade:0, followup:1, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
+      if (text.includes("site visit")) return { type:"Site Visit", callStatus:"Site Visit", callsMade:0, followup:0, siteVisit:1, booking:0, registration:0, cancellation:0, collection:0 };
+      if (text.includes("booking")) return { type:"Booking", callStatus:"Booking", callsMade:0, followup:0, siteVisit:0, booking:1, registration:0, cancellation:0, collection:0 };
+      if (text.includes("registration")) return { type:"Registration", callStatus:"Registration", callsMade:0, followup:0, siteVisit:0, booking:0, registration:1, cancellation:0, collection:0 };
+      if (text.includes("cancel")) return { type:"Cancellation", callStatus:"Cancellation", callsMade:0, followup:0, siteVisit:0, booking:0, registration:0, cancellation:1, collection:0 };
+      if (text.includes("assigned")) return { type:"Assignment", callStatus:"Assigned", callsMade:0, followup:0, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
+      if (text.includes("lead captured") || text.includes("imported")) return { type:"Lead", callStatus:"Lead", callsMade:0, followup:0, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
+      return { type:"Update", callStatus:"Update", callsMade:0, followup:0, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
+    };
+    return leads.flatMap(lead => (lead.history || []).map((h, index) => {
+      const meta = classify(h.action);
+      return {
+        id: `${lead.id}-${index}-${h.date}`,
+        date: h.date || lead.dateCreated || TODAY_STR,
+        executive: h.by || lead.assignedTo || "System",
+        project: lead.project || "",
+        source: lead.source || "",
+        leadName: lead.name || "",
+        phone: lead.phone || "",
+        remark: h.action || "",
+        ...meta,
+      };
+    }));
+  }, [leads, TODAY_STR]);
+
   const filteredActivityLogs = useMemo(()=>{
-    let logs=activityLogs;
+    let logs=systemActivityLogs;
     if(currentUser&&!["Admin","Manager"].includes(currentUser.role))logs=logs.filter(l=>l.executive===currentUser.name);
     if(actFilterExec!=="All")logs=logs.filter(l=>l.executive===actFilterExec);
     if(actFilterProject!=="All")logs=logs.filter(l=>l.project===actFilterProject);
@@ -1203,20 +1233,28 @@ export default function App() {
     if(actFilterStatus!=="All")logs=logs.filter(l=>l.callStatus===actFilterStatus);
     if(actStartDate)logs=logs.filter(l=>l.date>=actStartDate);
     if(actEndDate)logs=logs.filter(l=>l.date<=actEndDate);
+    if(activitySearch.trim()){const t=activitySearch.toLowerCase();logs=logs.filter(l=>(l.leadName||"").toLowerCase().includes(t)||(l.phone||"").includes(t)||(l.executive||"").toLowerCase().includes(t)||(l.project||"").toLowerCase().includes(t)||(l.remark||"").toLowerCase().includes(t));}
     return [...logs].sort((a,b)=>b.date.localeCompare(a.date));
-  },[activityLogs,currentUser,actFilterExec,actFilterProject,actFilterSource,actFilterStatus,actStartDate,actEndDate]);
+  },[systemActivityLogs,currentUser,actFilterExec,actFilterProject,actFilterSource,actFilterStatus,actStartDate,actEndDate,activitySearch]);
+
+  const dashboardActivityLogs = useMemo(()=>{
+    let logs=systemActivityLogs;
+    if(currentUser&&!["Admin","Manager"].includes(currentUser.role))logs=logs.filter(l=>l.executive===currentUser.name);
+    if(currentUser?.role==="Manager")logs=logs.filter(l=>visibleProjects.some(p=>p.name===l.project));
+    return logs.filter(l=>l.date===TODAY_STR);
+  },[systemActivityLogs,currentUser,visibleProjects,TODAY_STR]);
 
   const activityKPIs = useMemo(()=>{
-    const totalCalls=filteredActivityLogs.reduce((s,l)=>s+(l.callsMade||0),0);
-    const totalFollowups=filteredActivityLogs.reduce((s,l)=>s+(l.followup||0),0);
-    const totalSiteVisits=filteredActivityLogs.reduce((s,l)=>s+(l.siteVisit||0),0);
-    const totalBookings=filteredActivityLogs.reduce((s,l)=>s+(l.booking||0),0);
-    const totalRegistrations=filteredActivityLogs.reduce((s,l)=>s+(l.registration||0),0);
-    const totalCancellations=filteredActivityLogs.reduce((s,l)=>s+(l.cancellation||0),0);
-    const totalCollection=filteredActivityLogs.reduce((s,l)=>s+(l.collection||0),0);
+    const totalCalls=dashboardActivityLogs.reduce((s,l)=>s+(l.callsMade||0),0);
+    const totalFollowups=dashboardActivityLogs.reduce((s,l)=>s+(l.followup||0),0);
+    const totalSiteVisits=dashboardActivityLogs.reduce((s,l)=>s+(l.siteVisit||0),0);
+    const totalBookings=dashboardActivityLogs.reduce((s,l)=>s+(l.booking||0),0);
+    const totalRegistrations=dashboardActivityLogs.reduce((s,l)=>s+(l.registration||0),0);
+    const totalCancellations=dashboardActivityLogs.reduce((s,l)=>s+(l.cancellation||0),0);
+    const totalCollection=dashboardActivityLogs.reduce((s,l)=>s+(l.collection||0),0);
     const convRate=totalCalls>0?((totalBookings/totalCalls)*100).toFixed(1):0;
     return{totalCalls,totalFollowups,totalSiteVisits,totalBookings,totalRegistrations,totalCancellations,totalCollection,convRate};
-  },[filteredActivityLogs]);
+  },[dashboardActivityLogs]);
 
   const callsTrendData = useMemo(()=>{ const map={}; filteredActivityLogs.forEach(l=>{if(!map[l.date])map[l.date]={date:l.date,calls:0,followups:0,siteVisits:0,bookings:0};map[l.date].calls+=l.callsMade||0;map[l.date].followups+=l.followup||0;map[l.date].siteVisits+=l.siteVisit||0;map[l.date].bookings+=l.booking||0;}); return Object.values(map).sort((a,b)=>a.date.localeCompare(b.date)); },[filteredActivityLogs]);
   const projectPerfData = useMemo(()=>{ const map={}; filteredActivityLogs.forEach(l=>{if(!map[l.project])map[l.project]={project:l.project,calls:0,followups:0,siteVisits:0,bookings:0};map[l.project].calls+=l.callsMade||0;map[l.project].followups+=l.followup||0;map[l.project].siteVisits+=l.siteVisit||0;map[l.project].bookings+=l.booking||0;}); return Object.values(map).sort((a,b)=>b.calls-a.calls); },[filteredActivityLogs]);
@@ -1264,10 +1302,21 @@ export default function App() {
       .sort((a,b)=>a.siteVisitTentativeDate.localeCompare(b.siteVisitTentativeDate));
   }, [processedLeads, currentUser, TODAY_STR]);
 
-  const unattendedManagerAlerts = useMemo(()=>{
-    if(!currentUser||currentUser.role!=="Manager")return[];
-    return leads.filter(l=>{ if(l.branch!==currentUser.branch||l.status!=="New")return false; return(new Date(TODAY_STR)-new Date(l.dateCreated))/(1000*60*60*24)>=2; });
-  },[leads,currentUser]);
+  const unattendedLeadAlerts = useMemo(()=>{
+    if(!currentUser)return[];
+    const terminalStatuses = ["Closed","Booking Confirmed","Not Interested","Wrong Number","RNR","Switched Off"];
+    const today = new Date(TODAY_STR);
+    return leads.filter(l=>{
+      if(terminalStatuses.includes(l.status))return false;
+      const ageDays = l.dateCreated ? Math.floor((today-new Date(l.dateCreated))/(1000*60*60*24)) : 0;
+      const isUnattended = (["New","Assigned"].includes(l.status)&&ageDays>=1) || (l.nextFollowUp&&l.nextFollowUp!=="None"&&l.nextFollowUp<TODAY_STR);
+      if(!isUnattended)return false;
+      if(currentUser.role==="Admin")return true;
+      if(currentUser.role==="Manager")return l.branch===currentUser.branch;
+      if(["Executive","Telecaller"].includes(currentUser.role))return isAssignedToCurrentUser(l);
+      return false;
+    }).sort((a,b)=>(a.nextFollowUp||a.dateCreated||"").localeCompare(b.nextFollowUp||b.dateCreated||""));
+  },[leads,currentUser,isAssignedToCurrentUser,TODAY_STR]);
 
   const conversionRate = useMemo(()=>{ const booked=processedLeads.filter(l=>["Booking Confirmed","Closed"].includes(l.status)).length; return processedLeads.length>0?Math.round((booked/processedLeads.length)*100):0; },[processedLeads]);
   const executiveSummaryData = useMemo(()=>{ const execMap={}; visibleUsers.forEach(u=>{if(["Executive","Telecaller"].includes(u.role))execMap[u.name]={name:u.name,total:0,new:0,active:0,siteVisits:0,bookings:0,dead:0};}); execMap["Unassigned"]={name:"Unassigned",total:0,new:0,active:0,siteVisits:0,bookings:0,dead:0}; processedLeads.forEach(l=>{const exec=l.assignedTo||"Unassigned";if(!execMap[exec])execMap[exec]={name:exec,total:0,new:0,active:0,siteVisits:0,bookings:0,dead:0};execMap[exec].total+=1;if(l.status==="New")execMap[exec].new+=1;else if(["Assigned","Contacted","Follow-Up","Negotiation"].includes(l.status))execMap[exec].active+=1;else if(["Site Visit Planned","Site Visit Completed"].includes(l.status))execMap[exec].siteVisits+=1;else if(["Booking Pending","Booking Confirmed","Closed"].includes(l.status))execMap[exec].bookings+=1;else if(["Not Interested","RNR","Switched Off","Wrong Number"].includes(l.status))execMap[exec].dead+=1;}); return Object.values(execMap).filter(e=>e.total>0||visibleUsers.some(u=>u.name===e.name)).sort((a,b)=>b.total-a.total); },[processedLeads,visibleUsers]);
@@ -1294,8 +1343,8 @@ export default function App() {
 
   const executeDataExportSequence=(formatType)=>{
     if(filteredActivityLogs.length===0){triggerToastAlert("No data to export.");return;}
-    const headers=["Date","Executive","Project","Source","Calls Made","Call Status","Followup","Site Visit","Booking","Registration","Cancellation","Collection","Remark"];
-    const rows=filteredActivityLogs.map(l=>[l.date,l.executive,l.project,l.source,l.callsMade,l.callStatus,l.followup,l.siteVisit,l.booking,l.registration,l.cancellation,l.collection,l.remark]);
+    const headers=["Date","User","Client","Phone","Project","Source","Activity","Calls Made","Followup","Site Visit","Booking","Registration","Cancellation","Collection","Remark"];
+    const rows=filteredActivityLogs.map(l=>[l.date,l.executive,l.leadName,l.phone,l.project,l.source,l.type,l.callsMade,l.followup,l.siteVisit,l.booking,l.registration,l.cancellation,l.collection,l.remark]);
     const ext=formatType==="excel"?"xlsx":"csv";
     let blob;
     if (formatType === "excel") {
@@ -1588,7 +1637,7 @@ export default function App() {
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-950 p-6 border border-slate-800 rounded-2xl">
                 <div><h1 className="text-xl lg:text-2xl font-black text-white tracking-tight">Sales Performance Dashboard</h1><p className="text-xs text-slate-400 mt-0.5">Real-time activity & lead pipeline overview.</p></div>
               </div>
-              {unattendedManagerAlerts.length>0&&(<div className="bg-rose-950/40 border border-rose-500/30 p-4 lg:p-5 rounded-2xl flex items-start gap-4 shadow-xl"><div className="bg-rose-500/20 p-2 rounded-full border border-rose-500/30 mt-0.5"><AlertTriangle className="h-5 w-5 text-rose-500 animate-pulse"/></div><div><h3 className="text-rose-400 font-black text-xs uppercase tracking-wider">Unattended Leads Alert</h3><p className="text-rose-200/70 text-xs mt-1.5 font-medium">{unattendedManagerAlerts.length} leads in "New" status unattended for 48+ hours.</p></div></div>)}
+              {unattendedLeadAlerts.length>0&&(<div className="bg-rose-950/40 border border-rose-500/30 p-4 lg:p-5 rounded-2xl flex items-start gap-4 shadow-xl"><div className="bg-rose-500/20 p-2 rounded-full border border-rose-500/30 mt-0.5"><AlertTriangle className="h-5 w-5 text-rose-500 animate-pulse"/></div><div className="flex-1"><h3 className="text-rose-400 font-black text-xs uppercase tracking-wider">Unattended Leads Alert</h3><p className="text-rose-200/70 text-xs mt-1.5 font-medium">{unattendedLeadAlerts.length} unattended lead{unattendedLeadAlerts.length>1?"s":""} need action from the assigned user and branch manager.</p><div className="mt-3 flex flex-wrap gap-2">{unattendedLeadAlerts.slice(0,4).map(l=><button key={l.id} onClick={()=>setSelectedLead(l)} className="text-[10px] font-black text-rose-100 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 px-3 py-1.5 rounded-lg transition-colors">{l.name} · {l.assignedTo||"Unassigned"}</button>)}</div></div></div>)}
               {(dueFollowUpLeads.length>0||appointmentReminderLeads.length>0)&&(
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                   <div className="bg-slate-950 border border-blue-500/30 rounded-2xl p-5 shadow-xl">
@@ -1646,12 +1695,13 @@ export default function App() {
                 <button onClick={()=>{setDuplicateConflictRecord(null);setNewLeadForm(prev=>({...prev,project:prev.project||visibleProjects[0]?.name||""}));setIsLeadModalOpen(true);}} className="w-full sm:w-auto bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider shadow-lg flex items-center justify-center gap-2"><Plus className="h-4 w-4"/> New Lead</button>
               </div>
               <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex flex-wrap gap-3 text-xs shadow-lg">
+                <div className="relative flex-1 min-w-[220px]"><Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500"/><input type="text" value={globalSearch} onChange={e=>setGlobalSearch(e.target.value)} placeholder="Search client by name or phone..." className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500"/></div>
                 <select value={filterSource} onChange={e=>setFilterSource(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 flex-1 min-w-[140px]"><option value="All">All Sources</option>{SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select>
                 <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 flex-1 min-w-[140px]"><option value="All">All Statuses</option>{STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select>
                 <select value={filterProject} onChange={e=>setFilterProject(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 flex-1 min-w-[140px]"><option value="All">All Projects</option>{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select>
                 {["Admin","Manager"].includes(currentUser.role)&&<select value={filterExecutive} onChange={e=>setFilterExecutive(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 flex-1 min-w-[140px]"><option value="All">All Assignees</option><option value="Unassigned">Unassigned</option>{assignableUsers.map(u=><option key={u.id} value={u.name}>{u.name}</option>)}</select>}
-                <div className="flex items-center gap-2 flex-1 min-w-[200px]"><input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 font-mono text-[10px]"/><span className="text-slate-600">-</span><input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 font-mono text-[10px]"/></div>
-                {(filterSource!=="All"||filterStatus!=="All"||filterProject!=="All"||filterExecutive!=="All"||startDate||endDate)&&<button onClick={()=>{setFilterSource("All");setFilterStatus("All");setFilterProject("All");setFilterExecutive("All");setStartDate("");setEndDate("");}} className="text-orange-400 hover:text-orange-300 font-bold px-3 py-2 border border-orange-500/30 rounded-lg flex items-center gap-1 bg-orange-500/10"><X className="h-3.5 w-3.5"/> Clear</button>}
+                <div className="flex items-center gap-2 flex-1 min-w-[230px]"><div className="relative w-full"><Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500"/><input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-2 py-2 text-slate-300 focus:outline-none focus:border-orange-500 font-mono text-[10px]"/></div><span className="text-slate-600">-</span><div className="relative w-full"><Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500"/><input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-2 py-2 text-slate-300 focus:outline-none focus:border-orange-500 font-mono text-[10px]"/></div></div>
+                {(globalSearch||filterSource!=="All"||filterStatus!=="All"||filterProject!=="All"||filterExecutive!=="All"||startDate||endDate)&&<button onClick={()=>{setGlobalSearch("");setFilterSource("All");setFilterStatus("All");setFilterProject("All");setFilterExecutive("All");setStartDate("");setEndDate("");}} className="text-orange-400 hover:text-orange-300 font-bold px-3 py-2 border border-orange-500/30 rounded-lg flex items-center gap-1 bg-orange-500/10"><X className="h-3.5 w-3.5"/> Clear</button>}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
                 {processedLeads.map(lead=>(
@@ -1686,37 +1736,36 @@ export default function App() {
             <div className="space-y-5">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-950 p-5 border border-slate-800 rounded-2xl shadow-xl">
                 <div><h1 className="text-lg lg:text-xl font-black text-white flex items-center gap-2"><ClipboardList className="h-5 w-5 text-emerald-500"/> Activity Tracker</h1><p className="text-[10px] text-slate-500 mt-1">{filteredActivityLogs.length} verified logs recorded.</p></div>
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <button onClick={()=>executeDataExportSequence("excel")} className="flex-1 sm:flex-none bg-slate-900 hover:bg-slate-800 border border-slate-700 text-emerald-400 font-black text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider transition-colors flex items-center justify-center gap-2 shadow-lg"><Download className="h-4 w-4"/> Export</button>
-                  <button onClick={()=>{setNewActivityForm(prev=>({...prev,project:prev.project||visibleProjects[0]?.name||""}));setIsActivityLogModalOpen(true);}} className="flex-1 sm:flex-none bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 text-white font-black text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider shadow-lg flex items-center justify-center gap-2"><Plus className="h-4 w-4"/> Log Activity</button>
-                </div>
+                <button onClick={()=>executeDataExportSequence("excel")} className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 border border-slate-700 text-emerald-400 font-black text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider transition-colors flex items-center justify-center gap-2 shadow-lg"><Download className="h-4 w-4"/> Export</button>
               </div>
-              {["Admin","Manager"].includes(currentUser.role)&&<ExcelImportPanel activityLogs={activityLogs} setActivityLogs={setActivityLogsStateWrapped} triggerToastAlert={triggerToastAlert}/>}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4 text-xs">
                  <div className="flex flex-wrap gap-3">
+                   <div className="relative flex-1 min-w-[220px]"><Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500"/><input type="text" value={activitySearch} onChange={e=>setActivitySearch(e.target.value)} placeholder="Search client, phone, user, project..." className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500"/></div>
                    {["Admin","Manager"].includes(currentUser.role)&&<select value={actFilterExec} onChange={e=>setActFilterExec(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 flex-1 min-w-[120px]"><option value="All">All Executives</option>{visibleUsers.map(u=><option key={u.id} value={u.name}>{u.name}</option>)}</select>}
                    <select value={actFilterProject} onChange={e=>setActFilterProject(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 flex-1 min-w-[120px]"><option value="All">All Projects</option>{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select>
                    <select value={actFilterSource} onChange={e=>setActFilterSource(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 flex-1 min-w-[120px]"><option value="All">All Sources</option>{SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select>
-                   <div className="flex items-center gap-2 flex-1 min-w-[200px]"><input type="date" value={actStartDate} onChange={e=>setActStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 font-mono"/><span className="text-slate-600">-</span><input type="date" value={actEndDate} onChange={e=>setActEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 font-mono"/></div>
-                   {(actFilterExec!=="All"||actFilterProject!=="All"||actFilterSource!=="All"||actFilterStatus!=="All"||actStartDate||actEndDate)&&<button onClick={()=>{setActFilterExec("All");setActFilterProject("All");setActFilterSource("All");setActFilterStatus("All");setActStartDate("");setActEndDate("");}} className="text-emerald-400 hover:text-emerald-300 font-bold px-3 py-2 border border-emerald-500/30 rounded-lg flex items-center gap-1 bg-emerald-500/10"><X className="h-3.5 w-3.5"/> Clear</button>}
+                   <div className="flex items-center gap-2 flex-1 min-w-[230px]"><div className="relative w-full"><Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500"/><input type="date" value={actStartDate} onChange={e=>setActStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-2 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 font-mono"/></div><span className="text-slate-600">-</span><div className="relative w-full"><Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500"/><input type="date" value={actEndDate} onChange={e=>setActEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-2 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 font-mono"/></div></div>
+                   {(activitySearch||actFilterExec!=="All"||actFilterProject!=="All"||actFilterSource!=="All"||actFilterStatus!=="All"||actStartDate!==TODAY_STR||actEndDate!==TODAY_STR)&&<button onClick={()=>{setActivitySearch("");setActFilterExec("All");setActFilterProject("All");setActFilterSource("All");setActFilterStatus("All");setActStartDate(TODAY_STR);setActEndDate(TODAY_STR);}} className="text-emerald-400 hover:text-emerald-300 font-bold px-3 py-2 border border-emerald-500/30 rounded-lg flex items-center gap-1 bg-emerald-500/10"><X className="h-3.5 w-3.5"/> Clear</button>}
                  </div>
                  <div className="overflow-x-auto border border-slate-800 rounded-xl bg-slate-900/40">
                    <table className="w-full text-left text-[10px] whitespace-nowrap">
                      <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold bg-slate-950">
-                       <tr><th className="p-3">Date</th><th className="p-3">Executive</th><th className="p-3">Project</th><th className="p-3">Source</th><th className="p-3 text-center">Calls</th><th className="p-3 text-center">Status</th><th className="p-3 text-center">FU</th><th className="p-3 text-center">SV</th><th className="p-3 text-center">BK</th><th className="p-3">Remark</th></tr>
+                      <tr><th className="p-3">Date</th><th className="p-3">User</th><th className="p-3">Client</th><th className="p-3">Phone</th><th className="p-3">Project</th><th className="p-3">Source</th><th className="p-3 text-center">Activity</th><th className="p-3 text-center">Calls</th><th className="p-3 text-center">FU</th><th className="p-3 text-center">SV</th><th className="p-3 text-center">BK</th><th className="p-3">Remark</th></tr>
                      </thead>
                      <tbody className="divide-y divide-slate-800">
-                       {filteredActivityLogs.length===0?<tr><td colSpan="10" className="p-6 text-center text-slate-500 font-bold uppercase tracking-wider">No activity logs found</td></tr>:filteredActivityLogs.map((log,i)=>(
-                         <tr key={log.id||i} className="hover:bg-slate-800/50 transition-colors">
-                           <td className="p-3 font-mono text-slate-400">{log.date}</td>
-                           <td className="p-3 font-bold text-white">{log.executive}</td>
-                           <td className="p-3 text-orange-400 font-bold">{log.project}</td>
-                           <td className="p-3 text-slate-400">{log.source}</td>
-                           <td className="p-3 text-center font-mono font-black text-white">{log.callsMade}</td>
-                           <td className="p-3 text-center"><span className={`px-2 py-0.5 rounded border text-[9px] font-black uppercase ${log.callStatus==="Warm"?"bg-amber-500/10 text-amber-400 border-amber-500/20":log.callStatus==="Cold"?"bg-blue-500/10 text-blue-400 border-blue-500/20":"bg-slate-800 text-slate-400 border-slate-700"}`}>{log.callStatus}</span></td>
-                           <td className="p-3 text-center text-blue-400 font-bold">{log.followup||"-"}</td>
-                           <td className="p-3 text-center text-emerald-400 font-bold">{log.siteVisit||"-"}</td>
-                           <td className="p-3 text-center text-purple-400 font-bold">{log.booking||"-"}</td>
+                      {filteredActivityLogs.length===0?<tr><td colSpan="12" className="p-6 text-center text-slate-500 font-bold uppercase tracking-wider">No activity found</td></tr>:filteredActivityLogs.map((log,i)=>(
+                        <tr key={log.id||i} className="hover:bg-slate-800/50 transition-colors">
+                          <td className="p-3 font-mono text-slate-400">{log.date}</td>
+                          <td className="p-3 font-bold text-white">{log.executive}</td>
+                          <td className="p-3 font-bold text-white">{log.leadName}</td>
+                          <td className="p-3 font-mono text-slate-400">{log.phone}</td>
+                          <td className="p-3 text-orange-400 font-bold">{log.project}</td>
+                          <td className="p-3 text-slate-400">{log.source}</td>
+                          <td className="p-3 text-center"><span className="px-2 py-0.5 rounded border text-[9px] font-black uppercase bg-emerald-500/10 text-emerald-400 border-emerald-500/20">{log.type}</span></td>
+                          <td className="p-3 text-center font-mono font-black text-white">{log.callsMade}</td>
+                          <td className="p-3 text-center text-blue-400 font-bold">{log.followup||"-"}</td>
+                          <td className="p-3 text-center text-emerald-400 font-bold">{log.siteVisit||"-"}</td>
+                          <td className="p-3 text-center text-purple-400 font-bold">{log.booking||"-"}</td>
                            <td className="p-3 text-slate-400 max-w-[150px] truncate" title={log.remark}>{log.remark||"-"}</td>
                          </tr>
                        ))}

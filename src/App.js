@@ -866,6 +866,7 @@ export default function App() {
 
   const [storageReady, setStorageReady] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [notificationPermission, setNotificationPermission] = useState(typeof Notification !== "undefined" ? Notification.permission : "unsupported");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -904,6 +905,12 @@ export default function App() {
   const [resetRequests, setResetRequestsState] = useState([]);
 
   const users = useMemo(() => [...adminUsers, ...nonAdminUsers], [adminUsers, nonAdminUsers]);
+  const rememberSession = useCallback((user) => {
+    try { localStorage.setItem("crm_current_user", JSON.stringify(user)); } catch {}
+  }, []);
+  const forgetSession = useCallback(() => {
+    try { localStorage.removeItem("crm_current_user"); } catch {}
+  }, []);
 
   const persistState = useCallback(async (key, value) => {
     try {
@@ -1063,7 +1070,18 @@ export default function App() {
         setResetRequestsState(r);
         const { data: sessionData } = await supabase.auth.getSession();
         if (isSupabaseAdminUser(sessionData?.session?.user)) {
-          setCurrentUser(authUserToAdmin(sessionData.session.user));
+          const admin = authUserToAdmin(sessionData.session.user);
+          setCurrentUser(admin);
+          rememberSession(admin);
+        } else {
+          try {
+            const saved = JSON.parse(localStorage.getItem("crm_current_user") || "null");
+            if (saved?.role !== "Admin") {
+              const latest = nonAdmins.find(u => u.id === saved.id && u.active !== false && u.email === saved.email && u.passwordHash === saved.passwordHash);
+              if (latest) setCurrentUser(latest);
+              else forgetSession();
+            }
+          } catch { forgetSession(); }
         }
       } catch (err) {
         console.error("Failed to load Supabase state:", err);
@@ -1078,14 +1096,16 @@ export default function App() {
         setResetRequestsState([]);
         const { data: sessionData } = await supabase.auth.getSession();
         if (isSupabaseAdminUser(sessionData?.session?.user)) {
-          setCurrentUser(authUserToAdmin(sessionData.session.user));
+          const admin = authUserToAdmin(sessionData.session.user);
+          setCurrentUser(admin);
+          rememberSession(admin);
         }
       } finally {
         if (isMounted) setStorageReady(true);
       }
     })();
     return () => { isMounted = false; };
-  }, [persistState]);
+  }, [persistState, rememberSession, forgetSession]);
 
   useEffect(() => {
     if (!storageReady || !currentUser) return;
@@ -1105,6 +1125,7 @@ export default function App() {
 
   const [selectedLead, setSelectedLead] = useState(null);
   const [importText, setImportText] = useState("");
+  const [leadImportMode, setLeadImportMode] = useState("append");
   const [customPopup, setCustomPopup] = useState({ isOpen:false, leadId:null, targetValue:"", type:"status", title:"", message:"" });
   const [toastNotification, setToastNotification] = useState({ isVisible:false, message:"" });
   const [showExitAppPopup, setShowExitAppPopup] = useState(false);
@@ -1114,7 +1135,7 @@ export default function App() {
   const [dismissedAssignmentNotices, setDismissedAssignmentNotices] = useState([]);
   const [newLeadForm, setNewLeadForm] = useState({ name:"", phone:"", altPhone:"", email:"", location:"", project:"", budget:25, source:"Website", assignedTo:"Unassigned", notes:"" });
   const [newProjectForm, setNewProjectForm] = useState({ name:"", location:"", branch:"Madurai Desk", type:"Plot", price:30, units:50, sold:0, status:"Pre-Launch" });
-  const [newUserForm, setNewUserForm] = useState({ name:"", emailPrefix:"", pass:"", role:"Executive", branch:"Madurai Desk", phone:"" });
+  const [newUserForm, setNewUserForm] = useState({ name:"", emailPrefix:"", pass:"", role:"Executive", branch:"Madurai Desk", phone:"", managerId:"" });
   const [newActivityForm, setNewActivityForm] = useState({ date:TODAY_STR, executive:"", project:"", source:"Own Leads", callsMade:0, callStatus:"Warm", followup:0, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0, remark:"" });
   const [duplicateConflictRecord, setDuplicateConflictRecord] = useState(null);
   const [followUpNotes, setFollowUpNotes] = useState("");
@@ -1132,6 +1153,7 @@ export default function App() {
   const [selectedWhatsappTemplateId, setSelectedWhatsappTemplateId] = useState("");
   const [newWhatsappTemplateForm, setNewWhatsappTemplateForm] = useState({ project:"All", title:"", message:"", imageUrl:"", imageDataUrl:"" });
   const allowBrowserExitRef = useRef(false);
+  const notifiedAlertsRef = useRef(new Set());
 
   useEffect(() => {
     setSelectedWhatsappTemplateId("");
@@ -1173,6 +1195,29 @@ export default function App() {
   const stripPhone = (val) => { if(!val)return""; return val.toString().replace(/\s+/g,"").replace(/\D/g,""); };
   const copyToClipboard = (text) => { if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).catch(() => {}); triggerToastAlert("Copied!"); };
   const triggerToastAlert = (msg) => { setToastNotification({isVisible:true,message:msg}); setTimeout(()=>setToastNotification({isVisible:false,message:""}),3500); };
+  const requestBrowserNotifications = async () => {
+    if (typeof Notification === "undefined") { triggerToastAlert("Browser notifications are not supported here."); return; }
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+    triggerToastAlert(permission === "granted" ? "Browser notifications enabled." : "Notifications were not enabled.");
+  };
+  const notifyUser = useCallback((title, body, tag) => {
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    if (!document.hidden) return;
+    try { new Notification(title, { body, tag, renotify:false }); } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const warnBeforeLeaving = (event) => {
+      if (allowBrowserExitRef.current) return;
+      event.preventDefault();
+      event.returnValue = "You are leaving the CRM.";
+      return "You are leaving the CRM.";
+    };
+    window.addEventListener("beforeunload", warnBeforeLeaving);
+    return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
+  }, [currentUser]);
 
   useEffect(() => {
     const showBackendError = (event) => {
@@ -1195,14 +1240,22 @@ export default function App() {
       setActiveTab("dashboard");
       setNavHistory([]);
       setIsMobileMenuOpen(false);
+      forgetSession();
       setLoginError("Your login was changed by Admin. Please login again.");
     } else if (latest.name !== currentUser.name || latest.role !== currentUser.role || latest.branch !== currentUser.branch) {
       setCurrentUser(latest);
+      rememberSession(latest);
     }
-  }, [currentUser, nonAdminUsers]);
+  }, [currentUser, nonAdminUsers, rememberSession, forgetSession]);
 
   const visibleProjects = useMemo(()=>{ if(!currentUser)return[]; if(currentUser.role==="Admin")return projects; return projects.filter(p=>p.branch===currentUser.branch); },[projects,currentUser]);
   const visibleUsers = useMemo(()=>{ if(!currentUser)return[]; if(currentUser.role==="Admin")return users; return users.filter(u=>u.branch===currentUser.branch); },[users,currentUser]);
+  const managerUsers = useMemo(()=>users.filter(u=>u.role==="Manager"&&u.active!==false),[users]);
+  const currentManagerTeamNames = useMemo(()=>{
+    if(!currentUser)return[];
+    if(currentUser.role!=="Manager")return[];
+    return [currentUser.name, ...users.filter(u=>u.managerId===currentUser.id).map(u=>u.name)];
+  },[users,currentUser]);
   const assignableUsers = useMemo(()=>visibleUsers.filter(u=>["Manager","Executive","Telecaller"].includes(u.role)&&u.active),[visibleUsers]);
   const selectedLeadWhatsappTemplates = useMemo(()=>selectedLead ? whatsappTemplates.filter(t=>t.project==="All"||t.project===selectedLead.project) : [],[whatsappTemplates,selectedLead]);
   const isAssignedToCurrentUser = useCallback((lead) => {
@@ -1327,25 +1380,32 @@ export default function App() {
   const reportScopedActivityLogs = useMemo(()=>{
     let logs = systemActivityLogs;
     if(currentUser&&!["Admin","Manager"].includes(currentUser.role))logs=logs.filter(l=>l.executive===currentUser.name);
-    if(currentUser?.role==="Manager")logs=logs.filter(l=>visibleProjects.some(p=>p.name===l.project));
+    if(currentUser?.role==="Manager")logs=logs.filter(l=>currentManagerTeamNames.includes(l.executive));
     return logs;
-  },[systemActivityLogs,currentUser,visibleProjects]);
+  },[systemActivityLogs,currentUser,currentManagerTeamNames]);
 
   const reportScopedLeads = useMemo(()=>{
     if(!currentUser)return[];
     if(currentUser.role==="Admin")return leads;
-    if(currentUser.role==="Manager")return leads.filter(l=>l.branch===currentUser.branch);
+    if(currentUser.role==="Manager")return leads.filter(l=>currentManagerTeamNames.includes(l.assignedTo)||currentManagerTeamNames.some(name=>(l.history||[]).some(h=>h.by===name)));
     return leads.filter(isAssignedToCurrentUser);
-  },[leads,currentUser,isAssignedToCurrentUser]);
+  },[leads,currentUser,isAssignedToCurrentUser,currentManagerTeamNames]);
+
+  const reportPeopleUsers = useMemo(()=>{
+    if(!currentUser)return[];
+    if(currentUser.role==="Admin")return visibleUsers;
+    if(currentUser.role==="Manager")return users.filter(u=>currentManagerTeamNames.includes(u.name));
+    return users.filter(u=>u.name===currentUser.name);
+  },[currentUser,visibleUsers,users,currentManagerTeamNames]);
 
   const summarizePeopleActivity = useCallback((logs)=>{
     const map = {};
-    visibleUsers.filter(u=>["Manager","Executive","Telecaller"].includes(u.role)).forEach(u=>{
+    reportPeopleUsers.filter(u=>["Manager","Executive","Telecaller"].includes(u.role)).forEach(u=>{
       map[u.name]={name:u.name,role:u.role,calls:0,followup:0,siteVisit:0,booking:0,registration:0,cancellation:0,productivity:0};
     });
     logs.forEach(l=>{
       const name = l.executive || "System";
-      if(!map[name])map[name]={name,role:visibleUsers.find(u=>u.name===name)?.role||"User",calls:0,followup:0,siteVisit:0,booking:0,registration:0,cancellation:0,productivity:0};
+      if(!map[name])map[name]={name,role:reportPeopleUsers.find(u=>u.name===name)?.role||"User",calls:0,followup:0,siteVisit:0,booking:0,registration:0,cancellation:0,productivity:0};
       map[name].calls += l.callsMade || 0;
       map[name].followup += l.followup || 0;
       map[name].siteVisit += l.siteVisit || 0;
@@ -1354,7 +1414,7 @@ export default function App() {
       map[name].cancellation += l.cancellation || 0;
     });
     return Object.values(map).map(row=>({...row,productivity:(row.calls||0)+(row.followup||0)+(row.siteVisit||0)+(row.booking||0)+(row.registration||0)})).sort((a,b)=>a.name.localeCompare(b.name));
-  },[visibleUsers]);
+  },[reportPeopleUsers]);
 
   const todayPeopleActivitySummary = useMemo(()=>summarizePeopleActivity(reportScopedActivityLogs.filter(l=>l.date===TODAY_STR)),[summarizePeopleActivity,reportScopedActivityLogs,TODAY_STR]);
   const monthPeopleActivitySummary = useMemo(()=>summarizePeopleActivity(reportScopedActivityLogs.filter(l=>isDateInRange(l.date,monthStartDate,TODAY_STR))),[summarizePeopleActivity,reportScopedActivityLogs,isDateInRange,monthStartDate,TODAY_STR]);
@@ -1520,6 +1580,19 @@ export default function App() {
     }).sort((a,b)=>(a.nextFollowUp||a.dateCreated||"").localeCompare(b.nextFollowUp||b.dateCreated||""));
   },[leads,currentUser,isAssignedToCurrentUser,TODAY_STR]);
 
+  useEffect(() => {
+    if (!currentUser || typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    const pushOnce = (key, title, body) => {
+      if (notifiedAlertsRef.current.has(key)) return;
+      notifiedAlertsRef.current.add(key);
+      notifyUser(title, body, key);
+    };
+    priorityAssignedLeads.slice(0,3).forEach(l=>pushOnce(`assigned:${l.id}:${l.assignedAt||""}`, "New lead assigned", `${l.name} - ${l.project}`));
+    dueFollowUpLeads.slice(0,3).forEach(l=>pushOnce(`followup:${l.id}:${l.nextFollowUp}`, "Follow-up reminder", `${l.name} is due for follow-up today.`));
+    appointmentReminderLeads.slice(0,3).forEach(l=>pushOnce(`appointment:${l.id}:${l.siteVisitTentativeDate}`, "Appointment reminder", `${l.name} has a site visit reminder.`));
+    unattendedLeadAlerts.slice(0,3).forEach(l=>pushOnce(`unattended:${l.id}:${l.nextFollowUp||l.dateCreated}`, "Unattended lead", `${l.name} needs attention.`));
+  }, [currentUser, priorityAssignedLeads, dueFollowUpLeads, appointmentReminderLeads, unattendedLeadAlerts, notifyUser]);
+
   const conversionRate = useMemo(()=>{ const booked=processedLeads.filter(l=>["Booking Confirmed","Closed"].includes(l.status)).length; return processedLeads.length>0?Math.round((booked/processedLeads.length)*100):0; },[processedLeads]);
   const executiveSummaryData = useMemo(()=>{ const execMap={}; visibleUsers.forEach(u=>{if(["Executive","Telecaller"].includes(u.role))execMap[u.name]={name:u.name,total:0,new:0,active:0,siteVisits:0,bookings:0,dead:0};}); execMap["Unassigned"]={name:"Unassigned",total:0,new:0,active:0,siteVisits:0,bookings:0,dead:0}; processedLeads.forEach(l=>{const exec=l.assignedTo||"Unassigned";if(!execMap[exec])execMap[exec]={name:exec,total:0,new:0,active:0,siteVisits:0,bookings:0,dead:0};execMap[exec].total+=1;if(l.status==="New")execMap[exec].new+=1;else if(["Assigned","Contacted","Follow-Up","Negotiation"].includes(l.status))execMap[exec].active+=1;else if(["Site Visit Planned","Site Visit Completed"].includes(l.status))execMap[exec].siteVisits+=1;else if(["Booking Pending","Booking Confirmed","Closed"].includes(l.status))execMap[exec].bookings+=1;else if(["Not Interested","RNR","Switched Off","Wrong Number"].includes(l.status))execMap[exec].dead+=1;}); return Object.values(execMap).filter(e=>e.total>0||visibleUsers.some(u=>u.name===e.name)).sort((a,b)=>b.total-a.total); },[processedLeads,visibleUsers]);
   const sourcewiseAnalysis = useMemo(()=>{ const data={}; processedLeads.forEach(l=>{if(!data[l.source])data[l.source]={total:0};data[l.source].total+=1;}); return Object.entries(data).sort((a,b)=>b[1].total-a[1].total); },[processedLeads]);
@@ -1664,7 +1737,9 @@ export default function App() {
     if (found) {
       const acc = await verifyPassword(found, loginPassword) ? found : null;
       if (acc) {
+        allowBrowserExitRef.current=false;
         setCurrentUser(acc);
+        rememberSession(acc);
         setLoginError("");
         triggerToastAlert(`Welcome, ${acc.name}!`);
         return;
@@ -1688,7 +1763,9 @@ export default function App() {
           return;
         }
         const admin = authUserToAdmin(data.user);
+        allowBrowserExitRef.current=false;
         setCurrentUser(admin);
+        rememberSession(admin);
         triggerToastAlert(`Welcome, ${admin.name}!`);
         setTimeout(() => window.location.reload(), 250);
         return;
@@ -1701,7 +1778,7 @@ export default function App() {
     setLoginError("Invalid credentials.");
   };
 
-  const handleLogout=async()=>{ await supabase.auth.signOut(); setCurrentUser(null);setLoginEmail("");setLoginPassword("");setGlobalSearch("");setActiveTab("dashboard");setNavHistory([]);setIsMobileMenuOpen(false); };
+  const handleLogout=async()=>{ allowBrowserExitRef.current=true; await supabase.auth.signOut(); forgetSession(); setCurrentUser(null);setLoginEmail("");setLoginPassword("");setGlobalSearch("");setActiveTab("dashboard");setNavHistory([]);setIsMobileMenuOpen(false); };
   const handleStayInApp=()=>{ setShowExitAppPopup(false); triggerToastAlert("You are still in the CRM."); };
   const handleLeaveApp=()=>{ allowBrowserExitRef.current=true; setShowExitAppPopup(false); window.history.back(); };
 
@@ -1721,10 +1798,19 @@ export default function App() {
     setCustomPopup({isOpen:false,leadId:null,targetValue:"",type:"status",title:"",message:""});
   };
 
-  const handleDataImportSubmit=async (e)=>{ e.preventDefault(); if(!importText.trim())return; try{ const lines=importText.split("\n").map(l=>l.trim()).filter(Boolean); const newLeads=[]; lines.forEach(line=>{const cols=line.split("\t"); if(cols.length>=4){const matchedProj=projects.find(p=>p.name.toLowerCase()===(cols[3]||"").toLowerCase().trim()); const branchHome=matchedProj?matchedProj.branch:"Madurai Desk"; newLeads.push({id:Date.now()+Math.floor(Math.random()*10000),name:cols[0]||"Lead",phone:stripPhone(cols[1]||"00000"),email:cols[2]||"",project:cols[3]||"",location:cols[4]||"Inbound",budget:parseInt(cols[5])||25,source:cols[6]||"Website",assignedTo:"Unassigned",assignedToId:null,assignedByRole:"",status:"New",branch:branchHome,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,history:[{date:TODAY_STR,by:currentUser.name,action:"Imported via paste."}],siteVisitTentativeDate:"",bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false});}});if(newLeads.length>0){setLeads([...newLeads,...leads]);triggerToastAlert(`Imported ${newLeads.length} leads.`);setImportText("");}
+  const downloadLeadUploadTemplate=(formatType)=>{
+    const headers=["Name","Phone","Email","Project","Location","Budget","Source","AssignedTo","Notes"];
+    const sample=["Sample Customer","9876543210","customer@example.com",projects[0]?.name||"Project Name","Madurai","25","Website","Unassigned","Initial remark"];
+    let blob; const ext=formatType==="excel"?"xlsx":"csv";
+    if(formatType==="excel"){const ws=XLSX.utils.aoa_to_sheet([headers,sample]);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Lead Upload");blob=new Blob([XLSX.write(wb,{bookType:"xlsx",type:"array"})],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});}
+    else{blob=new Blob([[headers.join(","),sample.join(",")].join("\n")],{type:"text/csv;charset=utf-8;"});}
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`CRM_Lead_Upload_Template.${ext}`;document.body.appendChild(a);a.click();URL.revokeObjectURL(a.href);document.body.removeChild(a);
+  };
+
+  const handleDataImportSubmit=async (e)=>{ e.preventDefault(); if(currentUser.role!=="Admin"){triggerToastAlert("Only Admin can upload data.");return;} if(!importText.trim())return; const warning=leadImportMode==="replace"?"This will clean existing leads and replace them with uploaded data. Continue?":"This will append uploaded leads to existing data. Continue?"; if(!window.confirm(warning))return; try{ const lines=importText.split("\n").map(l=>l.trim()).filter(Boolean); const newLeads=[]; lines.forEach((line,idx)=>{const cols=(line.includes("\t")?line.split("\t"):line.split(",")).map(c=>String(c||"").trim()); if(idx===0&&String(cols[0]||"").toLowerCase().includes("name"))return; if(cols.length>=4){const matchedProj=projects.find(p=>p.name.toLowerCase()===(cols[3]||"").toLowerCase().trim()); const branchHome=matchedProj?matchedProj.branch:"Madurai Desk"; const assignedUser=users.find(u=>u.name===(cols[7]||"")); newLeads.push({id:Date.now()+Math.floor(Math.random()*10000),name:cols[0]||"Lead",phone:stripPhone(cols[1]||"00000"),email:cols[2]||"",project:cols[3]||"",location:cols[4]||"Inbound",budget:parseInt(cols[5])||25,source:cols[6]||"Website",assignedTo:cols[7]||"Unassigned",assignedToId:assignedUser?.id||null,assignedByRole:currentUser.role,status:cols[7]&&cols[7]!=="Unassigned"?"Assigned":"New",branch:assignedUser?.branch||branchHome,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,notes:cols[8]||"",history:[{date:TODAY_STR,by:currentUser.name,action:"Imported via paste."}],siteVisitTentativeDate:"",bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false});}});if(newLeads.length>0){const saved=await setLeads(leadImportMode==="replace"?newLeads:[...newLeads,...leads]); if(!saved){triggerToastAlert("Could not save imported leads.");return;} triggerToastAlert(`${leadImportMode==="replace"?"Replaced":"Imported"} ${newLeads.length} leads.`);setImportText("");}
   }catch(err){alert(err.message);} };
 
-  const handleCreateUserSubmit=async (e)=>{ e.preventDefault(); const prefix=newUserForm.emailPrefix.trim().toLowerCase(); const role = newUserForm.role; if (role === "Admin") { triggerToastAlert("Use Admin Recovery or create another admin from secure backend controls."); return; } if(users.some(u=>u.email.toLowerCase()===`${prefix}@desam`)){triggerToastAlert("That username already exists.");return;} const u={id:Date.now(),name:newUserForm.name.trim(),email:`${prefix}@desam`,...(await makePasswordFields(newUserForm.pass)),role,branch:newUserForm.branch,phone:stripPhone(newUserForm.phone)||"9840000000",active:true,avatar:newUserForm.name.charAt(0).toUpperCase()}; const saved=await setUsers([...users, u]); if(!saved){triggerToastAlert("Could not save user to Supabase.");return;} setNewUserForm({name:"",emailPrefix:"",pass:"",role:"Executive",branch:"Madurai Desk",phone:""}); triggerToastAlert(`Profile for ${u.name} created.`); };
+  const handleCreateUserSubmit=async (e)=>{ e.preventDefault(); const prefix=newUserForm.emailPrefix.trim().toLowerCase(); const role = newUserForm.role; if (role === "Admin") { triggerToastAlert("Use Admin Recovery or create another admin from secure backend controls."); return; } if(users.some(u=>u.email.toLowerCase()===`${prefix}@desam`)){triggerToastAlert("That username already exists.");return;} const manager=managerUsers.find(m=>String(m.id)===String(newUserForm.managerId)); const u={id:Date.now(),name:newUserForm.name.trim(),email:`${prefix}@desam`,...(await makePasswordFields(newUserForm.pass)),role,branch:newUserForm.branch,phone:stripPhone(newUserForm.phone)||"9840000000",active:true,avatar:newUserForm.name.charAt(0).toUpperCase(),managerId:["Executive","Telecaller"].includes(role)?(manager?.id||null):null,managerName:["Executive","Telecaller"].includes(role)?(manager?.name||""): ""}; const saved=await setUsers([...users, u]); if(!saved){triggerToastAlert("Could not save user to Supabase.");return;} setNewUserForm({name:"",emailPrefix:"",pass:"",role:"Executive",branch:"Madurai Desk",phone:"",managerId:""}); triggerToastAlert(`Profile for ${u.name} created.`); };
 
   const handleDeleteUser=async (userId)=>{
     if(userId===currentUser.id){triggerToastAlert("Cannot delete your own account.");return;}
@@ -1746,7 +1832,8 @@ export default function App() {
     const prefix=editUserForm.email.split('@')[0].trim().toLowerCase();
     const { newPassword, confirmNewPassword, ...cleanForm } = editUserForm;
     const passwordFields = passwordValue ? await makePasswordFields(passwordValue) : {};
-    const u={...cleanForm,...passwordFields,name:cleanForm.name.trim(),email:`${prefix}@desam`,branch:cleanForm.role==="Admin"?"All Branches":cleanForm.branch,phone:stripPhone(cleanForm.phone)||"9840000000",avatar:cleanForm.name.charAt(0).toUpperCase(),active:cleanForm.active!==false};
+    const manager=managerUsers.find(m=>String(m.id)===String(cleanForm.managerId));
+    const u={...cleanForm,...passwordFields,name:cleanForm.name.trim(),email:`${prefix}@desam`,branch:cleanForm.role==="Admin"?"All Branches":cleanForm.branch,phone:stripPhone(cleanForm.phone)||"9840000000",avatar:cleanForm.name.charAt(0).toUpperCase(),active:cleanForm.active!==false,managerId:["Executive","Telecaller"].includes(cleanForm.role)?(manager?.id||null):null,managerName:["Executive","Telecaller"].includes(cleanForm.role)?(manager?.name||""):""};
     const saved=await setUsers(users.map(x => x.id === u.id ? u : x));
     if(!saved){triggerToastAlert("Could not save user changes to Supabase.");return;}
     setIsEditUserModalOpen(false);setEditUserForm(null); triggerToastAlert(`Profile for ${u.name} updated.`); };
@@ -2028,6 +2115,12 @@ export default function App() {
             <div className="relative w-48 sm:w-80 hidden sm:block"><Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500"/><input type="text" value={globalSearch} onChange={e=>setGlobalSearch(e.target.value)} placeholder="Search leads..." className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500"/></div>
           </div>
           <div className="flex items-center gap-3">
+            {notificationPermission!=="granted"&&currentUser&&(
+              <button onClick={requestBrowserNotifications} className="relative flex items-center gap-1.5 text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl hover:bg-emerald-500/20 transition-colors">
+                <Bell className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Enable Alerts</span>
+              </button>
+            )}
             {currentUser.role === "Admin" && activeResetCount > 0 && (
               <button onClick={() => navigateTo("users")} className="relative flex items-center gap-1.5 text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-xl hover:bg-rose-500/20 transition-colors">
                 <KeyRound className="h-3.5 w-3.5" />
@@ -2146,7 +2239,7 @@ export default function App() {
             <div className="space-y-5">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-950 p-5 border border-slate-800 rounded-2xl shadow-xl">
                 <div><h1 className="text-lg lg:text-xl font-black text-white flex items-center gap-2"><ClipboardList className="h-5 w-5 text-emerald-500"/> Activity Tracker</h1><p className="text-[10px] text-slate-500 mt-1">{customerActivityRows.length} customer summaries recorded.</p></div>
-                <button onClick={()=>executeDataExportSequence("excel")} className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 border border-slate-700 text-emerald-400 font-black text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider transition-colors flex items-center justify-center gap-2 shadow-lg"><Download className="h-4 w-4"/> Export</button>
+                {currentUser.role==="Admin"&&<button onClick={()=>executeDataExportSequence("excel")} className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 border border-slate-700 text-emerald-400 font-black text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider transition-colors flex items-center justify-center gap-2 shadow-lg"><Download className="h-4 w-4"/> Export</button>}
               </div>
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4 text-xs">
                  <div className="flex flex-wrap gap-3">
@@ -2286,10 +2379,10 @@ export default function App() {
                     <div className="relative"><Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500"/><input type="date" value={reportStartDate} onChange={e=>setReportStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-3 py-2 text-slate-300 focus:outline-none focus:border-blue-500 font-mono"/></div>
                     <span className="hidden sm:block text-slate-600">-</span>
                     <div className="relative"><Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500"/><input type="date" value={reportEndDate} onChange={e=>setReportEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-3 py-2 text-slate-300 focus:outline-none focus:border-blue-500 font-mono"/></div>
-                    <button onClick={()=>exportSelectedRangeReport("excel")} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><FileSpreadsheet className="h-3.5 w-3.5"/> Excel</button>
-                    <button onClick={()=>exportSelectedRangeReport("csv")} className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><Table2 className="h-3.5 w-3.5"/> CSV</button>
-                    <button onClick={()=>exportSelectedRangeReport("pdf")} className="bg-rose-600 hover:bg-rose-700 text-white font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><FileText className="h-3.5 w-3.5"/> PDF</button>
-                    {(reportStartDate!==TODAY_STR||reportEndDate!==TODAY_STR)&&<button onClick={()=>{setReportStartDate(TODAY_STR);setReportEndDate(TODAY_STR);}} className="text-blue-400 hover:text-blue-300 font-bold px-3 py-2 border border-blue-500/30 rounded-lg flex items-center justify-center gap-1 bg-blue-500/10"><X className="h-3.5 w-3.5"/> Clear</button>}
+                    {currentUser.role==="Admin"&&<button onClick={()=>exportSelectedRangeReport("excel")} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><FileSpreadsheet className="h-3.5 w-3.5"/> Excel</button>}
+                    {currentUser.role==="Admin"&&<button onClick={()=>exportSelectedRangeReport("csv")} className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><Table2 className="h-3.5 w-3.5"/> CSV</button>}
+                    {currentUser.role==="Admin"&&<button onClick={()=>exportSelectedRangeReport("pdf")} className="bg-rose-600 hover:bg-rose-700 text-white font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><FileText className="h-3.5 w-3.5"/> PDF</button>}
+                    {(reportStartDate!==monthStartDate||reportEndDate!==TODAY_STR)&&<button onClick={()=>{setReportStartDate(monthStartDate);setReportEndDate(TODAY_STR);}} className="text-blue-400 hover:text-blue-300 font-bold px-3 py-2 border border-blue-500/30 rounded-lg flex items-center justify-center gap-1 bg-blue-500/10"><X className="h-3.5 w-3.5"/> Clear</button>}
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -2346,6 +2439,7 @@ export default function App() {
                             <div className="flex items-center justify-between"><h4 className="text-sm font-black text-white truncate">{u.name}</h4>{u.role!=="Admin"&&<div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={()=>openEditUserModal(u)} className="p-1.5 text-slate-500 hover:text-blue-400 bg-slate-950 rounded-lg border border-slate-800"><Edit2 className="h-3 w-3"/></button><button onClick={()=>handleDeleteUser(u.id)} className="p-1.5 text-slate-500 hover:text-rose-400 bg-slate-950 rounded-lg border border-slate-800"><Trash2 className="h-3 w-3"/></button></div>}</div>
                             <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">{u.email}</p>
                             <div className="flex items-center gap-2 mt-2"><span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${u.role==="Admin"?"bg-rose-500/10 text-rose-400 border-rose-500/20":u.role==="Manager"?"bg-purple-500/10 text-purple-400 border-purple-500/20":"bg-slate-800 text-slate-400 border-slate-700"}`}>{u.role}</span><span className="text-[9px] text-slate-500 font-bold truncate">{u.branch}</span></div>
+                            {["Executive","Telecaller"].includes(u.role)&&<p className="text-[9px] text-blue-400 font-bold mt-1 truncate">Manager: {u.managerName||"Not mapped"}</p>}
                           </div>
                         </div>
                       ))}
@@ -2354,6 +2448,15 @@ export default function App() {
                 </div>
                 <div className="space-y-6">
                   <AdminResetRequestsPanel resetRequests={resetRequests} setResetRequests={setResetRequests} triggerToastAlert={triggerToastAlert} />
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider mb-5 flex items-center gap-2 border-b border-slate-800 pb-4"><Upload className="h-4 w-4 text-orange-500"/> Admin Data Upload</h3>
+                    <div className="grid grid-cols-2 gap-2 mb-4"><button onClick={()=>downloadLeadUploadTemplate("excel")} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] px-3 py-2 rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5"><FileSpreadsheet className="h-3.5 w-3.5"/> Excel Format</button><button onClick={()=>downloadLeadUploadTemplate("csv")} className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-black text-[10px] px-3 py-2 rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5"><Table2 className="h-3.5 w-3.5"/> CSV Format</button></div>
+                    <form onSubmit={handleDataImportSubmit} className="space-y-3 text-xs">
+                      <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Upload Mode</label><select value={leadImportMode} onChange={e=>setLeadImportMode(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-orange-500"><option value="append">Append to existing data</option><option value="replace">Clean existing data and replace</option></select></div>
+                      <textarea rows={5} value={importText} onChange={e=>setImportText(e.target.value)} placeholder="Paste rows from Excel here..." className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 resize-none"/>
+                      <button type="submit" className={`w-full text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 ${leadImportMode==="replace"?"bg-rose-600 hover:bg-rose-700":"bg-orange-600 hover:bg-orange-700"}`}><AlertTriangle className="h-4 w-4"/> {leadImportMode==="replace"?"Clean & Upload":"Append Upload"}</button>
+                    </form>
+                  </div>
                   <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
                     <h3 className="text-sm font-black text-white uppercase tracking-wider mb-5 flex items-center gap-2 border-b border-slate-800 pb-4"><UserPlus className="h-4 w-4 text-emerald-500"/> Provision Identity</h3>
                     <form onSubmit={handleCreateUserSubmit} className="space-y-4 text-xs">
@@ -2364,6 +2467,7 @@ export default function App() {
                         <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Role</label><select value={newUserForm.role} onChange={e=>setNewUserForm({...newUserForm,role:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-rose-500"><option value="Manager">Manager</option><option value="Executive">Executive</option><option value="Telecaller">Telecaller</option></select></div>
                         <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Branch</label><select value={newUserForm.branch} onChange={e=>setNewUserForm({...newUserForm,branch:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-rose-500">{BRANCHES.map(b=><option key={b} value={b}>{b}</option>)}</select></div>
                       </div>
+                      {["Executive","Telecaller"].includes(newUserForm.role)&&<div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Reporting Manager</label><select value={newUserForm.managerId||""} onChange={e=>setNewUserForm({...newUserForm,managerId:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-rose-500"><option value="">Not mapped</option>{managerUsers.map(m=><option key={m.id} value={m.id}>{m.name} ({m.branch})</option>)}</select></div>}
                       <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Phone Number</label><input type="tel" value={newUserForm.phone} onChange={e=>setNewUserForm({...newUserForm,phone:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-rose-500 font-mono" placeholder="10-digit number"/></div>
                       <button type="submit" className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg mt-2 flex items-center justify-center gap-2"><UserPlus className="h-4 w-4"/> Provision User</button>
                     </form>
@@ -2526,6 +2630,7 @@ export default function App() {
                 <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Role</label><select value={editUserForm.role} onChange={e=>setEditUserForm({...editUserForm,role:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-blue-500"><option value="Manager">Manager</option><option value="Executive">Executive</option><option value="Telecaller">Telecaller</option></select></div>
                 <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Branch</label><select value={editUserForm.branch} onChange={e=>setEditUserForm({...editUserForm,branch:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-blue-500">{BRANCHES.map(b=><option key={b} value={b}>{b}</option>)}</select></div>
               </div>
+              {["Executive","Telecaller"].includes(editUserForm.role)&&<div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Reporting Manager</label><select value={editUserForm.managerId||""} onChange={e=>setEditUserForm({...editUserForm,managerId:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-blue-500"><option value="">Not mapped</option>{managerUsers.map(m=><option key={m.id} value={m.id}>{m.name} ({m.branch})</option>)}</select></div>}
               <label className="flex items-center justify-between gap-3 bg-slate-900/70 border border-slate-800 rounded-xl px-3 py-2.5 cursor-pointer">
                 <span><span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wide">Login Active</span><span className="block text-[10px] text-slate-600 mt-0.5">Turn off to block this staff login.</span></span>
                 <input type="checkbox" checked={editUserForm.active!==false} onChange={e=>setEditUserForm({...editUserForm,active:e.target.checked})} className="h-4 w-4 accent-blue-600"/>

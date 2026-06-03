@@ -24,15 +24,27 @@ jobs:
       - name: Create CRM backup
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGCONNECT_TIMEOUT: 30
         run: |
           mkdir -p backups
           BACKUP_FILE="backups/crm_state_store_$(date -u +'%Y-%m-%d_%H-%M-%S_UTC').sql"
-          /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" \
-            --schema=public \
-            --table=public.crm_state_store \
-            --no-owner \
-            --no-privileges \
-            --file="$BACKUP_FILE"
+          for attempt in 1 2 3 4 5; do
+            echo "Backup attempt $attempt of 5"
+            if /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" \
+              --schema=public \
+              --table=public.crm_state_store \
+              --no-owner \
+              --no-privileges \
+              --file="$BACKUP_FILE"; then
+              break
+            fi
+            if [ "$attempt" = "5" ]; then
+              echo "Backup failed after 5 attempts."
+              exit 1
+            fi
+            echo "Connection failed. Waiting before retry..."
+            sleep 30
+          done
           echo "Created backup: $BACKUP_FILE"
 
       - name: Upload backup file

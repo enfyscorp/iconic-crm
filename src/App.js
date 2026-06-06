@@ -127,6 +127,29 @@ function normaliseCallStatus(raw) {
   return "Warm";
 }
 
+const pad2 = (value) => String(value).padStart(2, "0");
+function getLocalDate(date = new Date()) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+function getLocalTime(date = new Date()) {
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+}
+function getLocalDateTime(date = new Date()) {
+  return `${getLocalDate(date)} ${getLocalTime(date)}`;
+}
+function makeHistoryLog(by, action, date = new Date()) {
+  return { date: getLocalDate(date), time: getLocalTime(date), timestamp: date.toISOString(), by, action };
+}
+function formatDateTimeLabel(item) {
+  if (!item) return "";
+  const date = item.date || item.dateCreated || "";
+  const time = item.time || item.dateCreatedTime || "";
+  return [date, time].filter(Boolean).join(" ");
+}
+function isFreshLead(lead) {
+  return lead?.newLeadTag === true && ["New", "Assigned"].includes(lead.status);
+}
+
 // ─── MOBILE DETECTION ────────────────────────────────────────────────────
 const makeSecureToken = (bytesLength = 16) => {
   const bytes = new Uint8Array(bytesLength);
@@ -861,7 +884,7 @@ function PasswordResetModal({ users, setUsers, resetRequests, setResetRequests, 
 // MAIN APP COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 export default function App() {
-  const TODAY_STR = new Date().toISOString().slice(0,10);
+  const TODAY_STR = getLocalDate();
   const isMobile = useIsMobile();
 
   const [storageReady, setStorageReady] = useState(false);
@@ -1160,6 +1183,9 @@ export default function App() {
   const [statusEditLeadId, setStatusEditLeadId] = useState(null);
   const [projectEditLeadId, setProjectEditLeadId] = useState(null);
   const [selectedWhatsappTemplateId, setSelectedWhatsappTemplateId] = useState("");
+  const [isLeadEditMode, setIsLeadEditMode] = useState(false);
+  const [isLeadUpdateSaving, setIsLeadUpdateSaving] = useState(false);
+  const [leadEditDraft, setLeadEditDraft] = useState({ status:"", assignedTo:"Unassigned", project:"" });
   const [newWhatsappTemplateForm, setNewWhatsappTemplateForm] = useState({ project:"All", title:"", message:"", imageUrl:"", imageDataUrl:"" });
   const allowBrowserExitRef = useRef(false);
   const notifiedAlertsRef = useRef(new Set());
@@ -1169,6 +1195,20 @@ export default function App() {
     const latestLead = leads.find(l => l.id === selectedLead.id);
     if (latestLead && latestLead !== selectedLead) setSelectedLead(latestLead);
   }, [leads, selectedLead]);
+
+  useEffect(() => {
+    if (!selectedLead) {
+      setIsLeadEditMode(false);
+      setLeadEditDraft({ status:"", assignedTo:"Unassigned", project:"" });
+      return;
+    }
+    setIsLeadEditMode(false);
+    setLeadEditDraft({
+      status: selectedLead.status || "New",
+      assignedTo: selectedLead.assignedTo || "Unassigned",
+      project: selectedLead.project || "",
+    });
+  }, [selectedLead?.id]);
 
   useEffect(() => {
     setSelectedWhatsappTemplateId("");
@@ -1334,6 +1374,8 @@ export default function App() {
         id: `${lead.id}-${index}-${h.date}`,
         leadId: lead.id,
         date: h.date || lead.dateCreated || TODAY_STR,
+        time: h.time || lead.dateCreatedTime || "",
+        timestamp: h.timestamp || "",
         executive: h.by || lead.assignedTo || "System",
         project: lead.project || "",
         source: lead.source || "",
@@ -1356,7 +1398,7 @@ export default function App() {
     if(actStartDate)logs=logs.filter(l=>l.date>=actStartDate);
     if(actEndDate)logs=logs.filter(l=>l.date<=actEndDate);
     if(activitySearch.trim()){const t=activitySearch.toLowerCase();logs=logs.filter(l=>(l.leadName||"").toLowerCase().includes(t)||(l.phone||"").includes(t)||(l.executive||"").toLowerCase().includes(t)||(l.project||"").toLowerCase().includes(t)||(l.remark||"").toLowerCase().includes(t));}
-    return [...logs].sort((a,b)=>b.date.localeCompare(a.date));
+    return [...logs].sort((a,b)=>(`${b.date || ""} ${b.time || ""}`).localeCompare(`${a.date || ""} ${a.time || ""}`));
   },[systemActivityLogs,currentUser,currentManagerTeamNames,actFilterExec,actFilterProject,actFilterSource,actFilterStatus,actStartDate,actEndDate,activitySearch]);
 
   const customerActivityRows = useMemo(()=>{
@@ -1367,6 +1409,7 @@ export default function App() {
         id: key,
         leadId: log.leadId,
         lastContactedDate: log.date,
+        lastContactedTime: log.time || "",
         executive: log.executive,
         leadName: log.leadName,
         phone: log.phone,
@@ -1388,8 +1431,9 @@ export default function App() {
       current.registration += log.registration || 0;
       current.cancellation += log.cancellation || 0;
       current.collection += log.collection || 0;
-      if ((log.date || "") >= (current.lastContactedDate || "")) {
+      if ((`${log.date || ""} ${log.time || ""}`) >= (`${current.lastContactedDate || ""} ${current.lastContactedTime || ""}`)) {
         current.lastContactedDate = log.date;
+        current.lastContactedTime = log.time || "";
         current.lastRemark = log.remark || "";
         current.executive = log.executive || current.executive;
         current.project = log.project || current.project;
@@ -1397,7 +1441,7 @@ export default function App() {
       }
       map.set(key, current);
     });
-    return Array.from(map.values()).sort((a,b)=>(b.lastContactedDate||"").localeCompare(a.lastContactedDate||""));
+    return Array.from(map.values()).sort((a,b)=>(`${b.lastContactedDate||""} ${b.lastContactedTime||""}`).localeCompare(`${a.lastContactedDate||""} ${a.lastContactedTime||""}`));
   },[filteredActivityLogs]);
 
   const monthStartDate = `${TODAY_STR.slice(0,7)}-01`;
@@ -1574,6 +1618,13 @@ export default function App() {
     return[];
   },[leads,currentUser,isAssignedToCurrentUser,isLeadInCurrentManagerScope]);
 
+  const newLeadDashboardItems = useMemo(()=>{
+    if(!currentUser)return[];
+    return processedLeads
+      .filter(isFreshLead)
+      .sort((a,b)=>(b.createdAt||`${b.dateCreated||""} ${b.dateCreatedTime||""}`).localeCompare(a.createdAt||`${a.dateCreated||""} ${a.dateCreatedTime||""}`));
+  },[processedLeads,currentUser]);
+
   const priorityAssignedLeads = useMemo(() => {
     if (!currentUser || currentUser.role === "Admin") return [];
     return leads
@@ -1638,14 +1689,14 @@ export default function App() {
   };
 
   const handleInlineMilestoneStatusChange = (leadId, targetStatus) => {
-    const log={date:TODAY_STR,by:currentUser.name,action:`Milestone shifted to [${targetStatus}].`};
-    const updated=leads.map(l=>l.id===leadId?{...l,status:targetStatus,history:[log,...l.history]}:l);
+    const log=makeHistoryLog(currentUser.name, `Milestone shifted to [${targetStatus}].`);
+    const updated=leads.map(l=>l.id===leadId?{...l,status:targetStatus,history:[log,...(l.history || [])]}:l);
     setLeads(updated);
-    if(selectedLead&&selectedLead.id===leadId)setSelectedLead(prev=>({...prev,status:targetStatus,history:[log,...prev.history]}));
+    if(selectedLead&&selectedLead.id===leadId)setSelectedLead(prev=>({...prev,status:targetStatus,history:[log,...(prev.history || [])]}));
     triggerToastAlert(`Milestone set to ${targetStatus}`);
   };
   const handleProjectStatusChange=(projectId,targetStatus)=>{ const updated=projects.map(p=>p.id===projectId?{...p,status:targetStatus}:p); setProjects(updated); triggerToastAlert(`Project status: ${targetStatus}`); };
-  const commitTentativeWalkthroughPlan=(e)=>{ e.preventDefault(); if(!tentativeWalkthroughDateInput)return; const log={date:TODAY_STR,by:currentUser.name,action:`[SITE VISIT PLANNED]: Date set to ${tentativeWalkthroughDateInput}.`}; const updated=leads.map(l=>l.id===selectedLead.id?{...l,status:"Site Visit Planned",siteVisitTentativeDate:tentativeWalkthroughDateInput,history:[log,...l.history]}:l); setLeads(updated); setSelectedLead(prev=>({...prev,status:"Site Visit Planned",siteVisitTentativeDate:tentativeWalkthroughDateInput,history:[log,...prev.history]})); setTentativeWalkthroughDateInput(""); triggerToastAlert("Tentative date saved."); };
+  const commitTentativeWalkthroughPlan=(e)=>{ e.preventDefault(); if(!tentativeWalkthroughDateInput)return; const log=makeHistoryLog(currentUser.name, `[SITE VISIT PLANNED]: Date set to ${tentativeWalkthroughDateInput}.`); const updated=leads.map(l=>l.id===selectedLead.id?{...l,status:"Site Visit Planned",siteVisitTentativeDate:tentativeWalkthroughDateInput,history:[log,...(l.history || [])]}:l); setLeads(updated); setSelectedLead(prev=>({...prev,status:"Site Visit Planned",siteVisitTentativeDate:tentativeWalkthroughDateInput,history:[log,...(prev.history || [])]})); setTentativeWalkthroughDateInput(""); triggerToastAlert("Tentative date saved."); };
 
   const handleLeadStatusDropdownChange = async (leadId, targetStatus) => {
     const lead = leads.find(l => l.id === leadId);
@@ -1653,7 +1704,7 @@ export default function App() {
       setStatusEditLeadId(null);
       return;
     }
-    const log = { date:TODAY_STR, by:currentUser.name, action:`Status updated to: ${targetStatus}` };
+    const log = makeHistoryLog(currentUser.name, `Status updated to: ${targetStatus}`);
     const updated = leads.map(l => l.id === leadId ? { ...l, status:targetStatus, history:[log, ...(l.history || [])] } : l);
     const saved = await setLeads(updated);
     if(!saved){ triggerToastAlert("Could not save status to Supabase."); return; }
@@ -1669,7 +1720,7 @@ export default function App() {
       return;
     }
     const project = projects.find(p => p.name === projectName);
-    const log = { date:TODAY_STR, by:currentUser.name, action:`Project changed from ${lead.project || "Not set"} to ${projectName}.` };
+    const log = makeHistoryLog(currentUser.name, `Project changed from ${lead.project || "Not set"} to ${projectName}.`);
     const updated = leads.map(l => l.id === leadId ? { ...l, project:projectName, branch:project?.branch || l.branch, history:[log, ...(l.history || [])] } : l);
     const saved = await setLeads(updated);
     if(!saved){ triggerToastAlert("Could not save project change to Supabase."); return; }
@@ -1677,6 +1728,73 @@ export default function App() {
     setProjectEditLeadId(null);
     setSelectedWhatsappTemplateId("");
     triggerToastAlert("Project updated.");
+  };
+
+  const startLeadDrawerEdit = () => {
+    if (!selectedLead) return;
+    setLeadEditDraft({
+      status: selectedLead.status || "New",
+      assignedTo: selectedLead.assignedTo || "Unassigned",
+      project: selectedLead.project || "",
+    });
+    setIsLeadEditMode(true);
+  };
+
+  const cancelLeadDrawerEdit = () => {
+    if (selectedLead) {
+      setLeadEditDraft({
+        status: selectedLead.status || "New",
+        assignedTo: selectedLead.assignedTo || "Unassigned",
+        project: selectedLead.project || "",
+      });
+    }
+    setIsLeadEditMode(false);
+  };
+
+  const commitLeadDrawerUpdate = async () => {
+    if (!selectedLead || isLeadUpdateSaving) return;
+    const currentLead = leads.find(l => l.id === selectedLead.id) || selectedLead;
+    const targetStatus = leadEditDraft.status || currentLead.status || "New";
+    const targetAssignedTo = ["Admin","Manager"].includes(currentUser.role) ? (leadEditDraft.assignedTo || "Unassigned") : (currentLead.assignedTo || "Unassigned");
+    const targetProject = leadEditDraft.project || currentLead.project || "";
+    const assignedUser = targetAssignedTo !== "Unassigned" ? users.find(u => u.name === targetAssignedTo) : null;
+    const project = projects.find(p => p.name === targetProject);
+    const logs = [];
+    if ((currentLead.status || "") !== targetStatus) logs.push(makeHistoryLog(currentUser.name, `Status updated to: ${targetStatus}`));
+    if ((currentLead.assignedTo || "Unassigned") !== targetAssignedTo) logs.push(makeHistoryLog(currentUser.name, `Assigned to: ${targetAssignedTo}`));
+    if ((currentLead.project || "") !== targetProject) logs.push(makeHistoryLog(currentUser.name, `Project changed from ${currentLead.project || "Not set"} to ${targetProject}.`));
+    if (!logs.length) {
+      setIsLeadEditMode(false);
+      setSelectedLead(null);
+      return;
+    }
+    setIsLeadUpdateSaving(true);
+    const updated = leads.map(l => {
+      if (l.id !== currentLead.id) return l;
+      const assignmentChanged = (currentLead.assignedTo || "Unassigned") !== targetAssignedTo;
+      const statusWasEdited = (currentLead.status || "") !== targetStatus;
+      const nextStatus = statusWasEdited ? targetStatus : assignmentChanged ? (targetAssignedTo === "Unassigned" ? "New" : "Assigned") : l.status;
+      return {
+        ...l,
+        status: nextStatus,
+        assignedTo: targetAssignedTo,
+        assignedToId: assignedUser?.id || null,
+        assignedAt: assignmentChanged && assignedUser ? Date.now() : l.assignedAt,
+        assignedByRole: assignmentChanged ? currentUser.role : l.assignedByRole,
+        project: targetProject,
+        branch: assignedUser?.branch || project?.branch || l.branch,
+        history: [...logs, ...(l.history || [])],
+      };
+    });
+    const saved = await setLeads(updated);
+    setIsLeadUpdateSaving(false);
+    if (!saved) {
+      triggerToastAlert("Could not save lead update to Supabase.");
+      return;
+    }
+    setIsLeadEditMode(false);
+    setSelectedLead(null);
+    triggerToastAlert("Lead updated.");
   };
 
   const handleCreateWhatsappTemplate = async (e) => {
@@ -1732,7 +1850,7 @@ export default function App() {
   const executeDataExportSequence=(formatType)=>{
     if(customerActivityRows.length===0){triggerToastAlert("No data to export.");return;}
     const headers=["Last Contacted","User","Client","Phone","Project","Source","Calls Made","Followup","Site Visit","Booking","Registration","Cancellation","Collection","Last Remark"];
-    const rows=customerActivityRows.map(l=>[l.lastContactedDate,l.executive,l.leadName,l.phone,l.project,l.source,l.callsMade,l.followup,l.siteVisit,l.booking,l.registration,l.cancellation,l.collection,l.lastRemark]);
+    const rows=customerActivityRows.map(l=>[formatDateTimeLabel({date:l.lastContactedDate,time:l.lastContactedTime}),l.executive,l.leadName,l.phone,l.project,l.source,l.callsMade,l.followup,l.siteVisit,l.booking,l.registration,l.cancellation,l.collection,l.lastRemark]);
     const ext=formatType==="excel"?"xlsx":"csv";
     let blob;
     if (formatType === "excel") {
@@ -1818,12 +1936,12 @@ export default function App() {
 
   const confirmCustomPopupAction=async ()=>{
     const{leadId,targetValue,type}=customPopup;
-    if(type==="status"){const log={date:TODAY_STR,by:currentUser.name,action:`Status updated to: ${targetValue}`};const updated=leads.map(l=>l.id===leadId?{...l,status:targetValue,history:[log,...l.history]}:l);const saved=await setLeads(updated);if(!saved){triggerToastAlert("Could not save status to Supabase.");return;}if(selectedLead&&selectedLead.id===leadId)setSelectedLead({...selectedLead,status:targetValue,history:[log,...selectedLead.history]});triggerToastAlert("Status updated.");}
+    if(type==="status"){const log=makeHistoryLog(currentUser.name, `Status updated to: ${targetValue}`);const updated=leads.map(l=>l.id===leadId?{...l,status:targetValue,history:[log,...(l.history || [])]}:l);const saved=await setLeads(updated);if(!saved){triggerToastAlert("Could not save status to Supabase.");return;}if(selectedLead&&selectedLead.id===leadId)setSelectedLead({...selectedLead,status:targetValue,history:[log,...(selectedLead.history || [])]});triggerToastAlert("Status updated.");}
     else if(type==="assign"){
       const assignedUser = users.find(u => u.name === targetValue);
       const newBranch = assignedUser ? assignedUser.branch : leads.find(l=>l.id===leadId)?.branch;
-      const log={date:TODAY_STR,by:currentUser.name,action:`Assigned to: ${targetValue}`};
-      const updated=leads.map(l=>l.id===leadId?{...l,assignedTo:targetValue,assignedToId:assignedUser?.id||null,assignedAt:assignedUser?Date.now():null,assignedByRole:currentUser.role,branch:newBranch||l.branch,status:targetValue==="Unassigned"?"New":"Assigned",history:[log,...l.history]}:l);
+      const log=makeHistoryLog(currentUser.name, `Assigned to: ${targetValue}`);
+      const updated=leads.map(l=>l.id===leadId?{...l,assignedTo:targetValue,assignedToId:assignedUser?.id||null,assignedAt:assignedUser?Date.now():null,assignedByRole:currentUser.role,branch:newBranch||l.branch,status:targetValue==="Unassigned"?"New":"Assigned",history:[log,...(l.history || [])]}:l);
       const saved=await setLeads(updated);if(!saved){triggerToastAlert("Could not save assignment to Supabase.");return;}setSelectedLead(null);triggerToastAlert(`Assigned to ${targetValue}`);
     }
     setCustomPopup({isOpen:false,leadId:null,targetValue:"",type:"status",title:"",message:""});
@@ -1838,7 +1956,7 @@ export default function App() {
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`CRM_Lead_Upload_Template.${ext}`;document.body.appendChild(a);a.click();URL.revokeObjectURL(a.href);document.body.removeChild(a);
   };
 
-  const handleDataImportSubmit=async (e)=>{ e.preventDefault(); if(currentUser.role!=="Admin"){triggerToastAlert("Only Admin can upload data.");return;} if(!importText.trim())return; const warning=leadImportMode==="replace"?"This will clean existing leads and replace them with uploaded data. Continue?":"This will append uploaded leads to existing data. Continue?"; if(!window.confirm(warning))return; try{ const lines=importText.split("\n").map(l=>l.trim()).filter(Boolean); const newLeads=[]; lines.forEach((line,idx)=>{const cols=(line.includes("\t")?line.split("\t"):line.split(",")).map(c=>String(c||"").trim()); if(idx===0&&String(cols[0]||"").toLowerCase().includes("name"))return; if(cols.length>=4){const matchedProj=projects.find(p=>p.name.toLowerCase()===(cols[3]||"").toLowerCase().trim()); const branchHome=matchedProj?matchedProj.branch:"Madurai Desk"; const assignedUser=users.find(u=>u.name===(cols[7]||"")); newLeads.push({id:Date.now()+Math.floor(Math.random()*10000),name:cols[0]||"Lead",phone:stripPhone(cols[1]||"00000"),email:cols[2]||"",project:cols[3]||"",location:cols[4]||"Inbound",budget:parseInt(cols[5])||25,source:cols[6]||"Website",assignedTo:cols[7]||"Unassigned",assignedToId:assignedUser?.id||null,assignedByRole:currentUser.role,status:cols[7]&&cols[7]!=="Unassigned"?"Assigned":"New",branch:assignedUser?.branch||branchHome,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,notes:cols[8]||"",history:[{date:TODAY_STR,by:currentUser.name,action:"Imported via paste."}],siteVisitTentativeDate:"",bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false});}});if(newLeads.length>0){const saved=await setLeads(leadImportMode==="replace"?newLeads:[...newLeads,...leads]); if(!saved){triggerToastAlert("Could not save imported leads.");return;} triggerToastAlert(`${leadImportMode==="replace"?"Replaced":"Imported"} ${newLeads.length} leads.`);setImportText("");}
+  const handleDataImportSubmit=async (e)=>{ e.preventDefault(); if(currentUser.role!=="Admin"){triggerToastAlert("Only Admin can upload data.");return;} if(!importText.trim())return; const warning=leadImportMode==="replace"?"This will clean existing leads and replace them with uploaded data. Continue?":"This will append uploaded leads to existing data. Continue?"; if(!window.confirm(warning))return; try{ const lines=importText.split("\n").map(l=>l.trim()).filter(Boolean); const newLeads=[]; lines.forEach((line,idx)=>{const cols=(line.includes("\t")?line.split("\t"):line.split(",")).map(c=>String(c||"").trim()); if(idx===0&&String(cols[0]||"").toLowerCase().includes("name"))return; if(cols.length>=4){const matchedProj=projects.find(p=>p.name.toLowerCase()===(cols[3]||"").toLowerCase().trim()); const branchHome=matchedProj?matchedProj.branch:"Madurai Desk"; const assignedUser=users.find(u=>u.name===(cols[7]||"")); const now=new Date(); newLeads.push({id:Date.now()+Math.floor(Math.random()*10000),name:cols[0]||"Lead",phone:stripPhone(cols[1]||"00000"),email:cols[2]||"",project:cols[3]||"",location:cols[4]||"Inbound",budget:parseInt(cols[5])||25,source:cols[6]||"Website",assignedTo:cols[7]||"Unassigned",assignedToId:assignedUser?.id||null,assignedByRole:currentUser.role,status:cols[7]&&cols[7]!=="Unassigned"?"Assigned":"New",branch:assignedUser?.branch||branchHome,dateCreated:getLocalDate(now),dateCreatedTime:getLocalTime(now),createdAt:now.toISOString(),newLeadTag:true,lastFollowUp:"None",nextFollowUp:getLocalDate(now),notes:cols[8]||"",history:[makeHistoryLog(currentUser.name,"Imported via paste.",now)],siteVisitTentativeDate:"",bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false});}});if(newLeads.length>0){const saved=await setLeads(leadImportMode==="replace"?newLeads:[...newLeads,...leads]); if(!saved){triggerToastAlert("Could not save imported leads.");return;} triggerToastAlert(`${leadImportMode==="replace"?"Replaced":"Imported"} ${newLeads.length} leads.`);setImportText("");}
   }catch(err){alert(err.message);} };
 
   const handleCreateUserSubmit=async (e)=>{ e.preventDefault(); const prefix=newUserForm.emailPrefix.trim().toLowerCase(); const role = newUserForm.role; if (role === "Admin") { triggerToastAlert("Use Admin Recovery or create another admin from secure backend controls."); return; } if(users.some(u=>u.email.toLowerCase()===`${prefix}@desam`)){triggerToastAlert("That username already exists.");return;} const manager=managerUsers.find(m=>String(m.id)===String(newUserForm.managerId)); const u={id:Date.now(),name:newUserForm.name.trim(),email:`${prefix}@desam`,...(await makePasswordFields(newUserForm.pass)),role,branch:newUserForm.branch,phone:stripPhone(newUserForm.phone)||"9840000000",active:true,avatar:newUserForm.name.charAt(0).toUpperCase(),managerId:["Executive","Telecaller"].includes(role)?(manager?.id||null):null,managerName:["Executive","Telecaller"].includes(role)?(manager?.name||""): ""}; const saved=await setUsers([...users, u]); if(!saved){triggerToastAlert("Could not save user to Supabase.");return;} setNewUserForm({name:"",emailPrefix:"",pass:"",role:"Executive",branch:"Madurai Desk",phone:"",managerId:""}); triggerToastAlert(`Profile for ${u.name} created.`); };
@@ -1869,27 +1987,28 @@ export default function App() {
     if(!saved){triggerToastAlert("Could not save user changes to Supabase.");return;}
     setIsEditUserModalOpen(false);setEditUserForm(null); triggerToastAlert(`Profile for ${u.name} updated.`); };
 
-  const commitManualFollowUpReport=(e)=>{ e.preventDefault(); if(!followUpNotes.trim()||!nextFollowUpDate)return; const updated=leads.map(l=>{ if(l.id===selectedLead.id){const obj={...l,status:"Contacted",lastFollowUp:TODAY_STR,nextFollowUp:nextFollowUpDate,history:[{date:TODAY_STR,by:currentUser.name,action:`[Follow-Up]: ${followUpNotes.trim()} (Next: ${nextFollowUpDate})`},...l.history]};setSelectedLead(obj);return obj;}return l;}); setLeads(updated); setFollowUpNotes("");setNextFollowUpDate(""); triggerToastAlert("Follow-up logged."); };
+  const commitManualFollowUpReport=(e)=>{ e.preventDefault(); if(!followUpNotes.trim()||!nextFollowUpDate)return; const log=makeHistoryLog(currentUser.name, `[Follow-Up]: ${followUpNotes.trim()} (Next: ${nextFollowUpDate})`); const updated=leads.map(l=>{ if(l.id===selectedLead.id){const obj={...l,status:"Contacted",lastFollowUp:TODAY_STR,nextFollowUp:nextFollowUpDate,history:[log,...(l.history || [])]};setSelectedLead(obj);return obj;}return l;}); setLeads(updated); setFollowUpNotes("");setNextFollowUpDate(""); triggerToastAlert("Follow-up logged."); };
 
   const handleCreateLead=async (e)=>{ e.preventDefault(); const phone=stripPhone(newLeadForm.phone); const dup=leads.find(l=>stripPhone(l.phone)===phone); if(dup){setDuplicateConflictRecord(dup);return;}
     const assignedUser = newLeadForm.assignedTo && newLeadForm.assignedTo !== "Unassigned" ? users.find(u => u.name === newLeadForm.assignedTo) : null;
     const projBranch = projects.find(p=>p.name===newLeadForm.project)?.branch || currentUser.branch || "Madurai Desk";
     const leadBranch = assignedUser ? assignedUser.branch : projBranch;
-    const created={...newLeadForm,id:Date.now(),phone,altPhone:stripPhone(newLeadForm.altPhone),branch:leadBranch,dateCreated:TODAY_STR,lastFollowUp:"None",nextFollowUp:TODAY_STR,assignedToId:assignedUser?.id||null,assignedAt:assignedUser?Date.now():null,assignedByRole:currentUser.role,bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false,siteVisitTentativeDate:"",status:newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?"Assigned":"New",history:[{date:TODAY_STR,by:currentUser.name,action:"Lead captured."+(newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?` Assigned to ${newLeadForm.assignedTo}.`:"")}]};
+    const now = new Date();
+    const created={...newLeadForm,id:Date.now(),phone,altPhone:stripPhone(newLeadForm.altPhone),branch:leadBranch,dateCreated:getLocalDate(now),dateCreatedTime:getLocalTime(now),createdAt:now.toISOString(),newLeadTag:true,lastFollowUp:"None",nextFollowUp:getLocalDate(now),assignedToId:assignedUser?.id||null,assignedAt:assignedUser?Date.now():null,assignedByRole:currentUser.role,bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false,siteVisitTentativeDate:"",status:newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?"Assigned":"New",history:[makeHistoryLog(currentUser.name, "Lead captured."+(newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?` Assigned to ${newLeadForm.assignedTo}.`:""), now)]};
     const saved=await setLeads([created,...leads]); if(!saved){triggerToastAlert("Could not save lead to Supabase.");return;} setIsLeadModalOpen(false); setNewLeadForm({name:"",phone:"",altPhone:"",email:"",location:"",project:projects[0]?.name||"",budget:25,source:"Website",assignedTo:"Unassigned",notes:""}); triggerToastAlert("Lead created."); };
 
   const handleCreateProject=(e)=>{ e.preventDefault(); const p={...newProjectForm,id:Date.now(),price:parseInt(newProjectForm.price)||0,units:parseInt(newProjectForm.units)||0,sold:parseInt(newProjectForm.sold)||0}; setProjects([p,...projects]); setIsProjectModalOpen(false); setNewProjectForm({name:"",location:"",branch:"Madurai Desk",type:"Plot",price:30,units:50,sold:0,status:"Pre-Launch"}); triggerToastAlert(`Project "${p.name}" added.`); };
-  const handleCreateActivityLog=(e)=>{ e.preventDefault(); const log={...newActivityForm,id:Date.now(),executive:["Admin","Manager"].includes(currentUser.role)?newActivityForm.executive:currentUser.name,callsMade:parseInt(newActivityForm.callsMade)||0,followup:parseInt(newActivityForm.followup)||0,siteVisit:parseInt(newActivityForm.siteVisit)||0,booking:parseInt(newActivityForm.booking)||0,registration:parseInt(newActivityForm.registration)||0,cancellation:parseInt(newActivityForm.cancellation)||0,collection:parseInt(newActivityForm.collection)||0}; setActivityLogsStateWrapped(prev=>[log,...prev]); setIsActivityLogModalOpen(false); setNewActivityForm({date:TODAY_STR,executive:"",project:projects[0]?.name||"",source:"Own Leads",callsMade:0,callStatus:"Warm",followup:0,siteVisit:0,booking:0,registration:0,cancellation:0,collection:0,remark:""}); triggerToastAlert("Activity log saved."); };
+  const handleCreateActivityLog=(e)=>{ e.preventDefault(); const now=new Date(); const log={...newActivityForm,id:Date.now(),date:newActivityForm.date||getLocalDate(now),time:getLocalTime(now),timestamp:now.toISOString(),executive:["Admin","Manager"].includes(currentUser.role)?newActivityForm.executive:currentUser.name,callsMade:parseInt(newActivityForm.callsMade)||0,followup:parseInt(newActivityForm.followup)||0,siteVisit:parseInt(newActivityForm.siteVisit)||0,booking:parseInt(newActivityForm.booking)||0,registration:parseInt(newActivityForm.registration)||0,cancellation:parseInt(newActivityForm.cancellation)||0,collection:parseInt(newActivityForm.collection)||0}; setActivityLogsStateWrapped(prev=>[log,...prev]); setIsActivityLogModalOpen(false); setNewActivityForm({date:TODAY_STR,executive:"",project:projects[0]?.name||"",source:"Own Leads",callsMade:0,callStatus:"Warm",followup:0,siteVisit:0,booking:0,registration:0,cancellation:0,collection:0,remark:""}); triggerToastAlert("Activity log saved."); };
 
-  const commitSiteWalkthroughLog=()=>{ const updated=leads.map(l=>l.id===selectedLead.id?{...l,status:"Site Visit Completed",history:[{date:svDate,by:currentUser.name,action:`[Site Visit]: Family: ${svFamily}. Feedback: ${svFeedback}`},...l.history]}:l); setLeads(updated); setSelectedLead(null); triggerToastAlert("Site visit logged."); };
-  const commitFinancialBookingLog=()=>{ const updated=leads.map(l=>l.id===selectedLead.id?{...l,status:"Booking Confirmed",bookingUnit:bkUnit,history:[{date:TODAY_STR,by:currentUser.name,action:`[Booking]: Unit [${bkUnit}] booked.`},...l.history]}:l); setLeads(updated); setSelectedLead(null); triggerToastAlert("Booking logged."); };
+  const commitSiteWalkthroughLog=()=>{ const log=makeHistoryLog(currentUser.name, `[Site Visit]: Family: ${svFamily}. Feedback: ${svFeedback}`); if(svDate)log.date=svDate; const updated=leads.map(l=>l.id===selectedLead.id?{...l,status:"Site Visit Completed",history:[log,...(l.history || [])]}:l); setLeads(updated); setSelectedLead(null); triggerToastAlert("Site visit logged."); };
+  const commitFinancialBookingLog=()=>{ const updated=leads.map(l=>l.id===selectedLead.id?{...l,status:"Booking Confirmed",bookingUnit:bkUnit,history:[makeHistoryLog(currentUser.name, `[Booking]: Unit [${bkUnit}] booked.`),...(l.history || [])]}:l); setLeads(updated); setSelectedLead(null); triggerToastAlert("Booking logged."); };
 
   const handleCallFeedback = (leadId, feedbackData) => {
     const { notes, outcome, followUpDate, callDuration } = feedbackData;
-    const log = { date: TODAY_STR, by: currentUser.name, action: `[Mobile Call]: Duration ${Math.floor(callDuration/60)}m${callDuration%60}s. Outcome: ${outcome}.${notes ? ` Notes: ${notes}` : ""}${followUpDate ? ` Next follow-up: ${followUpDate}` : ""}` };
-    const updated = leads.map(l => { if (l.id !== leadId) return l; return { ...l, status: outcome || l.status, lastFollowUp: TODAY_STR, nextFollowUp: followUpDate || l.nextFollowUp, history: [log, ...l.history] }; });
+    const log = makeHistoryLog(currentUser.name, `[Mobile Call]: Duration ${Math.floor(callDuration/60)}m${callDuration%60}s. Outcome: ${outcome}.${notes ? ` Notes: ${notes}` : ""}${followUpDate ? ` Next follow-up: ${followUpDate}` : ""}`);
+    const updated = leads.map(l => { if (l.id !== leadId) return l; return { ...l, status: outcome || l.status, lastFollowUp: TODAY_STR, nextFollowUp: followUpDate || l.nextFollowUp, history: [log, ...(l.history || [])] }; });
     setLeads(updated);
-    if (selectedLead && selectedLead.id === leadId) { setSelectedLead(prev => ({ ...prev, status: outcome || prev.status, history: [log, ...prev.history] })); }
+    if (selectedLead && selectedLead.id === leadId) { setSelectedLead(prev => ({ ...prev, status: outcome || prev.status, history: [log, ...(prev.history || [])] })); }
     triggerToastAlert("Call feedback saved.");
   };
 
@@ -2172,6 +2291,14 @@ export default function App() {
                 <div><h1 className="text-xl lg:text-2xl font-black text-white tracking-tight">Sales Performance Dashboard</h1><p className="text-xs text-slate-400 mt-0.5">Real-time activity & lead pipeline overview.</p></div>
               </div>
               {unattendedLeadAlerts.length>0&&(<div className="bg-rose-950/40 border border-rose-500/30 p-4 lg:p-5 rounded-2xl flex items-start gap-4 shadow-xl"><div className="bg-rose-500/20 p-2 rounded-full border border-rose-500/30 mt-0.5"><AlertTriangle className="h-5 w-5 text-rose-500 animate-pulse"/></div><div className="flex-1"><h3 className="text-rose-400 font-black text-xs uppercase tracking-wider">Unattended Leads Alert</h3><p className="text-rose-200/70 text-xs mt-1.5 font-medium">{unattendedLeadAlerts.length} unattended lead{unattendedLeadAlerts.length>1?"s":""} need action from the assigned user and branch manager.</p><div className="mt-3 flex flex-wrap gap-2">{unattendedLeadAlerts.slice(0,4).map(l=><button key={l.id} onClick={()=>setSelectedLead(l)} className="text-[10px] font-black text-rose-100 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 px-3 py-1.5 rounded-lg transition-colors">{l.name} · {l.assignedTo||"Unassigned"}</button>)}</div></div></div>)}
+              {newLeadDashboardItems.length>0&&(
+                <div className="bg-orange-950/30 border border-orange-500/30 p-4 lg:p-5 rounded-2xl shadow-xl">
+                  <div className="flex items-center justify-between gap-3 mb-3"><h3 className="text-orange-300 font-black text-xs uppercase tracking-wider flex items-center gap-2"><Star className="h-4 w-4"/> New Leads</h3><span className="text-[10px] text-orange-200/70 font-black uppercase tracking-wider">{newLeadDashboardItems.length} active</span></div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    {newLeadDashboardItems.slice(0,6).map(l=><button key={l.id} onClick={()=>setSelectedLead(l)} className="text-left bg-slate-950/80 hover:bg-slate-950 border border-orange-500/20 hover:border-orange-500/50 rounded-xl p-3 transition-colors"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-xs font-black text-white truncate">{l.name}</p><p className="text-[10px] text-slate-500 font-mono mt-0.5">{l.phone}</p></div><span className="shrink-0 bg-orange-500 text-white text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider">NEW</span></div><div className="mt-2 grid grid-cols-2 gap-2 text-[10px]"><p className="text-orange-400 font-bold truncate">{l.project}</p><p className="text-slate-400 font-mono text-right">{formatDateTimeLabel(l)}</p></div><p className="text-[10px] text-slate-500 mt-1 truncate">Assigned: {l.assignedTo||"Unassigned"}</p></button>)}
+                  </div>
+                </div>
+              )}
               {(dueFollowUpLeads.length>0||appointmentReminderLeads.length>0)&&(
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                   <div className="bg-slate-950 border border-blue-500/30 rounded-2xl p-5 shadow-xl">
@@ -2240,7 +2367,7 @@ export default function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
                 {processedLeads.map(lead=>(
                   <div key={lead.id} onClick={()=>setSelectedLead(lead)} className="bg-slate-950 border border-slate-800 rounded-xl p-4 hover:border-orange-500/50 cursor-pointer transition-all shadow-md group relative">
-                     {lead.status==="New"&&<div className="absolute top-0 right-0 h-2.5 w-2.5 bg-blue-500 rounded-full animate-ping mt-3 mr-3"/>}
+                     {isFreshLead(lead)&&<div className="absolute top-3 right-3 flex items-center gap-1"><span className="bg-orange-500 text-white text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider shadow-lg">NEW</span><span className="h-2.5 w-2.5 bg-orange-400 rounded-full animate-ping"/></div>}
                      <div className="flex justify-between items-start mb-3">
                        <div><h3 className="text-sm font-black text-white group-hover:text-orange-400 transition-colors">{lead.name}</h3><div className="flex items-center gap-1.5 mt-1"><Phone className="h-3 w-3 text-slate-500"/><span className="text-[11px] text-slate-400 font-mono">{lead.phone}</span></div></div>
                        <span className="px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider" style={{backgroundColor:SC[lead.status]?.bg,color:SC[lead.status]?.text,border:`1px solid ${SC[lead.status]?.border}`}}>{lead.status}</span>
@@ -2250,6 +2377,7 @@ export default function App() {
                        <div><p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Budget</p><p className="text-xs text-slate-300 font-mono font-bold">₹{lead.budget}L</p></div>
                        <div><p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Assigned</p><p className="text-xs text-slate-300 font-bold truncate">{lead.assignedTo}</p></div>
                        <div><p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Source</p><p className="text-xs text-slate-400 truncate">{lead.source}</p></div>
+                       {isFreshLead(lead)&&<div className="col-span-2"><p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Created</p><p className="text-xs text-orange-300 font-mono font-bold">{formatDateTimeLabel(lead)}</p></div>}
                      </div>
                      <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-800/60">
                        <div onClick={e=>e.stopPropagation()}><MobileCallButton phone={lead.phone} leadName={lead.name} onFeedbackSaved={(f)=>handleCallFeedback(lead.id, f)} currentUser={currentUser} TODAY_STR={TODAY_STR} /></div>
@@ -2289,7 +2417,7 @@ export default function App() {
                      <tbody className="divide-y divide-slate-800">
                       {customerActivityRows.length===0?<tr><td colSpan="13" className="p-6 text-center text-slate-500 font-bold uppercase tracking-wider">No activity found</td></tr>:customerActivityRows.map((log,i)=>(
                         <tr key={log.id||i} className="hover:bg-slate-800/50 transition-colors">
-                          <td className="p-3 font-mono text-slate-400">{log.lastContactedDate}</td>
+                          <td className="p-3 font-mono text-slate-400">{formatDateTimeLabel({date:log.lastContactedDate,time:log.lastContactedTime})}</td>
                           <td className="p-3 font-bold text-white">{log.executive}</td>
                           <td className="p-3"><button onClick={()=>{const lead=leads.find(l=>l.id===log.leadId)||leads.find(l=>stripPhone(l.phone)===stripPhone(log.phone)); if(lead)setSelectedLead(lead);}} className="font-black text-white hover:text-orange-400 underline-offset-4 hover:underline">{log.leadName}</button></td>
                           <td className="p-3 font-mono text-slate-400">{log.phone}</td>
@@ -2514,15 +2642,16 @@ export default function App() {
       {selectedLead&&(
         <div className="fixed inset-y-0 right-0 w-full sm:w-[450px] lg:w-[500px] bg-slate-950 border-l border-slate-800 shadow-2xl z-50 flex flex-col transform transition-transform duration-300 ease-in-out">
           <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-900/50">
-            <div><h2 className="text-lg font-black text-white flex items-center gap-2">{selectedLead.name}</h2><p className="text-[10px] text-slate-400 font-mono mt-0.5">{selectedLead.phone} {selectedLead.altPhone&&` / ${selectedLead.altPhone}`}</p></div>
+            <div><h2 className="text-lg font-black text-white flex items-center gap-2">{selectedLead.name}{isFreshLead(selectedLead)&&<span className="bg-orange-500 text-white text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider">NEW</span>}</h2><p className="text-[10px] text-slate-400 font-mono mt-0.5">{selectedLead.phone} {selectedLead.altPhone&&` / ${selectedLead.altPhone}`}</p>{selectedLead.dateCreated&&<p className="text-[10px] text-orange-300 font-mono mt-1">Created: {formatDateTimeLabel(selectedLead)}</p>}</div>
             <button onClick={()=>setSelectedLead(null)} className="text-slate-500 hover:text-white p-2 hover:bg-slate-800 rounded-xl transition-colors"><X className="h-5 w-5"/></button>
           </div>
           <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-slate-950">
              <div className="grid grid-cols-2 gap-3 text-xs">
-               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Status</p>{statusEditLeadId===selectedLead.id?<select autoFocus value={selectedLead.status} onChange={e=>handleLeadStatusDropdownChange(selectedLead.id,e.target.value)} onBlur={()=>setStatusEditLeadId(null)} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500">{STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select>:<div className="mt-1 flex items-center justify-between gap-2"><span className="font-black truncate" style={{color:SC[selectedLead.status]?.text}}>{selectedLead.status}</span><button onClick={()=>setStatusEditLeadId(selectedLead.id)} className="text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded transition-colors">Edit</button></div>}</div>
-               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Assigned</p>{["Admin","Manager"].includes(currentUser.role)?<select value={selectedLead.assignedTo||"Unassigned"} onChange={e=>requestOwnerAssignmentPopup(selectedLead.id,e.target.value)} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500"><option value="Unassigned">Unassigned</option>{assignableUsers.map(u=><option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}</select>:<p className="font-bold text-white truncate mt-1">{selectedLead.assignedTo}</p>}</div>
-               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Project / Budget</p>{projectEditLeadId===selectedLead.id?<select autoFocus value={selectedLead.project||""} onChange={e=>handleLeadProjectChange(selectedLead.id,e.target.value)} onBlur={()=>setProjectEditLeadId(null)} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-orange-400 focus:outline-none focus:border-orange-500">{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select>:<div className="mt-1 flex items-center justify-between gap-2"><p className="font-bold text-orange-400 truncate">{selectedLead.project} <span className="text-slate-500 mx-1">•</span> <span className="font-mono text-emerald-400">₹{selectedLead.budget}L</span></p><button onClick={()=>setProjectEditLeadId(selectedLead.id)} className="text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded transition-colors">Edit</button></div>}</div>
+               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Status</p>{isLeadEditMode?<select value={leadEditDraft.status} onChange={e=>setLeadEditDraft({...leadEditDraft,status:e.target.value})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500">{STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select>:<span className="block mt-1 font-black truncate" style={{color:SC[selectedLead.status]?.text}}>{selectedLead.status}</span>}</div>
+               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Assigned</p>{isLeadEditMode&&["Admin","Manager"].includes(currentUser.role)?<select value={leadEditDraft.assignedTo||"Unassigned"} onChange={e=>setLeadEditDraft({...leadEditDraft,assignedTo:e.target.value})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500"><option value="Unassigned">Unassigned</option>{assignableUsers.map(u=><option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}</select>:<p className="font-bold text-white truncate mt-1">{selectedLead.assignedTo||"Unassigned"}</p>}</div>
+               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Project / Budget</p>{isLeadEditMode?<select value={leadEditDraft.project||""} onChange={e=>setLeadEditDraft({...leadEditDraft,project:e.target.value})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-orange-400 focus:outline-none focus:border-orange-500">{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select>:<p className="font-bold text-orange-400 truncate mt-1">{selectedLead.project} <span className="text-slate-500 mx-1">•</span> <span className="font-mono text-emerald-400">₹{selectedLead.budget}L</span></p>}</div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Source</p><p className="font-bold text-slate-300 mt-1 truncate">{selectedLead.source}</p></div>
+               <div className="col-span-2 flex justify-end gap-2">{isLeadEditMode?<><button type="button" disabled={isLeadUpdateSaving} onClick={cancelLeadDrawerEdit} className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-900 border border-slate-700 text-slate-300 hover:text-white disabled:opacity-50">Cancel</button><button type="button" disabled={isLeadUpdateSaving} onClick={commitLeadDrawerUpdate} className="px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-orange-600 hover:bg-orange-700 disabled:bg-slate-700 text-white flex items-center gap-1.5"><Check className="h-3 w-3"/> {isLeadUpdateSaving?"Saving...":"OK"}</button></>:<button type="button" onClick={startLeadDrawerEdit} className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1.5"><Edit2 className="h-3 w-3"/> Edit Lead</button>}</div>
              </div>
              <div className="space-y-4">
                 <div className="flex items-center gap-2 border-b border-slate-800 pb-2"><Activity className="h-4 w-4 text-blue-400"/><h3 className="text-xs font-black uppercase tracking-wider text-slate-300">Action Center</h3></div>
@@ -2552,7 +2681,7 @@ export default function App() {
                     <div key={i} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                       <div className="flex items-center justify-center w-5 h-5 rounded-full border border-slate-700 bg-slate-900 text-slate-500 group-[.is-active]:text-orange-400 group-[.is-active]:border-orange-500/50 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10"><div className="h-1.5 w-1.5 bg-current rounded-full"/></div>
                       <div className="w-[calc(100%-2.5rem)] md:w-[calc(50%-1.5rem)] p-3 rounded-xl border border-slate-800 bg-slate-900/60 shadow text-xs">
-                        <div className="flex items-center justify-between mb-1"><span className="font-black text-slate-300">{h.by}</span><span className="font-mono text-[9px] text-slate-500">{h.date}</span></div>
+                        <div className="flex items-center justify-between mb-1"><span className="font-black text-slate-300">{h.by}</span><span className="font-mono text-[9px] text-slate-500">{formatDateTimeLabel(h)}</span></div>
                         <p className="text-slate-400 leading-relaxed">{h.action}</p>
                       </div>
                     </div>

@@ -903,6 +903,8 @@ export default function App() {
   const [activityLogs, setActivityLogsState] = useState([]);
   const [whatsappTemplates, setWhatsappTemplatesState] = useState([]);
   const [resetRequests, setResetRequestsState] = useState([]);
+  const pendingStateKeysRef = useRef(new Set());
+  const stateSaveSeqRef = useRef({});
 
   const users = useMemo(() => [...adminUsers, ...nonAdminUsers], [adminUsers, nonAdminUsers]);
   const rememberSession = useCallback((user) => {
@@ -913,6 +915,9 @@ export default function App() {
   }, []);
 
   const persistState = useCallback(async (key, value) => {
+    const saveSeq = (stateSaveSeqRef.current[key] || 0) + 1;
+    stateSaveSeqRef.current[key] = saveSeq;
+    pendingStateKeysRef.current.add(key);
     try {
       const { error } = await supabase
         .from("crm_state_store")
@@ -925,6 +930,10 @@ export default function App() {
       const message = typeof err?.message === "string" ? err.message : JSON.stringify(err || {});
       window.dispatchEvent(new CustomEvent("crm-backend-error", { detail: { key, message } }));
       return false;
+    } finally {
+      if (stateSaveSeqRef.current[key] === saveSeq) {
+        pendingStateKeysRef.current.delete(key);
+      }
     }
   }, []);
 
@@ -940,9 +949,9 @@ export default function App() {
   // ─── SUPABASE COUPLING WRAPPERS ───
   const setLeads = useCallback(async (val) => {
     const data = typeof val === "function" ? val(leads) : val;
+    setLeadsState(data);
     const saved = await persistState("leads", data);
     if (!saved) return false;
-    setLeadsState(data);
     return true;
   }, [leads, persistState]);
 
@@ -998,15 +1007,15 @@ export default function App() {
       if (Array.isArray(dbRows)) {
         dbRows.forEach(row => { stateMap[row.key] = row.value; });
       }
-      if (Array.isArray(stateMap["leads"])) setLeadsState(stateMap["leads"]);
-      if (Array.isArray(stateMap["projects"])) setProjectsState(stateMap["projects"]);
-      if (Array.isArray(stateMap["whatsapp_templates"])) setWhatsappTemplatesState(stateMap["whatsapp_templates"]);
-      if (Array.isArray(stateMap["non_admin_users"])) {
+      if (Array.isArray(stateMap["leads"]) && !pendingStateKeysRef.current.has("leads")) setLeadsState(stateMap["leads"]);
+      if (Array.isArray(stateMap["projects"]) && !pendingStateKeysRef.current.has("projects")) setProjectsState(stateMap["projects"]);
+      if (Array.isArray(stateMap["whatsapp_templates"]) && !pendingStateKeysRef.current.has("whatsapp_templates")) setWhatsappTemplatesState(stateMap["whatsapp_templates"]);
+      if (Array.isArray(stateMap["non_admin_users"]) && !pendingStateKeysRef.current.has("non_admin_users")) {
         const migrated = await migratePlainPasswords(stateMap["non_admin_users"]);
         setNonAdminUsersState(migrated.users);
         if (migrated.changed) persistState("non_admin_users", migrated.users);
       }
-      if (Array.isArray(stateMap["reset_requests"])) setResetRequestsState(stateMap["reset_requests"]);
+      if (Array.isArray(stateMap["reset_requests"]) && !pendingStateKeysRef.current.has("reset_requests")) setResetRequestsState(stateMap["reset_requests"]);
     } catch (err) {
       console.error("Failed to refresh backend state:", err);
     }
@@ -1154,6 +1163,12 @@ export default function App() {
   const [newWhatsappTemplateForm, setNewWhatsappTemplateForm] = useState({ project:"All", title:"", message:"", imageUrl:"", imageDataUrl:"" });
   const allowBrowserExitRef = useRef(false);
   const notifiedAlertsRef = useRef(new Set());
+
+  useEffect(() => {
+    if (!selectedLead) return;
+    const latestLead = leads.find(l => l.id === selectedLead.id);
+    if (latestLead && latestLead !== selectedLead) setSelectedLead(latestLead);
+  }, [leads, selectedLead]);
 
   useEffect(() => {
     setSelectedWhatsappTemplateId("");

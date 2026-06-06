@@ -39,7 +39,7 @@ const SOURCES = [
 const STATUSES = [
   "New","Assigned","Contacted","Follow-Up","Site Visit Planned",
   "Site Visit Completed","Negotiation","Booking Pending","Booking Confirmed",
-  "Closed","Not Interested","RNR","Switched Off","Wrong Number"
+  "Booked","Not Interested","RNR","Switched Off","Wrong Number"
 ];
 const PROJECT_STATUSES = ["Upcoming","Pre-Launch","Ongoing","Completed","Sold-Out"];
 const BRANCHES = ["Madurai Desk","Chennai South","Chennai North","Coimbatore"];
@@ -79,6 +79,7 @@ const SC = {
   "Follow-Up": { bg: "rgba(236,72,153,0.1)", text: "#f472b6", border: "rgba(236,72,153,0.2)" },
   "Site Visit Planned": { bg: "rgba(139,92,246,0.1)", text: "#a78bfa", border: "rgba(139,92,246,0.2)" },
   "Booking Confirmed": { bg: "rgba(52,211,153,0.15)", text: "#34d399", border: "rgba(52,211,153,0.3)" },
+  Booked: { bg: "rgba(52,211,153,0.15)", text: "#34d399", border: "rgba(52,211,153,0.3)" },
   Closed: { bg: "rgba(107,114,128,0.1)", text: "#9ca3af", border: "rgba(107,114,128,0.2)" },
   "Not Interested": { bg: "rgba(239,68,68,0.1)", text: "#ef4444", border: "rgba(239,68,68,0.2)" },
   RNR: { bg: "rgba(156,163,175,0.1)", text: "#9ca3af", border: "rgba(156,163,175,0.2)" },
@@ -161,12 +162,22 @@ const STATUS_EVENT_CONFIG = {
   "Follow-Up": { dateLabel: "Next Follow-up Date", eventLabel: "Follow-up Event / Remark", defaultEvent: "Follow-up scheduled" },
   "Site Visit Planned": { dateLabel: "Site Visit Date", eventLabel: "Site Visit Event / Remark", defaultEvent: "Site visit planned" },
   "Site Visit Completed": { dateLabel: "Site Visit Date", eventLabel: "Site Visit Feedback / Remark", defaultEvent: "Site visit completed" },
+  Negotiation: { dateLabel: "Next Follow-up Date", eventLabel: "Negotiation Notes / Remark", defaultEvent: "" },
   "Booking Pending": { dateLabel: "Booking Follow-up Date", eventLabel: "Booking Event / Remark", defaultEvent: "Booking pending" },
   "Booking Confirmed": { dateLabel: "Booking Date", eventLabel: "Booking Details / Remark", defaultEvent: "Booking confirmed" },
+  Booked: { dateLabel: "Booking Date", eventLabel: "Booking Notes / Remark", defaultEvent: "" },
+  "Not Interested": { eventLabel: "Reason / Remark", defaultEvent: "", dateRequired: false },
+  RNR: { dateLabel: "Next Follow-up Date", eventLabel: "RNR Notes / Remark", defaultEvent: "" },
+  "Switched Off": { dateLabel: "Next Follow-up Date", eventLabel: "Switched Off Notes / Remark", defaultEvent: "" },
+  "Wrong Number": { eventLabel: "Wrong Number Remark", defaultEvent: "", dateRequired: false },
 };
 
 function getStatusEventConfig(status) {
   return STATUS_EVENT_CONFIG[status] || null;
+}
+
+function getEditableLeadStatus(status) {
+  return status === "Closed" ? "Booked" : (status || "New");
 }
 
 // ─── MOBILE DETECTION ────────────────────────────────────────────────────
@@ -1383,6 +1394,7 @@ export default function App() {
       if (text.includes("mobile call")) return { type:"Call", callStatus:"Call", callsMade:1, followup:0, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
       if (text.includes("contacted")) return { type:"Contacted", callStatus:"Contacted", callsMade:0, followup:1, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
       if (text.includes("follow-up") || text.includes("follow up")) return { type:"Follow-Up", callStatus:"Follow-Up", callsMade:0, followup:1, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
+      if (text.includes("negotiation")) return { type:"Negotiation", callStatus:"Negotiation", callsMade:0, followup:1, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
       if (text.includes("site visit")) return { type:"Site Visit", callStatus:"Site Visit", callsMade:0, followup:0, siteVisit:1, booking:0, registration:0, cancellation:0, collection:0 };
       if (text.includes("booking")) return { type:"Booking", callStatus:"Booking", callsMade:0, followup:0, siteVisit:0, booking:1, registration:0, cancellation:0, collection:0 };
       if (text.includes("registration")) return { type:"Registration", callStatus:"Registration", callsMade:0, followup:0, siteVisit:0, booking:0, registration:1, cancellation:0, collection:0 };
@@ -1658,7 +1670,7 @@ export default function App() {
   const dueFollowUpLeads = useMemo(() => {
     if (!currentUser) return [];
     return processedLeads
-      .filter(l => l.nextFollowUp && l.nextFollowUp !== "None" && l.nextFollowUp <= TODAY_STR && !["New","Assigned","Closed","Booking Confirmed","Not Interested","Wrong Number"].includes(l.status))
+      .filter(l => l.nextFollowUp && l.nextFollowUp !== "None" && l.nextFollowUp <= TODAY_STR && !["New","Assigned","Closed","Booked","Booking Confirmed","Not Interested","Wrong Number"].includes(l.status))
       .sort((a,b)=>a.nextFollowUp.localeCompare(b.nextFollowUp));
   }, [processedLeads, currentUser, TODAY_STR]);
 
@@ -1671,7 +1683,7 @@ export default function App() {
 
   const unattendedLeadAlerts = useMemo(()=>{
     if(!currentUser)return[];
-    const terminalStatuses = ["Closed","Booking Confirmed","Not Interested","Wrong Number","RNR","Switched Off"];
+    const terminalStatuses = ["Closed","Booked","Booking Confirmed","Not Interested","Wrong Number","RNR","Switched Off"];
     const today = new Date(TODAY_STR);
     return leads.filter(l=>{
       if(terminalStatuses.includes(l.status))return false;
@@ -1698,10 +1710,10 @@ export default function App() {
     unattendedLeadAlerts.slice(0,3).forEach(l=>pushOnce(`unattended:${l.id}:${l.nextFollowUp||l.dateCreated}`, "Unattended lead", `${l.name} needs attention.`));
   }, [currentUser, priorityAssignedLeads, dueFollowUpLeads, appointmentReminderLeads, unattendedLeadAlerts, notifyUser]);
 
-  const conversionRate = useMemo(()=>{ const booked=processedLeads.filter(l=>["Booking Confirmed","Closed"].includes(l.status)).length; return processedLeads.length>0?Math.round((booked/processedLeads.length)*100):0; },[processedLeads]);
-  const executiveSummaryData = useMemo(()=>{ const execMap={}; visibleUsers.forEach(u=>{if(["Executive","Telecaller"].includes(u.role))execMap[u.name]={name:u.name,total:0,new:0,active:0,siteVisits:0,bookings:0,dead:0};}); execMap["Unassigned"]={name:"Unassigned",total:0,new:0,active:0,siteVisits:0,bookings:0,dead:0}; processedLeads.forEach(l=>{const exec=l.assignedTo||"Unassigned";if(!execMap[exec])execMap[exec]={name:exec,total:0,new:0,active:0,siteVisits:0,bookings:0,dead:0};execMap[exec].total+=1;if(l.status==="New")execMap[exec].new+=1;else if(["Assigned","Contacted","Follow-Up","Negotiation"].includes(l.status))execMap[exec].active+=1;else if(["Site Visit Planned","Site Visit Completed"].includes(l.status))execMap[exec].siteVisits+=1;else if(["Booking Pending","Booking Confirmed","Closed"].includes(l.status))execMap[exec].bookings+=1;else if(["Not Interested","RNR","Switched Off","Wrong Number"].includes(l.status))execMap[exec].dead+=1;}); return Object.values(execMap).filter(e=>e.total>0||visibleUsers.some(u=>u.name===e.name)).sort((a,b)=>b.total-a.total); },[processedLeads,visibleUsers]);
+  const conversionRate = useMemo(()=>{ const booked=processedLeads.filter(l=>["Booking Confirmed","Booked","Closed"].includes(l.status)).length; return processedLeads.length>0?Math.round((booked/processedLeads.length)*100):0; },[processedLeads]);
+  const executiveSummaryData = useMemo(()=>{ const execMap={}; visibleUsers.forEach(u=>{if(["Executive","Telecaller"].includes(u.role))execMap[u.name]={name:u.name,total:0,new:0,active:0,siteVisits:0,bookings:0,dead:0};}); execMap["Unassigned"]={name:"Unassigned",total:0,new:0,active:0,siteVisits:0,bookings:0,dead:0}; processedLeads.forEach(l=>{const exec=l.assignedTo||"Unassigned";if(!execMap[exec])execMap[exec]={name:exec,total:0,new:0,active:0,siteVisits:0,bookings:0,dead:0};execMap[exec].total+=1;if(l.status==="New")execMap[exec].new+=1;else if(["Assigned","Contacted","Follow-Up","Negotiation"].includes(l.status))execMap[exec].active+=1;else if(["Site Visit Planned","Site Visit Completed"].includes(l.status))execMap[exec].siteVisits+=1;else if(["Booking Pending","Booking Confirmed","Booked","Closed"].includes(l.status))execMap[exec].bookings+=1;else if(["Not Interested","RNR","Switched Off","Wrong Number"].includes(l.status))execMap[exec].dead+=1;}); return Object.values(execMap).filter(e=>e.total>0||visibleUsers.some(u=>u.name===e.name)).sort((a,b)=>b.total-a.total); },[processedLeads,visibleUsers]);
   const sourcewiseAnalysis = useMemo(()=>{ const data={}; processedLeads.forEach(l=>{if(!data[l.source])data[l.source]={total:0};data[l.source].total+=1;}); return Object.entries(data).sort((a,b)=>b[1].total-a[1].total); },[processedLeads]);
-  const projectwiseAnalysis = useMemo(()=>{ const data={}; processedLeads.forEach(l=>{if(!data[l.project])data[l.project]={total:0,converted:0};data[l.project].total+=1;if(["Booking Confirmed","Closed"].includes(l.status))data[l.project].converted+=1;}); return Object.entries(data); },[processedLeads]);
+  const projectwiseAnalysis = useMemo(()=>{ const data={}; processedLeads.forEach(l=>{if(!data[l.project])data[l.project]={total:0,converted:0};data[l.project].total+=1;if(["Booking Confirmed","Booked","Closed"].includes(l.status))data[l.project].converted+=1;}); return Object.entries(data); },[processedLeads]);
 
   const handlePhoneInputChange = (val, isAlt=false) => {
     const clean=stripPhone(val);
@@ -1756,7 +1768,7 @@ export default function App() {
   const startLeadDrawerEdit = () => {
     if (!selectedLead) return;
     setLeadEditDraft({
-      status: selectedLead.status || "New",
+      status: getEditableLeadStatus(selectedLead.status),
       assignedTo: selectedLead.assignedTo || "Unassigned",
       project: selectedLead.project || "",
       statusEventDate: "",
@@ -1768,7 +1780,7 @@ export default function App() {
   const cancelLeadDrawerEdit = () => {
     if (selectedLead) {
       setLeadEditDraft({
-        status: selectedLead.status || "New",
+        status: getEditableLeadStatus(selectedLead.status),
         assignedTo: selectedLead.assignedTo || "Unassigned",
         project: selectedLead.project || "",
         statusEventDate: "",
@@ -1782,8 +1794,9 @@ export default function App() {
   const getDefaultEventDateForStatus = (status) => {
     if (!selectedLead) return TODAY_STR;
     if (status === "Follow-Up") return selectedLead.nextFollowUp && selectedLead.nextFollowUp !== "None" ? selectedLead.nextFollowUp : TODAY_STR;
+    if (["Negotiation","RNR","Switched Off"].includes(status)) return selectedLead.nextFollowUp && selectedLead.nextFollowUp !== "None" ? selectedLead.nextFollowUp : TODAY_STR;
     if (status === "Site Visit Planned" || status === "Site Visit Completed") return selectedLead.siteVisitTentativeDate || TODAY_STR;
-    if (status === "Booking Confirmed" || status === "Booking Pending") return selectedLead.bookingDate || TODAY_STR;
+    if (status === "Booking Confirmed" || status === "Booking Pending" || status === "Booked") return selectedLead.bookingDate || TODAY_STR;
     return TODAY_STR;
   };
 
@@ -1792,11 +1805,12 @@ export default function App() {
     setLeadEditDraft(prev => ({ ...prev, status, statusEventDate:"", statusEventRemark:"" }));
     const config = getStatusEventConfig(status);
     if (config) {
+      const needsDate = config.dateRequired !== false;
       setLeadStatusEventPopup({
         isOpen: true,
         status,
         previousStatus,
-        date: getDefaultEventDateForStatus(status),
+        date: needsDate ? getDefaultEventDateForStatus(status) : "",
         event: config.defaultEvent || "",
       });
     }
@@ -1814,12 +1828,13 @@ export default function App() {
 
   const confirmLeadStatusEventPopup = () => {
     const config = getStatusEventConfig(leadStatusEventPopup.status);
-    if (config && !leadStatusEventPopup.date) {
+    const needsDate = config?.dateRequired !== false;
+    if (config && needsDate && !leadStatusEventPopup.date) {
       triggerToastAlert("Please select the event date.");
       return;
     }
-    if (leadStatusEventPopup.status === "Contacted" && !leadStatusEventPopup.event.trim()) {
-      triggerToastAlert("Please enter contact notes.");
+    if (config && !leadStatusEventPopup.event.trim()) {
+      triggerToastAlert("Please enter notes or remarks.");
       return;
     }
     setLeadEditDraft(prev => ({
@@ -1841,15 +1856,16 @@ export default function App() {
     const project = projects.find(p => p.name === targetProject);
     const statusChanged = (currentLead.status || "") !== targetStatus;
     const statusEventConfig = getStatusEventConfig(targetStatus);
-    if (statusChanged && statusEventConfig && !leadEditDraft.statusEventDate) {
+    const statusEventNeedsDate = statusEventConfig?.dateRequired !== false;
+    if (statusChanged && statusEventConfig && ((statusEventNeedsDate && !leadEditDraft.statusEventDate) || !leadEditDraft.statusEventRemark?.trim())) {
       setLeadStatusEventPopup({
         isOpen: true,
         status: targetStatus,
         previousStatus: currentLead.status || "New",
-        date: getDefaultEventDateForStatus(targetStatus),
+        date: statusEventNeedsDate ? (leadEditDraft.statusEventDate || getDefaultEventDateForStatus(targetStatus)) : "",
         event: leadEditDraft.statusEventRemark || statusEventConfig.defaultEvent || "",
       });
-      triggerToastAlert("Please add the event date before saving.");
+      triggerToastAlert(statusEventNeedsDate && !leadEditDraft.statusEventDate ? "Please add the event date before saving." : "Please add notes or remarks before saving.");
       return;
     }
     const logs = [];
@@ -1861,9 +1877,10 @@ export default function App() {
         const datePart = eventDate ? ` Date: ${eventDate}.` : "";
         if (targetStatus === "Contacted") statusAction = `[Contacted]: ${eventRemark}.${datePart}`;
         else if (targetStatus === "Follow-Up") statusAction = `[Follow-Up]: ${eventRemark}.${datePart}`;
+        else if (targetStatus === "Negotiation") statusAction = `[Negotiation]: ${eventRemark}.${datePart}`;
         else if (targetStatus.startsWith("Site Visit")) statusAction = `[Site Visit]: ${eventRemark}.${datePart}`;
-        else if (targetStatus.startsWith("Booking")) statusAction = `[Booking]: ${eventRemark}.${datePart}`;
-        else statusAction = `${targetStatus}: ${eventRemark}.${datePart}`;
+        else if (targetStatus.startsWith("Booking") || targetStatus === "Booked") statusAction = `[Booking]: ${eventRemark}.${datePart}`;
+        else statusAction = `[Status Update]: ${targetStatus}: ${eventRemark}.${datePart}`;
       }
       logs.push(makeHistoryLog(currentUser.name, statusAction));
     }
@@ -1883,10 +1900,10 @@ export default function App() {
       return {
         ...l,
         status: nextStatus,
-        lastFollowUp: ["Contacted","Follow-Up"].includes(targetStatus) ? TODAY_STR : l.lastFollowUp,
-        nextFollowUp: ["Contacted","Follow-Up"].includes(targetStatus) && leadEditDraft.statusEventDate ? leadEditDraft.statusEventDate : l.nextFollowUp,
+        lastFollowUp: ["Contacted","Follow-Up","Negotiation","RNR","Switched Off"].includes(targetStatus) ? TODAY_STR : l.lastFollowUp,
+        nextFollowUp: ["Contacted","Follow-Up","Negotiation","RNR","Switched Off"].includes(targetStatus) && leadEditDraft.statusEventDate ? leadEditDraft.statusEventDate : l.nextFollowUp,
         siteVisitTentativeDate: targetStatus.startsWith("Site Visit") && leadEditDraft.statusEventDate ? leadEditDraft.statusEventDate : l.siteVisitTentativeDate,
-        bookingDate: targetStatus.startsWith("Booking") && leadEditDraft.statusEventDate ? leadEditDraft.statusEventDate : l.bookingDate,
+        bookingDate: (targetStatus.startsWith("Booking") || targetStatus === "Booked") && leadEditDraft.statusEventDate ? leadEditDraft.statusEventDate : l.bookingDate,
         assignedTo: targetAssignedTo,
         assignedToId: assignedUser?.id || null,
         assignedAt: assignmentChanged && assignedUser ? Date.now() : l.assignedAt,
@@ -2435,7 +2452,7 @@ export default function App() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Scoped Leads <Briefcase className="h-4 w-4 text-orange-400"/></p><p className="text-3xl font-black text-white mt-1">{processedLeads.length}</p></div>
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Conversions <CheckCircle2 className="h-4 w-4 text-emerald-400"/></p><p className="text-3xl font-black text-emerald-400 mt-1">{processedLeads.filter(l=>["Booking Confirmed","Closed"].includes(l.status)).length}</p></div>
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Conversions <CheckCircle2 className="h-4 w-4 text-emerald-400"/></p><p className="text-3xl font-black text-emerald-400 mt-1">{processedLeads.filter(l=>["Booking Confirmed","Booked","Closed"].includes(l.status)).length}</p></div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Conv Rate <TrendingUp className="h-4 w-4 text-blue-400"/></p><p className="text-3xl font-black text-blue-400 mt-1">{conversionRate}%</p></div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Budget Vol <DollarSign className="h-4 w-4 text-orange-400"/></p><p className="text-3xl font-black text-white mt-1">₹{processedLeads.reduce((a,c)=>a+c.budget,0)}L</p></div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Site Visits <Calendar className="h-4 w-4 text-amber-400"/></p><p className="text-3xl font-black text-amber-400 mt-1">{processedLeads.filter(l=>l.status==="Site Visit Completed").length}</p></div>
@@ -2557,7 +2574,7 @@ export default function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                 {visibleProjects.map(proj=>{
                   const prjLeads = reportScopedLeads.filter(l=>l.project===proj.name);
-                  const booked = prjLeads.filter(l=>["Booking Confirmed","Closed"].includes(l.status)).length;
+                  const booked = prjLeads.filter(l=>["Booking Confirmed","Booked","Closed"].includes(l.status)).length;
                   const revenue = booked * proj.price;
                   return (
                     <div key={proj.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl hover:border-purple-500/50 transition-colors group">
@@ -2799,13 +2816,15 @@ export default function App() {
           <div className="bg-slate-950 border border-orange-500/30 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
             <div className="p-5 border-b border-slate-800 bg-orange-950/20">
               <h2 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2"><Calendar className="h-4 w-4 text-orange-400"/> {leadStatusEventPopup.status} Details</h2>
-              <p className="text-[10px] text-slate-400 mt-1">Add the event date and remark before saving the lead update.</p>
+              <p className="text-[10px] text-slate-400 mt-1">{getStatusEventConfig(leadStatusEventPopup.status)?.dateRequired===false?"Add the remark before saving the lead update.":"Add the event date and remark before saving the lead update."}</p>
             </div>
             <div className="p-5 space-y-4 text-xs">
-              <div className="space-y-1.5">
-                <label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">{getStatusEventConfig(leadStatusEventPopup.status)?.dateLabel || "Event Date"}</label>
-                <input type="date" required value={leadStatusEventPopup.date} onChange={e=>setLeadStatusEventPopup(prev=>({...prev,date:e.target.value}))} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono"/>
-              </div>
+              {getStatusEventConfig(leadStatusEventPopup.status)?.dateRequired!==false&&(
+                <div className="space-y-1.5">
+                  <label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">{getStatusEventConfig(leadStatusEventPopup.status)?.dateLabel || "Event Date"}</label>
+                  <input type="date" required value={leadStatusEventPopup.date} onChange={e=>setLeadStatusEventPopup(prev=>({...prev,date:e.target.value}))} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono"/>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">{getStatusEventConfig(leadStatusEventPopup.status)?.eventLabel || "Event / Remark"}</label>
                 <textarea rows={3} value={leadStatusEventPopup.event} onChange={e=>setLeadStatusEventPopup(prev=>({...prev,event:e.target.value}))} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 resize-none" placeholder="Enter event details or remark"/>

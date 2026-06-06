@@ -1306,18 +1306,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!currentUser) return;
-    const warnBeforeLeaving = (event) => {
-      if (allowBrowserExitRef.current) return;
-      event.preventDefault();
-      event.returnValue = "You are leaving the CRM.";
-      return "You are leaving the CRM.";
-    };
-    window.addEventListener("beforeunload", warnBeforeLeaving);
-    return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
-  }, [currentUser]);
-
-  useEffect(() => {
     const showBackendError = (event) => {
       const key = event.detail?.key || "data";
       triggerToastAlert(`Backend save failed for ${key}. Check Supabase table/RLS.`);
@@ -2053,7 +2041,6 @@ export default function App() {
         setCurrentUser(admin);
         rememberSession(admin);
         triggerToastAlert(`Welcome, ${admin.name}!`);
-        setTimeout(() => window.location.reload(), 250);
         return;
       }
       if (error?.message) {

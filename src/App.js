@@ -295,10 +295,15 @@ function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY
 
   const startCall = () => {
     if (!phone) return;
-    window.location.href = `tel:${phone}`;
     setCallState("calling");
     setCallDuration(0);
     timerRef.current = setInterval(() => setCallDuration(d => d + 1), 1000);
+    const cleanPhone = String(phone).replace(/\D/g, "");
+    if (window.DDConnectAndroid?.startCall) {
+      window.DDConnectAndroid.startCall(cleanPhone || phone);
+    } else {
+      window.location.href = `tel:${phone}`;
+    }
   };
 
   const endCall = () => {
@@ -325,10 +330,15 @@ function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY
   const formatDur = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
   useEffect(() => {
+    const handleAndroidCallReturn = () => {
+      if (callState === "calling") endCall();
+    };
+    window.addEventListener("dd-connect-call-returned", handleAndroidCallReturn);
     return () => {
+      window.removeEventListener("dd-connect-call-returned", handleAndroidCallReturn);
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, []);
+  }, [callState]);
 
   return (
     <>

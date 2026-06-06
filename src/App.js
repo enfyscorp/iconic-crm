@@ -154,7 +154,7 @@ function isTimestampToday(value) {
   return getLocalDate(date) === getLocalDate();
 }
 function isFreshLead(lead) {
-  return lead?.assignedTo && lead.assignedTo !== "Unassigned" && isTimestampToday(lead.assignedAt);
+  return lead?.status === "Assigned" && lead?.assignedTo && lead.assignedTo !== "Unassigned" && isTimestampToday(lead.assignedAt);
 }
 
 const STATUS_EVENT_CONFIG = {
@@ -1663,7 +1663,7 @@ export default function App() {
   const priorityAssignedLeads = useMemo(() => {
     if (!currentUser || currentUser.role === "Admin") return [];
     return leads
-      .filter(l => isAssignedToCurrentUser(l) && l.assignedTo !== "Unassigned" && l.assignedAt && !dismissedAssignmentNotices.includes(`${l.id}:${l.assignedAt}`))
+      .filter(l => isAssignedToCurrentUser(l) && isFreshLead(l) && !dismissedAssignmentNotices.includes(`${l.id}:${l.assignedAt}`))
       .sort((a,b)=>(b.assignedAt||0)-(a.assignedAt||0));
   }, [leads, currentUser, isAssignedToCurrentUser, dismissedAssignmentNotices]);
 

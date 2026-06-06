@@ -150,6 +150,18 @@ function isFreshLead(lead) {
   return lead?.newLeadTag === true && ["New", "Assigned"].includes(lead.status);
 }
 
+const STATUS_EVENT_CONFIG = {
+  "Follow-Up": { dateLabel: "Next Follow-up Date", eventLabel: "Follow-up Event / Remark", defaultEvent: "Follow-up scheduled" },
+  "Site Visit Planned": { dateLabel: "Site Visit Date", eventLabel: "Site Visit Event / Remark", defaultEvent: "Site visit planned" },
+  "Site Visit Completed": { dateLabel: "Site Visit Date", eventLabel: "Site Visit Feedback / Remark", defaultEvent: "Site visit completed" },
+  "Booking Pending": { dateLabel: "Booking Follow-up Date", eventLabel: "Booking Event / Remark", defaultEvent: "Booking pending" },
+  "Booking Confirmed": { dateLabel: "Booking Date", eventLabel: "Booking Details / Remark", defaultEvent: "Booking confirmed" },
+};
+
+function getStatusEventConfig(status) {
+  return STATUS_EVENT_CONFIG[status] || null;
+}
+
 // ─── MOBILE DETECTION ────────────────────────────────────────────────────
 const makeSecureToken = (bytesLength = 16) => {
   const bytes = new Uint8Array(bytesLength);
@@ -1185,7 +1197,8 @@ export default function App() {
   const [selectedWhatsappTemplateId, setSelectedWhatsappTemplateId] = useState("");
   const [isLeadEditMode, setIsLeadEditMode] = useState(false);
   const [isLeadUpdateSaving, setIsLeadUpdateSaving] = useState(false);
-  const [leadEditDraft, setLeadEditDraft] = useState({ status:"", assignedTo:"Unassigned", project:"" });
+  const [leadEditDraft, setLeadEditDraft] = useState({ status:"", assignedTo:"Unassigned", project:"", statusEventDate:"", statusEventRemark:"" });
+  const [leadStatusEventPopup, setLeadStatusEventPopup] = useState({ isOpen:false, status:"", previousStatus:"", date:"", event:"" });
   const [newWhatsappTemplateForm, setNewWhatsappTemplateForm] = useState({ project:"All", title:"", message:"", imageUrl:"", imageDataUrl:"" });
   const allowBrowserExitRef = useRef(false);
   const notifiedAlertsRef = useRef(new Set());
@@ -1199,7 +1212,8 @@ export default function App() {
   useEffect(() => {
     if (!selectedLead) {
       setIsLeadEditMode(false);
-      setLeadEditDraft({ status:"", assignedTo:"Unassigned", project:"" });
+      setLeadEditDraft({ status:"", assignedTo:"Unassigned", project:"", statusEventDate:"", statusEventRemark:"" });
+      setLeadStatusEventPopup({ isOpen:false, status:"", previousStatus:"", date:"", event:"" });
       return;
     }
     setIsLeadEditMode(false);
@@ -1207,7 +1221,10 @@ export default function App() {
       status: selectedLead.status || "New",
       assignedTo: selectedLead.assignedTo || "Unassigned",
       project: selectedLead.project || "",
+      statusEventDate: "",
+      statusEventRemark: "",
     });
+    setLeadStatusEventPopup({ isOpen:false, status:"", previousStatus:"", date:"", event:"" });
   }, [selectedLead?.id]);
 
   useEffect(() => {
@@ -1736,6 +1753,8 @@ export default function App() {
       status: selectedLead.status || "New",
       assignedTo: selectedLead.assignedTo || "Unassigned",
       project: selectedLead.project || "",
+      statusEventDate: "",
+      statusEventRemark: "",
     });
     setIsLeadEditMode(true);
   };
@@ -1746,9 +1765,60 @@ export default function App() {
         status: selectedLead.status || "New",
         assignedTo: selectedLead.assignedTo || "Unassigned",
         project: selectedLead.project || "",
+        statusEventDate: "",
+        statusEventRemark: "",
       });
     }
+    setLeadStatusEventPopup({ isOpen:false, status:"", previousStatus:"", date:"", event:"" });
     setIsLeadEditMode(false);
+  };
+
+  const getDefaultEventDateForStatus = (status) => {
+    if (!selectedLead) return TODAY_STR;
+    if (status === "Follow-Up") return selectedLead.nextFollowUp && selectedLead.nextFollowUp !== "None" ? selectedLead.nextFollowUp : TODAY_STR;
+    if (status === "Site Visit Planned" || status === "Site Visit Completed") return selectedLead.siteVisitTentativeDate || TODAY_STR;
+    if (status === "Booking Confirmed" || status === "Booking Pending") return selectedLead.bookingDate || TODAY_STR;
+    return TODAY_STR;
+  };
+
+  const handleLeadDraftStatusChange = (status) => {
+    const previousStatus = leadEditDraft.status || selectedLead?.status || "New";
+    setLeadEditDraft(prev => ({ ...prev, status, statusEventDate:"", statusEventRemark:"" }));
+    const config = getStatusEventConfig(status);
+    if (config) {
+      setLeadStatusEventPopup({
+        isOpen: true,
+        status,
+        previousStatus,
+        date: getDefaultEventDateForStatus(status),
+        event: config.defaultEvent || "",
+      });
+    }
+  };
+
+  const cancelLeadStatusEventPopup = () => {
+    setLeadEditDraft(prev => ({
+      ...prev,
+      status: leadStatusEventPopup.previousStatus || selectedLead?.status || "New",
+      statusEventDate: "",
+      statusEventRemark: "",
+    }));
+    setLeadStatusEventPopup({ isOpen:false, status:"", previousStatus:"", date:"", event:"" });
+  };
+
+  const confirmLeadStatusEventPopup = () => {
+    const config = getStatusEventConfig(leadStatusEventPopup.status);
+    if (config && !leadStatusEventPopup.date) {
+      triggerToastAlert("Please select the event date.");
+      return;
+    }
+    setLeadEditDraft(prev => ({
+      ...prev,
+      status: leadStatusEventPopup.status,
+      statusEventDate: leadStatusEventPopup.date,
+      statusEventRemark: leadStatusEventPopup.event.trim() || config?.defaultEvent || "",
+    }));
+    setLeadStatusEventPopup({ isOpen:false, status:"", previousStatus:"", date:"", event:"" });
   };
 
   const commitLeadDrawerUpdate = async () => {
@@ -1759,8 +1829,33 @@ export default function App() {
     const targetProject = leadEditDraft.project || currentLead.project || "";
     const assignedUser = targetAssignedTo !== "Unassigned" ? users.find(u => u.name === targetAssignedTo) : null;
     const project = projects.find(p => p.name === targetProject);
+    const statusChanged = (currentLead.status || "") !== targetStatus;
+    const statusEventConfig = getStatusEventConfig(targetStatus);
+    if (statusChanged && statusEventConfig && !leadEditDraft.statusEventDate) {
+      setLeadStatusEventPopup({
+        isOpen: true,
+        status: targetStatus,
+        previousStatus: currentLead.status || "New",
+        date: getDefaultEventDateForStatus(targetStatus),
+        event: leadEditDraft.statusEventRemark || statusEventConfig.defaultEvent || "",
+      });
+      triggerToastAlert("Please add the event date before saving.");
+      return;
+    }
     const logs = [];
-    if ((currentLead.status || "") !== targetStatus) logs.push(makeHistoryLog(currentUser.name, `Status updated to: ${targetStatus}`));
+    if (statusChanged) {
+      const eventDate = leadEditDraft.statusEventDate;
+      const eventRemark = leadEditDraft.statusEventRemark || statusEventConfig?.defaultEvent || targetStatus;
+      let statusAction = `Status updated to: ${targetStatus}`;
+      if (statusEventConfig) {
+        const datePart = eventDate ? ` Date: ${eventDate}.` : "";
+        if (targetStatus === "Follow-Up") statusAction = `[Follow-Up]: ${eventRemark}.${datePart}`;
+        else if (targetStatus.startsWith("Site Visit")) statusAction = `[Site Visit]: ${eventRemark}.${datePart}`;
+        else if (targetStatus.startsWith("Booking")) statusAction = `[Booking]: ${eventRemark}.${datePart}`;
+        else statusAction = `${targetStatus}: ${eventRemark}.${datePart}`;
+      }
+      logs.push(makeHistoryLog(currentUser.name, statusAction));
+    }
     if ((currentLead.assignedTo || "Unassigned") !== targetAssignedTo) logs.push(makeHistoryLog(currentUser.name, `Assigned to: ${targetAssignedTo}`));
     if ((currentLead.project || "") !== targetProject) logs.push(makeHistoryLog(currentUser.name, `Project changed from ${currentLead.project || "Not set"} to ${targetProject}.`));
     if (!logs.length) {
@@ -1772,11 +1867,15 @@ export default function App() {
     const updated = leads.map(l => {
       if (l.id !== currentLead.id) return l;
       const assignmentChanged = (currentLead.assignedTo || "Unassigned") !== targetAssignedTo;
-      const statusWasEdited = (currentLead.status || "") !== targetStatus;
+      const statusWasEdited = statusChanged;
       const nextStatus = statusWasEdited ? targetStatus : assignmentChanged ? (targetAssignedTo === "Unassigned" ? "New" : "Assigned") : l.status;
       return {
         ...l,
         status: nextStatus,
+        lastFollowUp: targetStatus === "Follow-Up" ? TODAY_STR : l.lastFollowUp,
+        nextFollowUp: targetStatus === "Follow-Up" && leadEditDraft.statusEventDate ? leadEditDraft.statusEventDate : l.nextFollowUp,
+        siteVisitTentativeDate: targetStatus.startsWith("Site Visit") && leadEditDraft.statusEventDate ? leadEditDraft.statusEventDate : l.siteVisitTentativeDate,
+        bookingDate: targetStatus.startsWith("Booking") && leadEditDraft.statusEventDate ? leadEditDraft.statusEventDate : l.bookingDate,
         assignedTo: targetAssignedTo,
         assignedToId: assignedUser?.id || null,
         assignedAt: assignmentChanged && assignedUser ? Date.now() : l.assignedAt,
@@ -2647,10 +2746,11 @@ export default function App() {
           </div>
           <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-slate-950">
              <div className="grid grid-cols-2 gap-3 text-xs">
-               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Status</p>{isLeadEditMode?<select value={leadEditDraft.status} onChange={e=>setLeadEditDraft({...leadEditDraft,status:e.target.value})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500">{STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select>:<span className="block mt-1 font-black truncate" style={{color:SC[selectedLead.status]?.text}}>{selectedLead.status}</span>}</div>
+               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Status</p>{isLeadEditMode?<select value={leadEditDraft.status} onChange={e=>handleLeadDraftStatusChange(e.target.value)} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500">{STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select>:<span className="block mt-1 font-black truncate" style={{color:SC[selectedLead.status]?.text}}>{selectedLead.status}</span>}</div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Assigned</p>{isLeadEditMode&&["Admin","Manager"].includes(currentUser.role)?<select value={leadEditDraft.assignedTo||"Unassigned"} onChange={e=>setLeadEditDraft({...leadEditDraft,assignedTo:e.target.value})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500"><option value="Unassigned">Unassigned</option>{assignableUsers.map(u=><option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}</select>:<p className="font-bold text-white truncate mt-1">{selectedLead.assignedTo||"Unassigned"}</p>}</div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Project / Budget</p>{isLeadEditMode?<select value={leadEditDraft.project||""} onChange={e=>setLeadEditDraft({...leadEditDraft,project:e.target.value})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-orange-400 focus:outline-none focus:border-orange-500">{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select>:<p className="font-bold text-orange-400 truncate mt-1">{selectedLead.project} <span className="text-slate-500 mx-1">•</span> <span className="font-mono text-emerald-400">₹{selectedLead.budget}L</span></p>}</div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Source</p><p className="font-bold text-slate-300 mt-1 truncate">{selectedLead.source}</p></div>
+               {isLeadEditMode&&leadEditDraft.statusEventDate&&<div className="col-span-2 bg-orange-950/20 border border-orange-500/20 p-3 rounded-xl"><p className="text-[9px] font-bold text-orange-300 uppercase tracking-wider">Event Details</p><p className="text-[10px] text-slate-300 mt-1"><span className="font-mono text-orange-200">{leadEditDraft.statusEventDate}</span>{leadEditDraft.statusEventRemark?` - ${leadEditDraft.statusEventRemark}`:""}</p></div>}
                <div className="col-span-2 flex justify-end gap-2">{isLeadEditMode?<><button type="button" disabled={isLeadUpdateSaving} onClick={cancelLeadDrawerEdit} className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-900 border border-slate-700 text-slate-300 hover:text-white disabled:opacity-50">Cancel</button><button type="button" disabled={isLeadUpdateSaving} onClick={commitLeadDrawerUpdate} className="px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-orange-600 hover:bg-orange-700 disabled:bg-slate-700 text-white flex items-center gap-1.5"><Check className="h-3 w-3"/> {isLeadUpdateSaving?"Saving...":"OK"}</button></>:<button type="button" onClick={startLeadDrawerEdit} className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1.5"><Edit2 className="h-3 w-3"/> Edit Lead</button>}</div>
              </div>
              <div className="space-y-4">
@@ -2688,6 +2788,31 @@ export default function App() {
                   ))}
                 </div>
              </div>
+          </div>
+        </div>
+      )}
+
+      {leadStatusEventPopup.isOpen&&(
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[180] flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-orange-500/30 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-slate-800 bg-orange-950/20">
+              <h2 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2"><Calendar className="h-4 w-4 text-orange-400"/> {leadStatusEventPopup.status} Details</h2>
+              <p className="text-[10px] text-slate-400 mt-1">Add the event date and remark before saving the lead update.</p>
+            </div>
+            <div className="p-5 space-y-4 text-xs">
+              <div className="space-y-1.5">
+                <label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">{getStatusEventConfig(leadStatusEventPopup.status)?.dateLabel || "Event Date"}</label>
+                <input type="date" required value={leadStatusEventPopup.date} onChange={e=>setLeadStatusEventPopup(prev=>({...prev,date:e.target.value}))} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono"/>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">{getStatusEventConfig(leadStatusEventPopup.status)?.eventLabel || "Event / Remark"}</label>
+                <textarea rows={3} value={leadStatusEventPopup.event} onChange={e=>setLeadStatusEventPopup(prev=>({...prev,event:e.target.value}))} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 resize-none" placeholder="Enter event details or remark"/>
+              </div>
+              <div className="pt-2 flex justify-end gap-3">
+                <button type="button" onClick={cancelLeadStatusEventPopup} className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider bg-slate-900 border border-slate-700 text-slate-300 hover:text-white">Cancel</button>
+                <button type="button" onClick={confirmLeadStatusEventPopup} className="px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider bg-orange-600 hover:bg-orange-700 text-white flex items-center gap-1.5"><Check className="h-3.5 w-3.5"/> OK</button>
+              </div>
+            </div>
           </div>
         </div>
       )}

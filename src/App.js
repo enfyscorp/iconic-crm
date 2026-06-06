@@ -1712,7 +1712,7 @@ export default function App() {
     if(selectedLead&&selectedLead.id===leadId)setSelectedLead(prev=>({...prev,status:targetStatus,history:[log,...(prev.history || [])]}));
     triggerToastAlert(`Milestone set to ${targetStatus}`);
   };
-  const handleProjectStatusChange=(projectId,targetStatus)=>{ const updated=projects.map(p=>p.id===projectId?{...p,status:targetStatus}:p); setProjects(updated); triggerToastAlert(`Project status: ${targetStatus}`); };
+  const handleProjectStatusChange=(projectId,targetStatus)=>{ if(currentUser?.role!=="Admin"){triggerToastAlert("Only Admin can edit projects.");return;} const updated=projects.map(p=>p.id===projectId?{...p,status:targetStatus}:p); setProjects(updated); triggerToastAlert(`Project status: ${targetStatus}`); };
   const commitTentativeWalkthroughPlan=(e)=>{ e.preventDefault(); if(!tentativeWalkthroughDateInput)return; const log=makeHistoryLog(currentUser.name, `[SITE VISIT PLANNED]: Date set to ${tentativeWalkthroughDateInput}.`); const updated=leads.map(l=>l.id===selectedLead.id?{...l,status:"Site Visit Planned",siteVisitTentativeDate:tentativeWalkthroughDateInput,history:[log,...(l.history || [])]}:l); setLeads(updated); setSelectedLead(prev=>({...prev,status:"Site Visit Planned",siteVisitTentativeDate:tentativeWalkthroughDateInput,history:[log,...(prev.history || [])]})); setTentativeWalkthroughDateInput(""); triggerToastAlert("Tentative date saved."); };
 
   const handleLeadStatusDropdownChange = async (leadId, targetStatus) => {
@@ -2099,7 +2099,7 @@ export default function App() {
     const created={...newLeadForm,id:Date.now(),phone,altPhone:stripPhone(newLeadForm.altPhone),branch:leadBranch,dateCreated:getLocalDate(now),dateCreatedTime:getLocalTime(now),createdAt:now.toISOString(),newLeadTag:true,lastFollowUp:"None",nextFollowUp:getLocalDate(now),assignedToId:assignedUser?.id||null,assignedAt:assignedUser?Date.now():null,assignedByRole:currentUser.role,bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false,siteVisitTentativeDate:"",status:newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?"Assigned":"New",history:[makeHistoryLog(currentUser.name, "Lead captured."+(newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?` Assigned to ${newLeadForm.assignedTo}.`:""), now)]};
     const saved=await setLeads([created,...leads]); if(!saved){triggerToastAlert("Could not save lead to Supabase.");return;} setIsLeadModalOpen(false); setNewLeadForm({name:"",phone:"",altPhone:"",email:"",location:"",project:projects[0]?.name||"",budget:25,source:"Website",assignedTo:"Unassigned",notes:""}); triggerToastAlert("Lead created."); };
 
-  const handleCreateProject=(e)=>{ e.preventDefault(); const p={...newProjectForm,id:Date.now(),price:parseInt(newProjectForm.price)||0,units:parseInt(newProjectForm.units)||0,sold:parseInt(newProjectForm.sold)||0}; setProjects([p,...projects]); setIsProjectModalOpen(false); setNewProjectForm({name:"",location:"",branch:"Madurai Desk",type:"Plot",price:30,units:50,sold:0,status:"Pre-Launch"}); triggerToastAlert(`Project "${p.name}" added.`); };
+  const handleCreateProject=(e)=>{ e.preventDefault(); if(currentUser?.role!=="Admin"){triggerToastAlert("Only Admin can add projects.");return;} const p={...newProjectForm,id:Date.now(),price:parseInt(newProjectForm.price)||0,units:parseInt(newProjectForm.units)||0,sold:parseInt(newProjectForm.sold)||0}; setProjects([p,...projects]); setIsProjectModalOpen(false); setNewProjectForm({name:"",location:"",branch:"Madurai Desk",type:"Plot",price:30,units:50,sold:0,status:"Pre-Launch"}); triggerToastAlert(`Project "${p.name}" added.`); };
   const handleCreateActivityLog=(e)=>{ e.preventDefault(); const now=new Date(); const log={...newActivityForm,id:Date.now(),date:newActivityForm.date||getLocalDate(now),time:getLocalTime(now),timestamp:now.toISOString(),executive:["Admin","Manager"].includes(currentUser.role)?newActivityForm.executive:currentUser.name,callsMade:parseInt(newActivityForm.callsMade)||0,followup:parseInt(newActivityForm.followup)||0,siteVisit:parseInt(newActivityForm.siteVisit)||0,booking:parseInt(newActivityForm.booking)||0,registration:parseInt(newActivityForm.registration)||0,cancellation:parseInt(newActivityForm.cancellation)||0,collection:parseInt(newActivityForm.collection)||0}; setActivityLogsStateWrapped(prev=>[log,...prev]); setIsActivityLogModalOpen(false); setNewActivityForm({date:TODAY_STR,executive:"",project:projects[0]?.name||"",source:"Own Leads",callsMade:0,callStatus:"Warm",followup:0,siteVisit:0,booking:0,registration:0,cancellation:0,collection:0,remark:""}); triggerToastAlert("Activity log saved."); };
 
   const commitSiteWalkthroughLog=()=>{ const log=makeHistoryLog(currentUser.name, `[Site Visit]: Family: ${svFamily}. Feedback: ${svFeedback}`); if(svDate)log.date=svDate; const updated=leads.map(l=>l.id===selectedLead.id?{...l,status:"Site Visit Completed",history:[log,...(l.history || [])]}:l); setLeads(updated); setSelectedLead(null); triggerToastAlert("Site visit logged."); };
@@ -2546,7 +2546,7 @@ export default function App() {
             <div className="space-y-5">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-950 p-5 border border-slate-800 rounded-2xl shadow-xl">
                 <div><h1 className="text-lg lg:text-xl font-black text-white flex items-center gap-2"><Building2 className="h-5 w-5 text-purple-500"/> Project Master</h1><p className="text-[10px] text-slate-500 mt-1">{visibleProjects.length} active projects in system.</p></div>
-                {["Admin","Manager"].includes(currentUser.role)&&<button onClick={()=>setIsProjectModalOpen(true)} className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 text-white font-black text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider shadow-lg flex items-center justify-center gap-2"><Plus className="h-4 w-4"/> New Project</button>}
+                {currentUser.role==="Admin"&&<button onClick={()=>setIsProjectModalOpen(true)} className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 text-white font-black text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider shadow-lg flex items-center justify-center gap-2"><Plus className="h-4 w-4"/> New Project</button>}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                 {visibleProjects.map(proj=>{
@@ -2565,7 +2565,7 @@ export default function App() {
                         <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Inventory</p><p className="text-sm font-black text-white mt-0.5">{proj.sold} / <span className="text-slate-500">{proj.units}</span></p></div>
                         <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Est. Revenue</p><p className="text-sm font-black text-purple-400 mt-0.5 font-mono">₹{revenue}L</p></div>
                       </div>
-                      {["Admin","Manager"].includes(currentUser.role)&&(
+                      {currentUser.role==="Admin"&&(
                         <div className="flex gap-2">
                           <select value={proj.status} onChange={(e)=>handleProjectStatusChange(proj.id,e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-300 focus:outline-none focus:border-purple-500 uppercase tracking-wider">{PROJECT_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select>
                         </div>
@@ -2874,7 +2874,7 @@ export default function App() {
         </div>
       )}
 
-      {isProjectModalOpen&&(
+      {isProjectModalOpen&&currentUser.role==="Admin"&&(
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl flex flex-col">
             <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-gradient-to-r from-purple-900/20 to-transparent">

@@ -151,6 +151,7 @@ function isFreshLead(lead) {
 }
 
 const STATUS_EVENT_CONFIG = {
+  Contacted: { dateLabel: "Next Follow-up Date", eventLabel: "Contact Notes / Remark", defaultEvent: "" },
   "Follow-Up": { dateLabel: "Next Follow-up Date", eventLabel: "Follow-up Event / Remark", defaultEvent: "Follow-up scheduled" },
   "Site Visit Planned": { dateLabel: "Site Visit Date", eventLabel: "Site Visit Event / Remark", defaultEvent: "Site visit planned" },
   "Site Visit Completed": { dateLabel: "Site Visit Date", eventLabel: "Site Visit Feedback / Remark", defaultEvent: "Site visit completed" },
@@ -1182,8 +1183,6 @@ export default function App() {
   const [newUserForm, setNewUserForm] = useState({ name:"", emailPrefix:"", pass:"", role:"Executive", branch:"Madurai Desk", phone:"", managerId:"" });
   const [newActivityForm, setNewActivityForm] = useState({ date:TODAY_STR, executive:"", project:"", source:"Own Leads", callsMade:0, callStatus:"Warm", followup:0, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0, remark:"" });
   const [duplicateConflictRecord, setDuplicateConflictRecord] = useState(null);
-  const [followUpNotes, setFollowUpNotes] = useState("");
-  const [nextFollowUpDate, setNextFollowUpDate] = useState("");
   const [svDate, setSvDate] = useState("");
   const [svFeedback, setSvFeedback] = useState("");
   const [svFamily, setSvFamily] = useState("");
@@ -1376,6 +1375,7 @@ export default function App() {
     const classify = (action = "") => {
       const text = action.toLowerCase();
       if (text.includes("mobile call")) return { type:"Call", callStatus:"Call", callsMade:1, followup:0, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
+      if (text.includes("contacted")) return { type:"Contacted", callStatus:"Contacted", callsMade:0, followup:1, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
       if (text.includes("follow-up") || text.includes("follow up")) return { type:"Follow-Up", callStatus:"Follow-Up", callsMade:0, followup:1, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
       if (text.includes("site visit")) return { type:"Site Visit", callStatus:"Site Visit", callsMade:0, followup:0, siteVisit:1, booking:0, registration:0, cancellation:0, collection:0 };
       if (text.includes("booking")) return { type:"Booking", callStatus:"Booking", callsMade:0, followup:0, siteVisit:0, booking:1, registration:0, cancellation:0, collection:0 };
@@ -1812,6 +1812,10 @@ export default function App() {
       triggerToastAlert("Please select the event date.");
       return;
     }
+    if (leadStatusEventPopup.status === "Contacted" && !leadStatusEventPopup.event.trim()) {
+      triggerToastAlert("Please enter contact notes.");
+      return;
+    }
     setLeadEditDraft(prev => ({
       ...prev,
       status: leadStatusEventPopup.status,
@@ -1849,7 +1853,8 @@ export default function App() {
       let statusAction = `Status updated to: ${targetStatus}`;
       if (statusEventConfig) {
         const datePart = eventDate ? ` Date: ${eventDate}.` : "";
-        if (targetStatus === "Follow-Up") statusAction = `[Follow-Up]: ${eventRemark}.${datePart}`;
+        if (targetStatus === "Contacted") statusAction = `[Contacted]: ${eventRemark}.${datePart}`;
+        else if (targetStatus === "Follow-Up") statusAction = `[Follow-Up]: ${eventRemark}.${datePart}`;
         else if (targetStatus.startsWith("Site Visit")) statusAction = `[Site Visit]: ${eventRemark}.${datePart}`;
         else if (targetStatus.startsWith("Booking")) statusAction = `[Booking]: ${eventRemark}.${datePart}`;
         else statusAction = `${targetStatus}: ${eventRemark}.${datePart}`;
@@ -1872,8 +1877,8 @@ export default function App() {
       return {
         ...l,
         status: nextStatus,
-        lastFollowUp: targetStatus === "Follow-Up" ? TODAY_STR : l.lastFollowUp,
-        nextFollowUp: targetStatus === "Follow-Up" && leadEditDraft.statusEventDate ? leadEditDraft.statusEventDate : l.nextFollowUp,
+        lastFollowUp: ["Contacted","Follow-Up"].includes(targetStatus) ? TODAY_STR : l.lastFollowUp,
+        nextFollowUp: ["Contacted","Follow-Up"].includes(targetStatus) && leadEditDraft.statusEventDate ? leadEditDraft.statusEventDate : l.nextFollowUp,
         siteVisitTentativeDate: targetStatus.startsWith("Site Visit") && leadEditDraft.statusEventDate ? leadEditDraft.statusEventDate : l.siteVisitTentativeDate,
         bookingDate: targetStatus.startsWith("Booking") && leadEditDraft.statusEventDate ? leadEditDraft.statusEventDate : l.bookingDate,
         assignedTo: targetAssignedTo,
@@ -2085,8 +2090,6 @@ export default function App() {
     const saved=await setUsers(users.map(x => x.id === u.id ? u : x));
     if(!saved){triggerToastAlert("Could not save user changes to Supabase.");return;}
     setIsEditUserModalOpen(false);setEditUserForm(null); triggerToastAlert(`Profile for ${u.name} updated.`); };
-
-  const commitManualFollowUpReport=(e)=>{ e.preventDefault(); if(!followUpNotes.trim()||!nextFollowUpDate)return; const log=makeHistoryLog(currentUser.name, `[Follow-Up]: ${followUpNotes.trim()} (Next: ${nextFollowUpDate})`); const updated=leads.map(l=>{ if(l.id===selectedLead.id){const obj={...l,status:"Contacted",lastFollowUp:TODAY_STR,nextFollowUp:nextFollowUpDate,history:[log,...(l.history || [])]};setSelectedLead(obj);return obj;}return l;}); setLeads(updated); setFollowUpNotes("");setNextFollowUpDate(""); triggerToastAlert("Follow-up logged."); };
 
   const handleCreateLead=async (e)=>{ e.preventDefault(); const phone=stripPhone(newLeadForm.phone); const dup=leads.find(l=>stripPhone(l.phone)===phone); if(dup){setDuplicateConflictRecord(dup);return;}
     const assignedUser = newLeadForm.assignedTo && newLeadForm.assignedTo !== "Unassigned" ? users.find(u => u.name === newLeadForm.assignedTo) : null;
@@ -2766,13 +2769,6 @@ export default function App() {
                     <button type="button" disabled={!selectedWhatsappTemplateId || !(selectedLead.history||[]).some(h=>(h.action||"").toLowerCase().includes("mobile call"))} onClick={handleSendWhatsappTemplate} className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-800 disabled:text-slate-500 text-white font-black text-[10px] uppercase tracking-wider px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5"><Send className="h-3 w-3"/> Send</button>
                   </div>
                 </div>
-                <form onSubmit={commitManualFollowUpReport} className="bg-slate-900/50 border border-slate-800 rounded-xl p-3 space-y-3">
-                  <textarea value={followUpNotes} onChange={e=>setFollowUpNotes(e.target.value)} required rows={2} placeholder="Quick follow-up notes..." className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500 resize-none"/>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex-1"><label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Next Follow-up</label><input type="date" required value={nextFollowUpDate} min={TODAY_STR} onChange={e=>setNextFollowUpDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 font-mono mt-0.5"/></div>
-                    <button type="submit" className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-wider px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5"><Send className="h-3 w-3"/> Log</button>
-                  </div>
-                </form>
              </div>
              <div className="space-y-3">
                 <div className="flex items-center gap-2 border-b border-slate-800 pb-2"><Calendar className="h-4 w-4 text-orange-400"/><h3 className="text-xs font-black uppercase tracking-wider text-slate-300">Timeline</h3></div>

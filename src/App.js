@@ -1249,19 +1249,35 @@ export default function App() {
   }, [currentUser, nonAdminUsers, rememberSession, forgetSession]);
 
   const visibleProjects = useMemo(()=>{ if(!currentUser)return[]; if(currentUser.role==="Admin")return projects; return projects.filter(p=>p.branch===currentUser.branch); },[projects,currentUser]);
-  const visibleUsers = useMemo(()=>{ if(!currentUser)return[]; if(currentUser.role==="Admin")return users; return users.filter(u=>u.branch===currentUser.branch); },[users,currentUser]);
   const managerUsers = useMemo(()=>users.filter(u=>u.role==="Manager"&&u.active!==false),[users]);
+  const currentManagerTeamIds = useMemo(()=>{
+    if(!currentUser||currentUser.role!=="Manager")return[];
+    return [currentUser.id, ...users.filter(u=>u.managerId===currentUser.id).map(u=>u.id)];
+  },[users,currentUser]);
   const currentManagerTeamNames = useMemo(()=>{
     if(!currentUser)return[];
     if(currentUser.role!=="Manager")return[];
     return [currentUser.name, ...users.filter(u=>u.managerId===currentUser.id).map(u=>u.name)];
   },[users,currentUser]);
+  const visibleUsers = useMemo(()=>{
+    if(!currentUser)return[];
+    if(currentUser.role==="Admin")return users;
+    if(currentUser.role==="Manager")return users.filter(u=>currentManagerTeamIds.includes(u.id)||currentManagerTeamNames.includes(u.name));
+    return users.filter(u=>u.id===currentUser.id||u.name===currentUser.name);
+  },[users,currentUser,currentManagerTeamIds,currentManagerTeamNames]);
   const assignableUsers = useMemo(()=>visibleUsers.filter(u=>["Manager","Executive","Telecaller"].includes(u.role)&&u.active),[visibleUsers]);
   const selectedLeadWhatsappTemplates = useMemo(()=>selectedLead ? whatsappTemplates.filter(t=>t.project==="All"||t.project===selectedLead.project) : [],[whatsappTemplates,selectedLead]);
   const isAssignedToCurrentUser = useCallback((lead) => {
     if (!currentUser || !lead) return false;
     return lead.assignedToId === currentUser.id || lead.assignedTo === currentUser.name || lead.assignedTo === currentUser.email;
   }, [currentUser]);
+  const isLeadInCurrentManagerScope = useCallback((lead) => {
+    if (!currentUser || currentUser.role !== "Manager" || !lead) return false;
+    const assignedToTeam = currentManagerTeamIds.includes(lead.assignedToId) || currentManagerTeamNames.includes(lead.assignedTo);
+    const capturedByTeam = (lead.history || []).some(h => currentManagerTeamNames.includes(h.by) && /lead captured|imported/i.test(h.action || ""));
+    const isUnassigned = !lead.assignedTo || lead.assignedTo === "Unassigned";
+    return assignedToTeam || (isUnassigned && capturedByTeam);
+  }, [currentUser, currentManagerTeamIds, currentManagerTeamNames]);
 
   useEffect(() => {
     if (!visibleProjects.length) return;
@@ -1272,7 +1288,7 @@ export default function App() {
   const processedLeads = useMemo(()=>{
     if(!currentUser)return[];
     let result=leads;
-    if(currentUser.role==="Manager")result=leads.filter(l=>l.branch===currentUser.branch);
+    if(currentUser.role==="Manager")result=leads.filter(isLeadInCurrentManagerScope);
     else if(["Executive","Telecaller"].includes(currentUser.role))result=leads.filter(isAssignedToCurrentUser);
     if(globalSearch.trim()){const t=globalSearch.toLowerCase();result=result.filter(l=>l.name.toLowerCase().includes(t)||l.phone.includes(t)||l.project.toLowerCase().includes(t)||l.status.toLowerCase().includes(t));}
     if(filterSource!=="All")result=result.filter(l=>l.source===filterSource);
@@ -1282,7 +1298,7 @@ export default function App() {
     if(startDate)result=result.filter(l=>l.dateCreated>=startDate);
     if(endDate)result=result.filter(l=>l.dateCreated<=endDate);
     return result;
-  },[leads,currentUser,isAssignedToCurrentUser,globalSearch,filterSource,filterStatus,filterProject,filterExecutive,startDate,endDate]);
+  },[leads,currentUser,isAssignedToCurrentUser,isLeadInCurrentManagerScope,globalSearch,filterSource,filterStatus,filterProject,filterExecutive,startDate,endDate]);
 
   const systemActivityLogs = useMemo(()=>{
     const classify = (action = "") => {
@@ -1317,7 +1333,7 @@ export default function App() {
   const filteredActivityLogs = useMemo(()=>{
     let logs=systemActivityLogs;
     if(currentUser&&!["Admin","Manager"].includes(currentUser.role))logs=logs.filter(l=>l.executive===currentUser.name);
-    if(currentUser?.role==="Manager")logs=logs.filter(l=>visibleProjects.some(p=>p.name===l.project));
+    if(currentUser?.role==="Manager")logs=logs.filter(l=>currentManagerTeamNames.includes(l.executive));
     if(actFilterExec!=="All")logs=logs.filter(l=>l.executive===actFilterExec);
     if(actFilterProject!=="All")logs=logs.filter(l=>l.project===actFilterProject);
     if(actFilterSource!=="All")logs=logs.filter(l=>l.source===actFilterSource);
@@ -1326,7 +1342,7 @@ export default function App() {
     if(actEndDate)logs=logs.filter(l=>l.date<=actEndDate);
     if(activitySearch.trim()){const t=activitySearch.toLowerCase();logs=logs.filter(l=>(l.leadName||"").toLowerCase().includes(t)||(l.phone||"").includes(t)||(l.executive||"").toLowerCase().includes(t)||(l.project||"").toLowerCase().includes(t)||(l.remark||"").toLowerCase().includes(t));}
     return [...logs].sort((a,b)=>b.date.localeCompare(a.date));
-  },[systemActivityLogs,currentUser,visibleProjects,actFilterExec,actFilterProject,actFilterSource,actFilterStatus,actStartDate,actEndDate,activitySearch]);
+  },[systemActivityLogs,currentUser,currentManagerTeamNames,actFilterExec,actFilterProject,actFilterSource,actFilterStatus,actStartDate,actEndDate,activitySearch]);
 
   const customerActivityRows = useMemo(()=>{
     const map = new Map();
@@ -1387,9 +1403,9 @@ export default function App() {
   const reportScopedLeads = useMemo(()=>{
     if(!currentUser)return[];
     if(currentUser.role==="Admin")return leads;
-    if(currentUser.role==="Manager")return leads.filter(l=>currentManagerTeamNames.includes(l.assignedTo)||currentManagerTeamNames.some(name=>(l.history||[]).some(h=>h.by===name)));
+    if(currentUser.role==="Manager")return leads.filter(isLeadInCurrentManagerScope);
     return leads.filter(isAssignedToCurrentUser);
-  },[leads,currentUser,isAssignedToCurrentUser,currentManagerTeamNames]);
+  },[leads,currentUser,isAssignedToCurrentUser,isLeadInCurrentManagerScope]);
 
   const reportPeopleUsers = useMemo(()=>{
     if(!currentUser)return[];
@@ -1502,9 +1518,9 @@ export default function App() {
   const dashboardActivityLogs = useMemo(()=>{
     let logs=systemActivityLogs;
     if(currentUser&&!["Admin","Manager"].includes(currentUser.role))logs=logs.filter(l=>l.executive===currentUser.name);
-    if(currentUser?.role==="Manager")logs=logs.filter(l=>visibleProjects.some(p=>p.name===l.project));
+    if(currentUser?.role==="Manager")logs=logs.filter(l=>currentManagerTeamNames.includes(l.executive));
     return logs.filter(l=>l.date===TODAY_STR);
-  },[systemActivityLogs,currentUser,visibleProjects,TODAY_STR]);
+  },[systemActivityLogs,currentUser,currentManagerTeamNames,TODAY_STR]);
 
   const activityKPIs = useMemo(()=>{
     const totalCalls=dashboardActivityLogs.reduce((s,l)=>s+(l.callsMade||0),0);
@@ -1538,10 +1554,10 @@ export default function App() {
   const dashboardActionQueueLeads = useMemo(()=>{
     if(!currentUser)return[];
     if(currentUser.role==="Admin")return leads.filter(l=>l.assignedTo==="Unassigned"||l.status==="Site Visit Planned");
-    if(currentUser.role==="Manager")return leads.filter(l=>l.branch===currentUser.branch&&(l.assignedTo==="Unassigned"||isAssignedToCurrentUser(l)||l.status==="Site Visit Planned"));
+    if(currentUser.role==="Manager")return leads.filter(l=>isLeadInCurrentManagerScope(l)&&(l.assignedTo==="Unassigned"||l.status==="Site Visit Planned"));
     if(["Executive","Telecaller"].includes(currentUser.role))return leads.filter(isAssignedToCurrentUser);
     return[];
-  },[leads,currentUser,isAssignedToCurrentUser]);
+  },[leads,currentUser,isAssignedToCurrentUser,isLeadInCurrentManagerScope]);
 
   const priorityAssignedLeads = useMemo(() => {
     if (!currentUser || currentUser.role === "Admin") return [];
@@ -1574,11 +1590,11 @@ export default function App() {
       const isUnattended = (["New","Assigned"].includes(l.status)&&ageDays>=1) || (l.nextFollowUp&&l.nextFollowUp!=="None"&&l.nextFollowUp<TODAY_STR);
       if(!isUnattended)return false;
       if(currentUser.role==="Admin")return true;
-      if(currentUser.role==="Manager")return l.branch===currentUser.branch;
+      if(currentUser.role==="Manager")return isLeadInCurrentManagerScope(l);
       if(["Executive","Telecaller"].includes(currentUser.role))return isAssignedToCurrentUser(l);
       return false;
     }).sort((a,b)=>(a.nextFollowUp||a.dateCreated||"").localeCompare(b.nextFollowUp||b.dateCreated||""));
-  },[leads,currentUser,isAssignedToCurrentUser,TODAY_STR]);
+  },[leads,currentUser,isAssignedToCurrentUser,isLeadInCurrentManagerScope,TODAY_STR]);
 
   useEffect(() => {
     if (!currentUser || typeof Notification === "undefined" || Notification.permission !== "granted") return;
@@ -2289,7 +2305,7 @@ export default function App() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                 {visibleProjects.map(proj=>{
-                  const prjLeads = leads.filter(l=>l.project===proj.name);
+                  const prjLeads = reportScopedLeads.filter(l=>l.project===proj.name);
                   const booked = prjLeads.filter(l=>["Booking Confirmed","Closed"].includes(l.status)).length;
                   const revenue = booked * proj.price;
                   return (

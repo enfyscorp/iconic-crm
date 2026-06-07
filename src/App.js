@@ -180,6 +180,10 @@ function getEditableLeadStatus(status) {
   return status === "Closed" ? "Booked" : (status || "New");
 }
 
+function normaliseProjectKey(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
 // ─── MOBILE DETECTION ────────────────────────────────────────────────────
 const makeSecureToken = (bytesLength = 16) => {
   const bytes = new Uint8Array(bytesLength);
@@ -1352,7 +1356,15 @@ export default function App() {
     return users.filter(u=>u.id===currentUser.id||u.name===currentUser.name);
   },[users,currentUser,currentManagerTeamIds,currentManagerTeamNames]);
   const assignableUsers = useMemo(()=>visibleUsers.filter(u=>["Manager","Executive","Telecaller"].includes(u.role)&&u.active),[visibleUsers]);
-  const selectedLeadWhatsappTemplates = useMemo(()=>selectedLead ? whatsappTemplates.filter(t=>t.project==="All"||t.project===selectedLead.project) : [],[whatsappTemplates,selectedLead]);
+  const selectedLeadWhatsappTemplates = useMemo(()=>{
+    if(!selectedLead)return[];
+    const leadProjectKey = normaliseProjectKey(selectedLead.project);
+    const matches = whatsappTemplates.filter(t=>{
+      const templateProjectKey = normaliseProjectKey(t.project || "All");
+      return templateProjectKey === "all" || templateProjectKey === leadProjectKey;
+    });
+    return matches.length ? matches : whatsappTemplates;
+  },[whatsappTemplates,selectedLead]);
   const isAssignedToCurrentUser = useCallback((lead) => {
     if (!currentUser || !lead) return false;
     return lead.assignedToId === currentUser.id || lead.assignedTo === currentUser.name || lead.assignedTo === currentUser.email;
@@ -2785,8 +2797,8 @@ export default function App() {
                 <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-3 space-y-2">
                   <div className="flex items-center gap-2"><MessageSquare className="h-3.5 w-3.5 text-emerald-400"/><p className="text-[10px] text-slate-400 font-black uppercase tracking-wider">Project WhatsApp Message</p></div>
                   <div className="flex flex-col sm:flex-row gap-2">
-                    <select value={selectedWhatsappTemplateId} onChange={e=>setSelectedWhatsappTemplateId(e.target.value)} className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-2 py-2 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-emerald-500"><option value="">Select Template</option>{selectedLeadWhatsappTemplates.map(t=><option key={t.id} value={t.id}>{t.title} ({t.project})</option>)}</select>
-                    <button type="button" disabled={!selectedWhatsappTemplateId || !(selectedLead.history||[]).some(h=>(h.action||"").toLowerCase().includes("mobile call"))} onClick={handleSendWhatsappTemplate} className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-800 disabled:text-slate-500 text-white font-black text-[10px] uppercase tracking-wider px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5"><Send className="h-3 w-3"/> Send</button>
+                    <select value={selectedWhatsappTemplateId} onChange={e=>setSelectedWhatsappTemplateId(e.target.value)} className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-2 py-2 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-emerald-500"><option value="">{whatsappTemplates.length===0?"No Templates Saved":"Select Template"}</option>{selectedLeadWhatsappTemplates.map(t=><option key={t.id} value={t.id}>{t.title} ({t.project||"All"})</option>)}</select>
+                    <button type="button" disabled={!selectedWhatsappTemplateId} onClick={handleSendWhatsappTemplate} className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-800 disabled:text-slate-500 text-white font-black text-[10px] uppercase tracking-wider px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5"><Send className="h-3 w-3"/> Send</button>
                   </div>
                 </div>
              </div>

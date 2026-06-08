@@ -2446,7 +2446,6 @@ export default function App() {
       headers:["", ...sourceNames.map(sourceLabel), "TOTAL"],
       rows:[
         ...sourceConversionRows,
-        fmtCells(["TOTAL", ...sourceTotals, sourceTotals.reduce((sum,value)=>sum+value,0)]),
         ["Conv Vs Enq %", ...sourceNames.map((_,i)=>pct(sourceBookings[i], sourceEnquiries[i])), pct(totalBookings,totalEnquiries)],
         ["Conv Vs SV %", ...sourceNames.map((_,i)=>pct(sourceBookings[i], sourceSvDone[i])), pct(totalBookings,totalSvDone)],
       ],
@@ -2544,7 +2543,47 @@ export default function App() {
       rows:projectSourceRows,
       totals:fmtCells(["TOTAL", ...projectSourceTotals, projectSourceTotalEnq, projectSourceTotalBooking]),
     };
-    return { title:"Management Summary Sheet", sections:[executiveSummarySection, sourceConversionSection, sourcewiseSection, projectwiseSection, projectSourceEnqBookingSection] };
+    const dashboardTrendMap = {};
+    leadsInRange.forEach(lead=>{
+      const date = lead.dateCreated || "Unknown";
+      if(!dashboardTrendMap[date])dashboardTrendMap[date]={date,enquiry:0,calls:0,svPlan:0,svDone:0,booking:0};
+      dashboardTrendMap[date].enquiry += 1;
+    });
+    logsInRange.forEach(log=>{
+      const date = log.date || "Unknown";
+      if(!dashboardTrendMap[date])dashboardTrendMap[date]={date,enquiry:0,calls:0,svPlan:0,svDone:0,booking:0};
+      dashboardTrendMap[date].calls += log.callsMade || 0;
+      dashboardTrendMap[date].svPlan += log.siteVisitPlanned || 0;
+      dashboardTrendMap[date].svDone += log.siteVisitDone || 0;
+      dashboardTrendMap[date].booking += log.booking || 0;
+    });
+    const dashboardTotals = logsInRange.reduce((acc,log)=>{
+      acc.calls += log.callsMade || 0; acc.followup += log.followup || 0; acc.svPlan += log.siteVisitPlanned || 0; acc.svDone += log.siteVisitDone || 0; acc.booking += log.booking || 0; acc.registration += log.registration || 0; acc.cancellation += log.cancellation || 0;
+      return acc;
+    },{enquiry:leadsInRange.length,calls:0,followup:0,svPlan:0,svDone:0,booking:0,registration:0,cancellation:0});
+    dashboardTotals.conversion = pct(dashboardTotals.booking, dashboardTotals.enquiry);
+    dashboardTotals.callProductivity = calculateBookingProductivity(dashboardTotals.booking, dashboardTotals.calls);
+    const dashboard = {
+      totals:dashboardTotals,
+      trend:Object.values(dashboardTrendMap).sort((a,b)=>a.date.localeCompare(b.date)),
+      sourceMix:sourceNames.map(source=>({name:sourceLabel(source),value:sourceMetricValue(source,"Enq"),booking:sourceMetricValue(source,"Booking")})).filter(item=>item.value>0),
+      projectMix:projectNames.map(project=>({name:project,value:leadsInRange.filter(lead=>(lead.project || "Unknown")===project).length,booking:uniqueLogCount(logsInRange, log=>(log.project || "Unknown")===project && log.booking)})).filter(item=>item.value>0),
+      executiveBars:personNames.map(name=>{
+        const logs = logsInRange.filter(log=>(log.executive || "System")===name);
+        const calls = logs.reduce((sum,log)=>sum+(log.callsMade||0),0);
+        const booking = logs.reduce((sum,log)=>sum+(log.booking||0),0);
+        return {name,calls,booking};
+      }).filter(item=>item.calls||item.booking).sort((a,b)=>b.calls-a.calls).slice(0,10),
+      funnel:[
+        {name:"Enquiry",value:dashboardTotals.enquiry,color:"#38bdf8"},
+        {name:"Calls",value:dashboardTotals.calls,color:"#f97316"},
+        {name:"SV Plan",value:dashboardTotals.svPlan,color:"#8b5cf6"},
+        {name:"SV Done",value:dashboardTotals.svDone,color:"#10b981"},
+        {name:"Booking",value:dashboardTotals.booking,color:"#a855f7"},
+        {name:"Registration",value:dashboardTotals.registration,color:"#f59e0b"},
+      ],
+    };
+    return { title:"Management Summary Sheet", dashboard, sections:[executiveSummarySection, sourceConversionSection, sourcewiseSection, projectwiseSection, projectSourceEnqBookingSection] };
   },[reportScopedLeads,reportScopedActivityLogs,currentUser,reportPeopleUsers,projects,isDateInRange,reportStartDate,reportEndDate]);
 
   const activeRangeReport = useMemo(()=>{
@@ -2647,6 +2686,17 @@ export default function App() {
       return;
     }
     const esc = (val)=>String(val ?? "").replace(/[&<>"']/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+    const dashboard = activeRangeReport.dashboard;
+    const dashboardHtml = dashboard ? (() => {
+      const maxSource = Math.max(...dashboard.sourceMix.map(item=>item.value),1);
+      const maxProject = Math.max(...dashboard.projectMix.map(item=>item.value),1);
+      const maxFunnel = Math.max(...dashboard.funnel.map(item=>item.value),1);
+      const sourceBars = dashboard.sourceMix.slice(0,8).map((item,idx)=>`<div class="bar-row"><span>${esc(item.name)}</span><b style="width:${Math.max((item.value/maxSource)*100,4)}%;background:${PIE_COLORS[idx%PIE_COLORS.length]}">${formatReportValue(item.value)}</b></div>`).join("");
+      const projectBars = dashboard.projectMix.slice(0,8).map((item,idx)=>`<div class="bar-row"><span>${esc(item.name)}</span><b style="width:${Math.max((item.value/maxProject)*100,4)}%;background:${PIE_COLORS[(idx+3)%PIE_COLORS.length]}">${formatReportValue(item.value)}</b></div>`).join("");
+      const funnel = dashboard.funnel.map(item=>`<div class="funnel-step" style="width:${Math.max((item.value/maxFunnel)*100,10)}%;background:${item.color}"><span>${esc(item.name)}</span><b>${formatReportValue(item.value)}</b></div>`).join("");
+      const trend = dashboard.trend.slice(-10).map(item=>`<div class="trend-col"><span style="height:${Math.max((item.enquiry/Math.max(dashboard.totals.enquiry,1))*150,8)}px;background:#38bdf8"></span><em>${esc(item.date.slice(5))}</em></div>`).join("");
+      return `<section class="report-cover"><div class="cover-head"><div><h1>${esc(activeRangeReport.title)}</h1><p>${esc(reportStartDate)} to ${esc(reportEndDate)}</p></div><img src="${DESAM_LOGO_ASSET}" alt="Logo"/></div><div class="kpis"><div class="box">Enquiry<b>${formatReportValue(dashboard.totals.enquiry)}</b></div><div class="box">Calls<b>${formatReportValue(dashboard.totals.calls)}</b></div><div class="box">Followup<b>${formatReportValue(dashboard.totals.followup)}</b></div><div class="box">SV Plan<b>${formatReportValue(dashboard.totals.svPlan)}</b></div><div class="box">SV Done<b>${formatReportValue(dashboard.totals.svDone)}</b></div><div class="box">Booking<b>${formatReportValue(dashboard.totals.booking)}</b></div><div class="box">Conversion<b>${formatReportValue(dashboard.totals.conversion)}</b></div><div class="box">Productivity<b>${formatReportValue(dashboard.totals.callProductivity)}</b></div></div><div class="dash-grid"><div class="dash-card"><h3>Enquiry Trend</h3><div class="trend">${trend}</div></div><div class="dash-card"><h3>Source Donut View</h3>${sourceBars}</div><div class="dash-card"><h3>Project Pie View</h3>${projectBars}</div><div class="dash-card"><h3>Sales Funnel</h3><div class="funnel">${funnel}</div></div></div></section>`;
+    })() : "";
     const reportTables = hasSections
       ? activeRangeReport.sections.map(section=>{
           const sectionHeaderRows = section.headerRows || [section.headers];
@@ -2662,7 +2712,7 @@ export default function App() {
       : `<h2>${esc(activeRangeReport.title)}</h2><table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${activeRangeReport.rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("")}<tr style="font-weight:700;background:#f8fafc">${activeRangeReport.totals.map(c=>`<td>${esc(c)}</td>`).join("")}</tr></tbody></table>`;
     const win = window.open("", "_blank");
     if(!win){ triggerToastAlert("Allow popup to export PDF."); return; }
-    win.document.write(`<html><head><title>${esc(fileStem)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px}h2{font-size:15px;margin-top:24px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px;table-layout:fixed}th,td{border:1px solid #111;padding:5px;text-align:center;vertical-align:middle;width:90px}th{background:#f1f5f9;font-weight:700}.summary{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin:16px 0}.box{border:1px solid #ddd;padding:10px;text-align:center}.box b{display:block;font-size:16px}@media print{body{padding:12px}table{page-break-inside:auto}tr{page-break-inside:avoid}}</style></head><body><h1>${esc(activeRangeReport.title)}</h1><p style="text-align:center">${esc(reportStartDate)} to ${esc(reportEndDate)}</p><div class="summary"><div class="box">Calls<b>${formatReportValue(selectedRangeReportTotals.people.calls)}</b></div><div class="box">Followup<b>${formatReportValue(selectedRangeReportTotals.people.followup)}</b></div><div class="box">SV Planned<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitPlanned)}</b></div><div class="box">SV Done<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitDone)}</b></div><div class="box">Booking<b>${formatReportValue(selectedRangeReportTotals.people.booking)}</b></div><div class="box">Conversion %<b>${formatReportValue(`${selectedRangeReportTotals.source.percentage}%`)}</b></div><div class="box">Cancellation<b>${formatReportValue(selectedRangeReportTotals.people.cancellation)}</b></div></div>${reportTables}<script>window.onload=()=>{window.print();}</script></body></html>`);
+    win.document.write(`<html><head><title>${esc(fileStem)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px}h2{font-size:15px;margin-top:24px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px;table-layout:fixed}th,td{border:1px solid #111;padding:5px;text-align:center;vertical-align:middle;width:90px}th{background:#f1f5f9;font-weight:700}.cover-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:10px}.cover-head img{height:58px;object-fit:contain}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:16px 0}.box{border:1px solid #ddd;padding:10px;text-align:center}.box b{display:block;font-size:18px}.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.dash-card{border:1px solid #ddd;padding:10px;min-height:180px}.dash-card h3{text-align:center;margin:0 0 10px;font-size:13px}.bar-row{display:grid;grid-template-columns:105px 1fr;gap:8px;align-items:center;margin:7px 0;font-size:10px}.bar-row b{display:block;color:#fff;text-align:right;padding:4px;border-radius:3px;min-width:22px}.funnel{display:flex;flex-direction:column;align-items:center;gap:7px}.funnel-step{color:#fff;text-align:center;padding:7px;border-radius:4px;font-size:10px}.funnel-step b{display:block;font-size:14px}.trend{height:160px;display:flex;align-items:flex-end;gap:6px;border-left:1px solid #ddd;border-bottom:1px solid #ddd;padding:8px}.trend-col{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}.trend-col span{width:100%;display:block;border-radius:3px 3px 0 0}.trend-col em{font-size:8px;font-style:normal}.report-cover{page-break-after:always}.table-head{display:flex;justify-content:flex-end;margin-top:12px}.table-head img{height:42px}@media print{body{padding:12px}table{page-break-inside:auto}tr{page-break-inside:avoid}.report-cover{min-height:96vh}}</style></head><body>${dashboardHtml || `<div class="table-head"><img src="${DESAM_LOGO_ASSET}" alt="Logo"/></div><h1>${esc(activeRangeReport.title)}</h1><p style="text-align:center">${esc(reportStartDate)} to ${esc(reportEndDate)}</p><div class="kpis"><div class="box">Enquiry<b>${formatReportValue(selectedRangeReportTotals.source.enquiry)}</b></div><div class="box">Calls<b>${formatReportValue(selectedRangeReportTotals.people.calls)}</b></div><div class="box">Followup<b>${formatReportValue(selectedRangeReportTotals.people.followup)}</b></div><div class="box">SV Planned<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitPlanned)}</b></div><div class="box">SV Done<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitDone)}</b></div><div class="box">Booking<b>${formatReportValue(selectedRangeReportTotals.people.booking)}</b></div><div class="box">Conversion %<b>${formatReportValue(`${selectedRangeReportTotals.source.percentage}%`)}</b></div><div class="box">Cancellation<b>${formatReportValue(selectedRangeReportTotals.people.cancellation)}</b></div></div>`}${reportTables}<script>window.onload=()=>{window.print();}</script></body></html>`);
     win.document.close();
     triggerToastAlert("PDF report opened.");
   };
@@ -2705,6 +2755,42 @@ export default function App() {
     </div>
   );
 
+  const renderReportDashboard = (dashboard) => {
+    if(!dashboard)return null;
+    const kpis = [
+      ["Enquiry", dashboard.totals.enquiry, "text-cyan-300"],
+      ["Calls", dashboard.totals.calls, "text-orange-400"],
+      ["Followup", dashboard.totals.followup, "text-blue-400"],
+      ["SV Plan", dashboard.totals.svPlan, "text-violet-400"],
+      ["SV Done", dashboard.totals.svDone, "text-emerald-400"],
+      ["Booking", dashboard.totals.booking, "text-purple-400"],
+      ["Conversion", dashboard.totals.conversion, "text-lime-400"],
+      ["Productivity", dashboard.totals.callProductivity, "text-amber-400"],
+    ];
+    const maxFunnel = Math.max(...dashboard.funnel.map(item=>item.value),1);
+    return (
+      <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-5">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-800 pb-4">
+          <div><h3 className="text-lg font-black text-white uppercase tracking-wider">Management Dashboard</h3><p className="text-[10px] text-slate-500 mt-1">{reportStartDate} to {reportEndDate}</p></div>
+          <img src={DESAM_LOGO_ASSET} alt="Desam" className="h-12 w-auto object-contain"/>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2 text-[10px]">
+          {kpis.map(([label,value,color])=><div key={label} className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-center"><p className="text-slate-500 uppercase font-bold">{label}</p><p className={`text-lg font-black font-mono mt-1 ${color}`}>{formatReportValue(value)}</p></div>)}
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+          <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4"><h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-3">Line: Enquiry to Booking Trend</h4><div className="h-64"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={dashboard.trend}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false}/><XAxis dataKey="date" stroke="#64748b" fontSize={10}/><YAxis stroke="#64748b" fontSize={10}/><Tooltip contentStyle={{backgroundColor:'#0f172a',border:'1px solid #1e293b',borderRadius:'10px',fontSize:'11px',color:'#fff'}}/><Legend wrapperStyle={{fontSize:'10px'}}/><Line type="monotone" dataKey="enquiry" name="Enquiry" stroke="#38bdf8" strokeWidth={3}/><Line type="monotone" dataKey="calls" name="Calls" stroke="#f97316" strokeWidth={3}/><Line type="monotone" dataKey="booking" name="Booking" stroke="#a855f7" strokeWidth={3}/></ComposedChart></ResponsiveContainer></div></div>
+          <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4"><h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-3">Donut: Source Enquiry Share</h4><div className="h-64"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={dashboard.sourceMix} cx="50%" cy="50%" innerRadius={58} outerRadius={92} paddingAngle={3} dataKey="value">{dashboard.sourceMix.map((entry,index)=><Cell key={`src-${index}`} fill={PIE_COLORS[index%PIE_COLORS.length]}/>)}</Pie><Tooltip contentStyle={{backgroundColor:'#0f172a',border:'1px solid #1e293b',borderRadius:'10px',fontSize:'11px',color:'#fff'}}/><Legend wrapperStyle={{fontSize:'10px'}}/></PieChart></ResponsiveContainer></div></div>
+          <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4"><h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-3">Pie: Project Enquiry Share</h4><div className="h-64"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={dashboard.projectMix} cx="50%" cy="50%" outerRadius={92} dataKey="value" label>{dashboard.projectMix.map((entry,index)=><Cell key={`proj-${index}`} fill={PIE_COLORS[(index+4)%PIE_COLORS.length]}/>)}</Pie><Tooltip contentStyle={{backgroundColor:'#0f172a',border:'1px solid #1e293b',borderRadius:'10px',fontSize:'11px',color:'#fff'}}/></PieChart></ResponsiveContainer></div></div>
+          <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4"><h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-3">Column: Executive Calls Vs Booking</h4><div className="h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={dashboard.executiveBars}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false}/><XAxis dataKey="name" stroke="#64748b" fontSize={9}/><YAxis stroke="#64748b" fontSize={10}/><Tooltip contentStyle={{backgroundColor:'#0f172a',border:'1px solid #1e293b',borderRadius:'10px',fontSize:'11px',color:'#fff'}}/><Legend wrapperStyle={{fontSize:'10px'}}/><Bar dataKey="calls" name="Calls" fill="#f97316" radius={[4,4,0,0]}/><Bar dataKey="booking" name="Booking" fill="#a855f7" radius={[4,4,0,0]}/></BarChart></ResponsiveContainer></div></div>
+        </div>
+        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-3">Management Funnel Diagram</h4>
+          <div className="flex flex-col items-center gap-2">{dashboard.funnel.map(item=><div key={item.name} className="rounded-lg px-4 py-2 text-center text-white font-black shadow-lg" style={{width:`${Math.max((item.value/maxFunnel)*100,18)}%`,backgroundColor:item.color}}><span className="text-[10px] uppercase tracking-wider">{item.name}</span><span className="block text-lg font-mono">{formatReportValue(item.value)}</span></div>)}</div>
+        </div>
+      </div>
+    );
+  };
+
   const renderActiveRangeReportTable = () => {
     const columnStyle = (rows, index) => {
       const columnCount = rows[0]?.length || 1;
@@ -2715,6 +2801,7 @@ export default function App() {
       return (
         <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl">
           <h3 className="text-xs font-black text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2"><BarChart3 className="h-4 w-4 text-blue-400"/>{activeRangeReport.title}</h3>
+          {renderReportDashboard(activeRangeReport.dashboard)}
           <div className="space-y-7">
             {activeRangeReport.sections.map(section=>{
               const sectionRowsForWidth = [...(section.headerRows || [section.headers]), ...section.rows, ...(section.totals ? [section.totals] : [])];
@@ -3192,7 +3279,8 @@ export default function App() {
               <div className="space-y-5">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                   <div><h3 className="text-sm font-black text-white uppercase tracking-wider">Selected Range Full View</h3><p className="text-[10px] text-slate-500 mt-1">{reportStartDate} to {reportEndDate}</p></div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-2 text-[10px]">
+                <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2 text-[10px]">
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Enquiry</p><p className="text-lg font-black text-cyan-300 font-mono">{formatReportValue(selectedRangeReportTotals.source.enquiry)}</p></div>
                   <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Calls</p><p className="text-lg font-black text-white font-mono">{formatReportValue(selectedRangeReportTotals.people.calls)}</p></div>
                   <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Followup</p><p className="text-lg font-black text-blue-400 font-mono">{formatReportValue(selectedRangeReportTotals.people.followup)}</p></div>
                   <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">SV Planned</p><p className="text-lg font-black text-violet-400 font-mono">{formatReportValue(selectedRangeReportTotals.people.siteVisitPlanned)}</p></div>

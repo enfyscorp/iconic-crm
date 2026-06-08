@@ -296,11 +296,19 @@ function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY
   const [callDuration, setCallDuration] = useState(0);
   const [feedback, setFeedback] = useState({ rating: 0, notes: "", outcome: "Contacted", followUpDate: "" });
   const timerRef = useRef(null);
+  const callStateRef = useRef("idle");
+  const callStartedAtRef = useRef(0);
+
+  useEffect(() => {
+    callStateRef.current = callState;
+  }, [callState]);
 
   const startCall = () => {
     if (!phone) return;
     setCallState("calling");
     setCallDuration(0);
+    callStartedAtRef.current = Date.now();
+    if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => setCallDuration(d => d + 1), 1000);
     const cleanPhone = String(phone).replace(/\D/g, "");
     if (window.DDConnectAndroid?.startCall) {
@@ -311,7 +319,9 @@ function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY
   };
 
   const endCall = () => {
+    if (callStateRef.current !== "calling") return;
     clearInterval(timerRef.current);
+    timerRef.current = null;
     setCallState("feedback");
   };
 
@@ -334,15 +344,31 @@ function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY
   const formatDur = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
   useEffect(() => {
-    const handleAndroidCallReturn = () => {
-      if (callState === "calling") endCall();
+    const finishCallAfterReturn = () => {
+      if (callStateRef.current !== "calling") return;
+      const elapsed = Date.now() - callStartedAtRef.current;
+      const delay = elapsed < 1500 ? 1500 - elapsed : 0;
+      window.setTimeout(() => {
+        if (callStateRef.current === "calling") endCall();
+      }, delay);
     };
-    window.addEventListener("dd-connect-call-returned", handleAndroidCallReturn);
+    const handleVisibilityReturn = () => {
+      if (!document.hidden) finishCallAfterReturn();
+    };
+    window.DDConnectCallReturned = finishCallAfterReturn;
+    window.addEventListener("dd-connect-call-returned", finishCallAfterReturn);
+    window.addEventListener("focus", finishCallAfterReturn);
+    window.addEventListener("pageshow", finishCallAfterReturn);
+    document.addEventListener("visibilitychange", handleVisibilityReturn);
     return () => {
-      window.removeEventListener("dd-connect-call-returned", handleAndroidCallReturn);
+      if (window.DDConnectCallReturned === finishCallAfterReturn) delete window.DDConnectCallReturned;
+      window.removeEventListener("dd-connect-call-returned", finishCallAfterReturn);
+      window.removeEventListener("focus", finishCallAfterReturn);
+      window.removeEventListener("pageshow", finishCallAfterReturn);
+      document.removeEventListener("visibilitychange", handleVisibilityReturn);
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [callState]);
+  }, []);
 
   return (
     <>
@@ -2467,7 +2493,7 @@ export default function App() {
                   <div className="bg-slate-950 border border-blue-500/30 rounded-2xl p-5 shadow-xl">
                     <h2 className="text-xs font-black text-blue-400 flex items-center gap-2 uppercase tracking-wider mb-4"><Clock className="h-4 w-4"/> Follow-Up Reminders</h2>
                     <div className="space-y-2">
-                      {dueFollowUpLeads.length===0?<p className="text-xs text-slate-500 font-bold py-3">No follow-ups scheduled for today.</p>:dueFollowUpLeads.slice(0,5).map(l=><button key={l.id} onClick={()=>setSelectedLead(l)} className="w-full text-left bg-slate-900/70 hover:bg-slate-900 border border-slate-800 hover:border-blue-500/40 rounded-xl p-3 transition-colors"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs font-black text-white truncate">{l.name}</p><p className="text-[10px] text-slate-500 font-mono mt-0.5">{l.phone}</p></div><span className="text-[10px] font-black font-mono text-amber-400">{l.nextFollowUp}</span></div></button>)}
+                      {dueFollowUpLeads.length===0?<p className="text-xs text-slate-500 font-bold py-3">No follow-ups scheduled for today.</p>:dueFollowUpLeads.slice(0,5).map(l=><button key={l.id} onClick={()=>setSelectedLead(l)} className="w-full text-left bg-slate-900/70 hover:bg-slate-900 border border-slate-800 hover:border-blue-500/40 rounded-xl p-3 transition-colors"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs font-black text-white truncate">{l.name}</p><p className="text-[10px] text-slate-500 font-mono mt-0.5">{l.phone}</p>{currentUser.role==="Admin"&&<p className="text-[10px] text-blue-300 font-black mt-1 truncate">Owner: {l.assignedTo||"Unassigned"}</p>}</div><span className="text-[10px] font-black font-mono text-amber-400">{l.nextFollowUp}</span></div></button>)}
                     </div>
                   </div>
                   <div className="bg-slate-950 border border-amber-500/30 rounded-2xl p-5 shadow-xl">

@@ -1427,7 +1427,12 @@ export default function App() {
   const systemActivityLogs = useMemo(()=>{
     const classify = (action = "") => {
       const text = action.toLowerCase();
-      if (text.includes("mobile call")) return { type:"Call", callStatus:"Call", callsMade:1, followup:0, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
+      if (text.includes("mobile call")) {
+        const followup = text.includes("next follow-up") || text.includes("outcome: follow-up") || text.includes("outcome: contacted") ? 1 : 0;
+        const siteVisit = text.includes("outcome: site visit") ? 1 : 0;
+        const booking = text.includes("outcome: booking") || text.includes("outcome: booked") ? 1 : 0;
+        return { type:"Call", callStatus:"Call", callsMade:1, followup, siteVisit, booking, registration:0, cancellation:0, collection:0 };
+      }
       if (text.includes("contacted")) return { type:"Contacted", callStatus:"Contacted", callsMade:0, followup:1, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
       if (text.includes("follow-up") || text.includes("follow up")) return { type:"Follow-Up", callStatus:"Follow-Up", callsMade:0, followup:1, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
       if (text.includes("negotiation")) return { type:"Negotiation", callStatus:"Negotiation", callsMade:0, followup:1, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };

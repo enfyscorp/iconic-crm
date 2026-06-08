@@ -2351,9 +2351,48 @@ export default function App() {
     return { people, source };
   },[rangePeopleActivitySummary,rangeSourceReport]);
 
+  const performanceSummaryReport = useMemo(()=>{
+    const logs = reportScopedActivityLogs.filter(l=>isDateInRange(l.date,reportStartDate,reportEndDate));
+    const peopleNames = [...new Set([
+      ...reportPeopleUsers.filter(u=>["Manager","Executive","Telecaller"].includes(u.role)).map(u=>u.name),
+      ...logs.map(l=>l.executive).filter(Boolean),
+    ])].sort((a,b)=>a.localeCompare(b));
+    const fmtCells = (row) => row.map(formatReportValue);
+    const makeSection = (title, labels, valueGetter, showTotalsRow = true) => {
+      const rows = labels.map(label => {
+        const values = peopleNames.map(name => logs.reduce((sum, log) => sum + (log.executive === name ? valueGetter(log, label) : 0), 0));
+        return fmtCells([label, ...values, values.reduce((sum, value) => sum + value, 0)]);
+      });
+      const totals = peopleNames.map(name => logs.reduce((sum, log) => sum + (log.executive === name ? valueGetter(log, "TOTAL") : 0), 0));
+      return { title, headers:[title, ...peopleNames, "TOTAL"], rows, totals:showTotalsRow ? fmtCells(["TOTAL", ...totals, totals.reduce((sum, value) => sum + value, 0)]) : null };
+    };
+    const metricLabels = ["Calls made","Followup","SV Planned","SV Done","Booking","Registration","Cancellation"];
+    const metricValue = (log, label) => {
+      if(label==="Calls made" || label==="TOTAL")return log.callsMade || 0;
+      if(label==="Followup")return log.followup || 0;
+      if(label==="SV Planned")return log.siteVisitPlanned || 0;
+      if(label==="SV Done")return log.siteVisitDone || 0;
+      if(label==="Booking")return log.booking || 0;
+      if(label==="Registration")return log.registration || 0;
+      if(label==="Cancellation")return log.cancellation || 0;
+      return 0;
+    };
+    const sourceNames = [...new Set([...SOURCES, ...logs.map(l=>l.source).filter(Boolean)])].filter(source => logs.some(log => (log.source || "Unknown") === source && (log.callsMade || 0))).sort((a,b)=>SOURCES.indexOf(a)===-1||SOURCES.indexOf(b)===-1?a.localeCompare(b):SOURCES.indexOf(a)-SOURCES.indexOf(b));
+    const projectNames = [...new Set([...projects.map(p=>p.name), ...logs.map(l=>l.project).filter(Boolean)])].filter(project => logs.some(log => (log.project || "Unknown") === project && (log.callsMade || 0))).sort((a,b)=>a.localeCompare(b));
+    return {
+      title:"Performance Summary Report",
+      sections:[
+        makeSection("EXECUTIVEWISE", metricLabels, metricValue, false),
+        makeSection("SOURCEWISE", sourceNames, (log, source) => source==="TOTAL" || log.source===source ? (log.callsMade || 0) : 0),
+        makeSection("PROJECTWISE", projectNames, (log, project) => project==="TOTAL" || log.project===project ? (log.callsMade || 0) : 0),
+      ],
+    };
+  },[reportScopedActivityLogs,reportPeopleUsers,projects,isDateInRange,reportStartDate,reportEndDate]);
+
   const activeRangeReport = useMemo(()=>{
     const sumRows = (rows, fields) => fields.reduce((acc, field)=>{acc[field]=rows.reduce((s,r)=>s+(Number(r[field])||0),0);return acc;},{});
     const fmtRow = (row) => row.map(formatReportValue);
+    if(selectedMatrixReport==="PerformanceSummary")return performanceSummaryReport;
     if(selectedMatrixReport==="Projectwise"){
       const totals=sumRows(rangeProjectReport,["enquiry","siteVisitPlanned","siteVisitDone","booking","conversion","cancellation"]);
       totals.percentage=totals.enquiry?((totals.conversion/totals.enquiry)*100).toFixed(1):"0.0";
@@ -2379,19 +2418,29 @@ export default function App() {
     }
     const totals=sumRows(rangePeopleActivitySummary,["calls","followup","siteVisitPlanned","siteVisitDone","booking","registration","cancellation","productivity"]);
     return {title:"Executivewise Report",headers:["Name","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity"],rows:rangePeopleActivitySummary.map(r=>fmtRow([r.name,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),rowKeys:rangePeopleActivitySummary.map(r=>`executive:${r.name}`),details:rangePeopleActivitySummary.map(r=>buildReportCustomerDetails(lead=>(lead.assignedTo||"Unassigned")===r.name,log=>(log.executive||"Unassigned")===r.name)),totals:fmtRow(["TOTAL",totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
-  },[selectedMatrixReport,rangePeopleActivitySummary,rangeSourceReport,rangeProjectReport,rangeSourceProjectReport,rangeExecutiveProjectReport,rangeExecutiveSourceReport,buildReportCustomerDetails]);
+  },[selectedMatrixReport,performanceSummaryReport,rangePeopleActivitySummary,rangeSourceReport,rangeProjectReport,rangeSourceProjectReport,rangeExecutiveProjectReport,rangeExecutiveSourceReport,buildReportCustomerDetails]);
 
   useEffect(() => {
     setExpandedRangeReportKey("");
   }, [selectedMatrixReport, reportStartDate, reportEndDate]);
 
   const exportSelectedRangeReport = (formatType) => {
-    const headers = activeRangeReport.headers;
-    const rows = [...activeRangeReport.rows, activeRangeReport.totals];
+    const hasSections = Array.isArray(activeRangeReport.sections);
+    const headers = activeRangeReport.headers || [];
+    const rows = hasSections ? [] : [...activeRangeReport.rows, activeRangeReport.totals];
+    const fmtCell=(val)=>{const s=val===null||val===undefined?"":String(val);return s.includes(",")||s.includes('"')||s.includes("\n")?`"${s.replace(/"/g,'""')}"`:s;};
+    const sectionAoA = hasSections ? activeRangeReport.sections.flatMap((section, idx) => [
+      ...(idx ? [[]] : []),
+      [section.title],
+      section.headers,
+      ...section.rows,
+      ...(section.totals ? [section.totals] : []),
+    ]) : [];
     const fileStem = `Desam_${activeRangeReport.title.replaceAll(" ","_")}_${reportStartDate}_to_${reportEndDate}`;
     if(formatType==="excel"){
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers,...rows]), activeRangeReport.title.slice(0,31));
+      const worksheetRows = hasSections ? [[activeRangeReport.title], [`${reportStartDate} to ${reportEndDate}`], [], ...sectionAoA] : [headers,...rows];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(worksheetRows), activeRangeReport.title.slice(0,31));
       const buffer = XLSX.write(wb, { bookType:"xlsx", type:"array" });
       const blob = new Blob([buffer], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${fileStem}.xlsx`;document.body.appendChild(a);a.click();URL.revokeObjectURL(a.href);document.body.removeChild(a);
@@ -2399,24 +2448,28 @@ export default function App() {
       return;
     }
     if(formatType==="csv"){
-      const fmtCell=(val)=>{const s=val===null||val===undefined?"":String(val);return s.includes(",")||s.includes('"')||s.includes("\n")?`"${s.replace(/"/g,'""')}"`:s;};
       const lines = [
         `Selected Range Report,${reportStartDate} to ${reportEndDate}`,
         "",
         activeRangeReport.title,
-        headers.map(fmtCell).join(","),
-        ...rows.map(r=>r.map(fmtCell).join(",")),
+        ...(hasSections ? sectionAoA.map(r=>r.map(fmtCell).join(",")) : [headers.map(fmtCell).join(","), ...rows.map(r=>r.map(fmtCell).join(","))]),
       ];
       const blob=new Blob([lines.join("\n")],{type:"text/csv;charset=utf-8;"});
       const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${fileStem}.csv`;document.body.appendChild(a);a.click();URL.revokeObjectURL(a.href);document.body.removeChild(a);
       triggerToastAlert("Selected range exported as CSV.");
       return;
     }
-    const bodyRows = activeRangeReport.rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("");
-    const totalRow = `<tr style="font-weight:700;background:#f8fafc">${activeRangeReport.totals.map(c=>`<td>${c}</td>`).join("")}</tr>`;
+    const esc = (val)=>String(val ?? "").replace(/[&<>"']/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+    const reportTables = hasSections
+      ? activeRangeReport.sections.map(section=>{
+          const bodyRows = section.rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("");
+          const totalRow = section.totals ? `<tr style="font-weight:700;background:#f8fafc">${section.totals.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>` : "";
+          return `<h2>${esc(section.title)}</h2><table><thead><tr>${section.headers.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${bodyRows}${totalRow}</tbody></table>`;
+        }).join("")
+      : `<h2>${esc(activeRangeReport.title)}</h2><table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${activeRangeReport.rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("")}<tr style="font-weight:700;background:#f8fafc">${activeRangeReport.totals.map(c=>`<td>${esc(c)}</td>`).join("")}</tr></tbody></table>`;
     const win = window.open("", "_blank");
     if(!win){ triggerToastAlert("Allow popup to export PDF."); return; }
-    win.document.write(`<html><head><title>${fileStem}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px}h2{font-size:15px;margin-top:24px}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px}th,td{border:1px solid #ddd;padding:7px;text-align:left}th{background:#f1f5f9}.summary{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin:16px 0}.box{border:1px solid #ddd;padding:10px}.box b{display:block;font-size:16px}</style></head><body><h1>${activeRangeReport.title}</h1><p>${reportStartDate} to ${reportEndDate}</p><div class="summary"><div class="box">Calls<b>${formatReportValue(selectedRangeReportTotals.people.calls)}</b></div><div class="box">Followup<b>${formatReportValue(selectedRangeReportTotals.people.followup)}</b></div><div class="box">SV Planned<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitPlanned)}</b></div><div class="box">SV Done<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitDone)}</b></div><div class="box">Booking<b>${formatReportValue(selectedRangeReportTotals.people.booking)}</b></div><div class="box">Conversion %<b>${formatReportValue(`${selectedRangeReportTotals.source.percentage}%`)}</b></div><div class="box">Cancellation<b>${formatReportValue(selectedRangeReportTotals.people.cancellation)}</b></div></div><h2>${activeRangeReport.title}</h2><table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${bodyRows}${totalRow}</tbody></table><script>window.onload=()=>{window.print();}</script></body></html>`);
+    win.document.write(`<html><head><title>${esc(fileStem)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px}h2{font-size:15px;margin-top:24px}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px}th,td{border:1px solid #111;padding:5px;text-align:left}th{background:#f1f5f9}.summary{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin:16px 0}.box{border:1px solid #ddd;padding:10px}.box b{display:block;font-size:16px}@media print{body{padding:12px}table{page-break-inside:auto}tr{page-break-inside:avoid}}</style></head><body><h1>${esc(activeRangeReport.title)}</h1><p>${esc(reportStartDate)} to ${esc(reportEndDate)}</p><div class="summary"><div class="box">Calls<b>${formatReportValue(selectedRangeReportTotals.people.calls)}</b></div><div class="box">Followup<b>${formatReportValue(selectedRangeReportTotals.people.followup)}</b></div><div class="box">SV Planned<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitPlanned)}</b></div><div class="box">SV Done<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitDone)}</b></div><div class="box">Booking<b>${formatReportValue(selectedRangeReportTotals.people.booking)}</b></div><div class="box">Conversion %<b>${formatReportValue(`${selectedRangeReportTotals.source.percentage}%`)}</b></div><div class="box">Cancellation<b>${formatReportValue(selectedRangeReportTotals.people.cancellation)}</b></div></div>${reportTables}<script>window.onload=()=>{window.print();}</script></body></html>`);
     win.document.close();
     triggerToastAlert("PDF report opened.");
   };
@@ -2459,7 +2512,34 @@ export default function App() {
     </div>
   );
 
-  const renderActiveRangeReportTable = () => (
+  const renderActiveRangeReportTable = () => {
+    if (Array.isArray(activeRangeReport.sections)) {
+      return (
+        <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl">
+          <h3 className="text-xs font-black text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2"><BarChart3 className="h-4 w-4 text-blue-400"/>{activeRangeReport.title}</h3>
+          <div className="space-y-7">
+            {activeRangeReport.sections.map(section=>(
+              <div key={section.title} className="overflow-x-auto border border-slate-800 rounded-xl bg-slate-950">
+                <table className="w-full text-left text-[10px] whitespace-nowrap border-collapse">
+                  <thead className="bg-slate-900 text-slate-300 uppercase font-black">
+                    <tr>{section.headers.map((h,i)=><th key={`${section.title}-${h}-${i}`} className={`p-2.5 border border-slate-800 ${i===0?"text-orange-300":"text-center"}`}>{h}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    {section.rows.length===0?<tr><td colSpan={section.headers.length} className="p-5 text-center text-slate-500 font-bold uppercase tracking-wider border border-slate-800">No report data</td></tr>:section.rows.map((row,idx)=>(
+                      <tr key={`${section.title}-${idx}`} className="hover:bg-slate-900/60">
+                        {row.map((cell,i)=><td key={`${section.title}-${idx}-${i}`} className={`p-2.5 border border-slate-800 ${i===0?"font-black text-white":"text-center font-mono text-slate-300"} ${i===row.length-1?"font-black text-orange-400":""}`}>{cell}</td>)}
+                      </tr>
+                    ))}
+                  </tbody>
+                  {section.totals&&<tfoot className="bg-slate-900/90 text-white font-black"><tr>{section.totals.map((cell,i)=><td key={`${section.title}-total-${i}`} className={`p-2.5 border border-slate-700 ${i===0?"":"text-center font-mono text-orange-400"}`}>{cell}</td>)}</tr></tfoot>}
+                </table>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    return (
     <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl">
       <h3 className="text-xs font-black text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2"><BarChart3 className="h-4 w-4 text-blue-400"/>{activeRangeReport.title}</h3>
       <div className="overflow-x-auto">
@@ -2499,7 +2579,8 @@ export default function App() {
         </table>
       </div>
     </div>
-  );
+    );
+  };
 
   const navItems = [
     {id:"dashboard",icon:<Layers/>,label:"DASHBOARD"},
@@ -2896,7 +2977,7 @@ export default function App() {
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {[{id:"ExecutiveWise",label:"Executivewise Report"},{id:"ExecutiveProjectwise",label:"Executivewise-Projectwise"},{id:"ExecutiveSourcewise",label:"Executivewise-Sourcewise"},{id:"Projectwise",label:"Projectwise Report"},{id:"Sourcewise",label:"Sourcewise Report"},{id:"SourceProjectwise",label:"Sourcewise-Projectwise"}].map(item=><button key={item.id} onClick={()=>setSelectedMatrixReport(item.id)} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-colors ${selectedMatrixReport===item.id?"bg-blue-600 border-blue-500 text-white":"bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-blue-500/40"}`}>{item.label}</button>)}
+                  {[{id:"PerformanceSummary",label:"Performance Summary"},{id:"ExecutiveWise",label:"Executivewise Report"},{id:"ExecutiveProjectwise",label:"Executivewise-Projectwise"},{id:"ExecutiveSourcewise",label:"Executivewise-Sourcewise"},{id:"Projectwise",label:"Projectwise Report"},{id:"Sourcewise",label:"Sourcewise Report"},{id:"SourceProjectwise",label:"Sourcewise-Projectwise"}].map(item=><button key={item.id} onClick={()=>setSelectedMatrixReport(item.id)} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-colors ${selectedMatrixReport===item.id?"bg-blue-600 border-blue-500 text-white":"bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-blue-500/40"}`}>{item.label}</button>)}
                 </div>
               </div>
               <div className="space-y-5">

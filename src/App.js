@@ -2446,16 +2446,12 @@ export default function App() {
       rows:[
         ...sourceConversionRows,
         fmtCells(["TOTAL", ...sourceTotals, sourceTotals.reduce((sum,value)=>sum+value,0)]),
-        ["", ...sourceNames.map(()=>""), ""],
         ["Conv Vs Enq %", ...sourceNames.map((_,i)=>pct(sourceBookings[i], sourceEnquiries[i])), pct(totalBookings,totalEnquiries)],
         ["Conv Vs SV %", ...sourceNames.map((_,i)=>pct(sourceBookings[i], sourceSvDone[i])), pct(totalBookings,totalSvDone)],
       ],
       totals:null,
     };
-    const executiveSummarySection = {
-      title:"EXECUTIVEWISE SUMMARY",
-      headers:["Executive","Calls made","Followup","SV Plan","SV Done","Booking","Registration","Cancellation","Productivity %"],
-      rows:personNames.map(name=>{
+    const executiveSummaryRows = personNames.map(name=>{
         const logs = logsInRange.filter(log=>(log.executive || "System")===name);
         const calls = logs.reduce((sum,log)=>sum+(log.callsMade||0),0);
         const followup = logs.reduce((sum,log)=>sum+(log.followup||0),0);
@@ -2465,8 +2461,16 @@ export default function App() {
         const registration = logs.reduce((sum,log)=>sum+(log.registration||0),0);
         const cancellation = logs.reduce((sum,log)=>sum+(log.cancellation||0),0);
         return fmtCells([name,calls,followup,svPlan,svDone,booking,registration,cancellation,calculateBookingProductivity(booking,calls)]);
-      }),
-      totals:null,
+      });
+    const executiveTotalsRaw = logsInRange.reduce((acc,log)=>{
+      acc.calls += log.callsMade || 0; acc.followup += log.followup || 0; acc.svPlan += log.siteVisitPlanned || 0; acc.svDone += log.siteVisitDone || 0; acc.booking += log.booking || 0; acc.registration += log.registration || 0; acc.cancellation += log.cancellation || 0;
+      return acc;
+    },{calls:0,followup:0,svPlan:0,svDone:0,booking:0,registration:0,cancellation:0});
+    const executiveSummarySection = {
+      title:"EXECUTIVEWISE SUMMARY",
+      headers:["Executive","Calls made","Followup","SV Plan","SV Done","Booking","Registration","Cancellation","Productivity %"],
+      rows:executiveSummaryRows,
+      totals:fmtCells(["TOTAL",executiveTotalsRaw.calls,executiveTotalsRaw.followup,executiveTotalsRaw.svPlan,executiveTotalsRaw.svDone,executiveTotalsRaw.booking,executiveTotalsRaw.registration,executiveTotalsRaw.cancellation,calculateBookingProductivity(executiveTotalsRaw.booking,executiveTotalsRaw.calls)]),
     };
     const sourcewiseRows = personNames.map(name=>{
       const values = sourceNames.map(source=>leadsInRange.filter(lead=>(lead.assignedTo || "Unassigned")===name && (lead.source || "Unknown")===source).length);
@@ -2481,9 +2485,13 @@ export default function App() {
     };
     const projectHeaderTop = ["Executive"];
     const projectHeaderBottom = [""];
-    projectNames.forEach(project=>{ projectHeaderTop.push(project, project); projectHeaderBottom.push("Enq","Booking"); });
-    projectHeaderTop.push("TOTAL","TOTAL");
+    const projectHeaderSpansTop = [1];
+    const projectHeaderSpansBottom = [1];
+    projectNames.forEach(project=>{ projectHeaderTop.push(project, ""); projectHeaderBottom.push("Enq","Booking"); projectHeaderSpansTop.push(2,0); projectHeaderSpansBottom.push(1,1); });
+    projectHeaderTop.push("TOTAL","");
     projectHeaderBottom.push("Enq","Booking");
+    projectHeaderSpansTop.push(2,0);
+    projectHeaderSpansBottom.push(1,1);
     const projectRows = personNames.map(name=>{
       const values = [];
       projectNames.forEach(project=>{
@@ -2505,16 +2513,44 @@ export default function App() {
       title:"PROJECTWISE",
       headers:projectHeaderBottom,
       headerRows:[projectHeaderTop,projectHeaderBottom],
+      headerColSpans:[projectHeaderSpansTop,projectHeaderSpansBottom],
       rows:projectRows,
       totals:fmtCells(["TOTAL", ...projectTotals, projectTotalEnq, projectTotalBooking]),
     };
-    return { title:"Management Summary Sheet", sections:[executiveSummarySection, sourceConversionSection, sourcewiseSection, projectwiseSection] };
+    const projectSourceRows = sourceNames.map(source=>{
+      const values = [];
+      projectNames.forEach(project=>{
+        values.push(leadsInRange.filter(lead=>(lead.source || "Unknown")===source && (lead.project || "Unknown")===project).length);
+        values.push(uniqueLogCount(logsInRange, log=>(log.source || "Unknown")===source && (log.project || "Unknown")===project && log.booking));
+      });
+      const totalEnq = values.filter((_,i)=>i%2===0).reduce((sum,value)=>sum+value,0);
+      const totalBooking = values.filter((_,i)=>i%2===1).reduce((sum,value)=>sum+value,0);
+      return fmtCells([sourceLabel(source), ...values, totalEnq, totalBooking]);
+    });
+    const projectSourceTotals = [];
+    projectNames.forEach(project=>{
+      projectSourceTotals.push(leadsInRange.filter(lead=>(lead.project || "Unknown")===project).length);
+      projectSourceTotals.push(uniqueLogCount(logsInRange, log=>(log.project || "Unknown")===project && log.booking));
+    });
+    const projectSourceTotalEnq = projectSourceTotals.filter((_,i)=>i%2===0).reduce((sum,value)=>sum+value,0);
+    const projectSourceTotalBooking = projectSourceTotals.filter((_,i)=>i%2===1).reduce((sum,value)=>sum+value,0);
+    const projectSourceEnqBookingSection = {
+      id:"ProjectSourceEnqBooking",
+      title:"PROJECTWISE - SOURCEWISE ENQUIRY Vs BOOKING",
+      headers:["", ...projectHeaderBottom.slice(1)],
+      headerRows:[["Source", ...projectHeaderTop.slice(1)],["", ...projectHeaderBottom.slice(1)]],
+      headerColSpans:[projectHeaderSpansTop,projectHeaderSpansBottom],
+      rows:projectSourceRows,
+      totals:fmtCells(["TOTAL", ...projectSourceTotals, projectSourceTotalEnq, projectSourceTotalBooking]),
+    };
+    return { title:"Management Summary Sheet", sections:[executiveSummarySection, sourceConversionSection, sourcewiseSection, projectwiseSection, projectSourceEnqBookingSection] };
   },[reportScopedLeads,reportScopedActivityLogs,currentUser,reportPeopleUsers,projects,isDateInRange,reportStartDate,reportEndDate]);
 
   const activeRangeReport = useMemo(()=>{
     const sumRows = (rows, fields) => fields.reduce((acc, field)=>{acc[field]=rows.reduce((s,r)=>s+(Number(r[field])||0),0);return acc;},{});
     const fmtRow = (row) => row.map(formatReportValue);
     if(selectedMatrixReport==="ManagementSummary")return managementSummaryReport;
+    if(selectedMatrixReport==="ProjectSourceEnqBooking")return {title:"Projectwise-Sourcewise Enquiry Vs Booking",sections:managementSummaryReport.sections.filter(section=>section.id==="ProjectSourceEnqBooking")};
     if(selectedMatrixReport==="PerformanceSummary")return performanceSummaryReport;
     if(selectedMatrixReport==="Projectwise"){
       const totals=sumRows(rangeProjectReport,["enquiry","siteVisitPlanned","siteVisitDone","booking","conversion","cancellation"]);
@@ -2555,6 +2591,22 @@ export default function App() {
     const headers = activeRangeReport.headers || [];
     const rows = hasSections ? [] : [...activeRangeReport.rows, activeRangeReport.totals];
     const fmtCell=(val)=>{const s=val===null||val===undefined?"":String(val);return s.includes(",")||s.includes('"')||s.includes("\n")?`"${s.replace(/"/g,'""')}"`:s;};
+    const getSectionMerges = () => {
+      if(!hasSections)return[];
+      const merges = [];
+      let rowCursor = 3;
+      activeRangeReport.sections.forEach((section, idx)=>{
+        if(idx)rowCursor += 1;
+        rowCursor += 1;
+        (section.headerColSpans || []).forEach((spans, headerRowIdx)=>{
+          spans.forEach((span, colIdx)=>{
+            if(span > 1)merges.push({s:{r:rowCursor+headerRowIdx,c:colIdx},e:{r:rowCursor+headerRowIdx,c:colIdx+span-1}});
+          });
+        });
+        rowCursor += (section.headerRows || [section.headers]).length + section.rows.length + (section.totals ? 1 : 0);
+      });
+      return merges;
+    };
     const sectionAoA = hasSections ? activeRangeReport.sections.flatMap((section, idx) => {
       const sectionHeaderRows = section.headerRows || [section.headers];
       return [
@@ -2571,10 +2623,9 @@ export default function App() {
       const worksheetRows = hasSections ? [[activeRangeReport.title], [`${reportStartDate} to ${reportEndDate}`], [], ...sectionAoA] : [headers,...rows];
       const ws = XLSX.utils.aoa_to_sheet(worksheetRows);
       const maxCols = worksheetRows.reduce((max,row)=>Math.max(max,row.length),0);
-      ws["!cols"] = Array.from({length:maxCols},(_,idx)=>{
-        const maxLen = worksheetRows.reduce((max,row)=>Math.max(max,String(row[idx] ?? "").length),0);
-        return { wch: Math.min(Math.max(maxLen + 2, idx===0 ? 16 : 10), idx===0 ? 26 : 18) };
-      });
+      ws["!cols"] = Array.from({length:maxCols},()=>({ wch: 14 }));
+      const merges = getSectionMerges();
+      if(merges.length)ws["!merges"] = merges;
       XLSX.utils.book_append_sheet(wb, ws, activeRangeReport.title.slice(0,31));
       const buffer = XLSX.write(wb, { bookType:"xlsx", type:"array" });
       const blob = new Blob([buffer], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -2598,15 +2649,19 @@ export default function App() {
     const reportTables = hasSections
       ? activeRangeReport.sections.map(section=>{
           const sectionHeaderRows = section.headerRows || [section.headers];
-          const headerRows = sectionHeaderRows.map(row=>`<tr>${row.map(h=>`<th>${esc(h)}</th>`).join("")}</tr>`).join("");
-          const bodyRows = section.rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("");
+          const headerRows = sectionHeaderRows.map((row,rowIdx)=>`<tr>${row.map((h,colIdx)=>{
+            const span = section.headerColSpans?.[rowIdx]?.[colIdx] ?? 1;
+            if(span===0)return "";
+            return `<th${span>1?` colspan="${span}"`:""}>${esc(h)}</th>`;
+          }).join("")}</tr>`).join("");
+          const bodyRows = section.rows.map(r=>`<tr${r[0]==="TOTAL"?` style="font-weight:700;background:#f8fafc"`:""}>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("");
           const totalRow = section.totals ? `<tr style="font-weight:700;background:#f8fafc">${section.totals.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>` : "";
           return `<h2>${esc(section.title)}</h2><table><thead>${headerRows}</thead><tbody>${bodyRows}${totalRow}</tbody></table>`;
         }).join("")
       : `<h2>${esc(activeRangeReport.title)}</h2><table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${activeRangeReport.rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("")}<tr style="font-weight:700;background:#f8fafc">${activeRangeReport.totals.map(c=>`<td>${esc(c)}</td>`).join("")}</tr></tbody></table>`;
     const win = window.open("", "_blank");
     if(!win){ triggerToastAlert("Allow popup to export PDF."); return; }
-    win.document.write(`<html><head><title>${esc(fileStem)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px}h2{font-size:15px;margin-top:24px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px;table-layout:auto}th,td{border:1px solid #111;padding:5px;text-align:center;vertical-align:middle}th{background:#f1f5f9;font-weight:700}td:first-child,th:first-child{text-align:left;min-width:120px}.summary{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin:16px 0}.box{border:1px solid #ddd;padding:10px;text-align:center}.box b{display:block;font-size:16px}@media print{body{padding:12px}table{page-break-inside:auto}tr{page-break-inside:avoid}}</style></head><body><h1>${esc(activeRangeReport.title)}</h1><p style="text-align:center">${esc(reportStartDate)} to ${esc(reportEndDate)}</p><div class="summary"><div class="box">Calls<b>${formatReportValue(selectedRangeReportTotals.people.calls)}</b></div><div class="box">Followup<b>${formatReportValue(selectedRangeReportTotals.people.followup)}</b></div><div class="box">SV Planned<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitPlanned)}</b></div><div class="box">SV Done<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitDone)}</b></div><div class="box">Booking<b>${formatReportValue(selectedRangeReportTotals.people.booking)}</b></div><div class="box">Conversion %<b>${formatReportValue(`${selectedRangeReportTotals.source.percentage}%`)}</b></div><div class="box">Cancellation<b>${formatReportValue(selectedRangeReportTotals.people.cancellation)}</b></div></div>${reportTables}<script>window.onload=()=>{window.print();}</script></body></html>`);
+    win.document.write(`<html><head><title>${esc(fileStem)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px}h2{font-size:15px;margin-top:24px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px;table-layout:fixed}th,td{border:1px solid #111;padding:5px;text-align:center;vertical-align:middle;width:90px}th{background:#f1f5f9;font-weight:700}.summary{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin:16px 0}.box{border:1px solid #ddd;padding:10px;text-align:center}.box b{display:block;font-size:16px}@media print{body{padding:12px}table{page-break-inside:auto}tr{page-break-inside:avoid}}</style></head><body><h1>${esc(activeRangeReport.title)}</h1><p style="text-align:center">${esc(reportStartDate)} to ${esc(reportEndDate)}</p><div class="summary"><div class="box">Calls<b>${formatReportValue(selectedRangeReportTotals.people.calls)}</b></div><div class="box">Followup<b>${formatReportValue(selectedRangeReportTotals.people.followup)}</b></div><div class="box">SV Planned<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitPlanned)}</b></div><div class="box">SV Done<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitDone)}</b></div><div class="box">Booking<b>${formatReportValue(selectedRangeReportTotals.people.booking)}</b></div><div class="box">Conversion %<b>${formatReportValue(`${selectedRangeReportTotals.source.percentage}%`)}</b></div><div class="box">Cancellation<b>${formatReportValue(selectedRangeReportTotals.people.cancellation)}</b></div></div>${reportTables}<script>window.onload=()=>{window.print();}</script></body></html>`);
     win.document.close();
     triggerToastAlert("PDF report opened.");
   };
@@ -2651,8 +2706,8 @@ export default function App() {
 
   const renderActiveRangeReportTable = () => {
     const columnStyle = (rows, index) => {
-      const maxLen = rows.reduce((max,row)=>Math.max(max,String(row?.[index] ?? "").length),0);
-      const width = index === 0 ? Math.min(Math.max(maxLen * 8 + 32, 140), 220) : Math.min(Math.max(maxLen * 8 + 28, 86), 160);
+      const columnCount = rows[0]?.length || 1;
+      const width = columnCount > 18 ? 92 : columnCount > 12 ? 104 : 118;
       return { minWidth:`${width}px`, width:`${width}px` };
     };
     if (Array.isArray(activeRangeReport.sections)) {
@@ -2668,7 +2723,11 @@ export default function App() {
                 <table className="w-full table-fixed text-left text-[10px] whitespace-nowrap border-collapse">
                   <colgroup>{section.headers.map((_,i)=><col key={`${section.title}-col-${i}`} style={columnStyle(sectionRowsForWidth,i)}/>)}</colgroup>
                   <thead className="bg-slate-900 text-slate-300 uppercase font-black">
-                    {(section.headerRows || [section.headers]).map((headerRow,rowIdx)=><tr key={`${section.title}-head-${rowIdx}`}>{headerRow.map((h,i)=><th key={`${section.title}-${rowIdx}-${h}-${i}`} style={columnStyle(sectionRowsForWidth,i)} className={`p-2.5 border border-slate-800 text-center align-middle ${i===0?"text-orange-300":"text-slate-300"}`}>{h}</th>)}</tr>)}
+                    {(section.headerRows || [section.headers]).map((headerRow,rowIdx)=><tr key={`${section.title}-head-${rowIdx}`}>{headerRow.map((h,i)=>{
+                      const span = section.headerColSpans?.[rowIdx]?.[i] ?? 1;
+                      if(span===0)return null;
+                      return <th key={`${section.title}-${rowIdx}-${h}-${i}`} colSpan={span} style={columnStyle(sectionRowsForWidth,i)} className={`p-2.5 border border-slate-800 text-center align-middle ${i===0?"text-orange-300":"text-slate-300"}`}>{h}</th>;
+                    })}</tr>)}
                   </thead>
                   <tbody>
                     {section.rows.length===0?<tr><td colSpan={section.headers.length} className="p-5 text-center text-slate-500 font-bold uppercase tracking-wider border border-slate-800">No report data</td></tr>:section.rows.map((row,idx)=>(
@@ -3126,7 +3185,7 @@ export default function App() {
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {[{id:"ManagementSummary",label:"Management Summary"},{id:"PerformanceSummary",label:"Performance Summary"},{id:"ExecutiveWise",label:"Executivewise Report"},{id:"ExecutiveProjectwise",label:"Executivewise-Projectwise"},{id:"ExecutiveSourcewise",label:"Executivewise-Sourcewise"},{id:"Projectwise",label:"Projectwise Report"},{id:"Sourcewise",label:"Sourcewise Report"},{id:"SourceProjectwise",label:"Sourcewise-Projectwise"}].map(item=><button key={item.id} onClick={()=>setSelectedMatrixReport(item.id)} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-colors ${selectedMatrixReport===item.id?"bg-blue-600 border-blue-500 text-white":"bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-blue-500/40"}`}>{item.label}</button>)}
+                  {[{id:"ManagementSummary",label:"Management Summary"},{id:"ProjectSourceEnqBooking",label:"Projectwise-Sourcewise Enq Vs Booking"},{id:"PerformanceSummary",label:"Performance Summary"},{id:"ExecutiveWise",label:"Executivewise Report"},{id:"ExecutiveProjectwise",label:"Executivewise-Projectwise"},{id:"ExecutiveSourcewise",label:"Executivewise-Sourcewise"},{id:"Projectwise",label:"Projectwise Report"},{id:"Sourcewise",label:"Sourcewise Report"},{id:"SourceProjectwise",label:"Sourcewise-Projectwise"}].map(item=><button key={item.id} onClick={()=>setSelectedMatrixReport(item.id)} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-colors ${selectedMatrixReport===item.id?"bg-blue-600 border-blue-500 text-white":"bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-blue-500/40"}`}>{item.label}</button>)}
                 </div>
               </div>
               <div className="space-y-5">

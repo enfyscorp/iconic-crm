@@ -1428,15 +1428,15 @@ export default function App() {
     const classify = (action = "") => {
       const text = action.toLowerCase();
       if (text.includes("mobile call")) {
-        const followup = text.includes("next follow-up") || text.includes("outcome: follow-up") || text.includes("outcome: contacted") ? 1 : 0;
+        const followup = text.includes("outcome: follow-up") || text.includes("outcome: negotiation") ? 1 : 0;
         const siteVisit = text.includes("outcome: site visit") ? 1 : 0;
         const booking = text.includes("outcome: booking") || text.includes("outcome: booked") ? 1 : 0;
         return { type:"Call", callStatus:"Call", callsMade:1, followup, siteVisit, booking, registration:0, cancellation:0, collection:0 };
       }
-      if (text.includes("contacted")) return { type:"Contacted", callStatus:"Contacted", callsMade:0, followup:1, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
-      if (text.includes("follow-up") || text.includes("follow up")) return { type:"Follow-Up", callStatus:"Follow-Up", callsMade:0, followup:1, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
-      if (text.includes("negotiation")) return { type:"Negotiation", callStatus:"Negotiation", callsMade:0, followup:1, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
-      if (text.includes("site visit")) return { type:"Site Visit", callStatus:"Site Visit", callsMade:0, followup:0, siteVisit:1, booking:0, registration:0, cancellation:0, collection:0 };
+      if (text.includes("contacted")) return { type:"Contacted", callStatus:"Contacted", callsMade:1, followup:0, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
+      if (text.includes("follow-up") || text.includes("follow up")) return { type:"Follow-Up", callStatus:"Follow-Up", callsMade:1, followup:1, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
+      if (text.includes("negotiation")) return { type:"Negotiation", callStatus:"Negotiation", callsMade:1, followup:1, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
+      if (text.includes("site visit")) return { type:"Site Visit", callStatus:"Site Visit", callsMade:1, followup:0, siteVisit:1, booking:0, registration:0, cancellation:0, collection:0 };
       if (text.includes("booking")) return { type:"Booking", callStatus:"Booking", callsMade:0, followup:0, siteVisit:0, booking:1, registration:0, cancellation:0, collection:0 };
       if (text.includes("registration")) return { type:"Registration", callStatus:"Registration", callsMade:0, followup:0, siteVisit:0, booking:0, registration:1, cancellation:0, collection:0 };
       if (text.includes("cancel")) return { type:"Cancellation", callStatus:"Cancellation", callsMade:0, followup:0, siteVisit:0, booking:0, registration:0, cancellation:1, collection:0 };

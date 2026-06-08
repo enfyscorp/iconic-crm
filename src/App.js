@@ -147,6 +147,11 @@ function formatDateTimeLabel(item) {
   const time = item.time || item.dateCreatedTime || "";
   return [date, time].filter(Boolean).join(" ");
 }
+function formatReportValue(value) {
+  if (typeof value === "number") return value === 0 ? "-" : value;
+  if (typeof value === "string" && /^(0|0\.0)%?$/.test(value.trim())) return "-";
+  return value;
+}
 function isTimestampToday(value) {
   if (!value) return false;
   const date = new Date(value);
@@ -1427,22 +1432,30 @@ export default function App() {
   const systemActivityLogs = useMemo(()=>{
     const classify = (action = "") => {
       const text = action.toLowerCase();
+      const empty = { callsMade:0, followup:0, siteVisit:0, siteVisitPlanned:0, siteVisitDone:0, booking:0, registration:0, cancellation:0, collection:0 };
+      const siteVisitMeta = () => {
+        const done = text.includes("completed") || text.includes("done") || text.includes("feedback") || text.includes("family:");
+        const planned = !done || text.includes("planned") || text.includes("date set") || text.includes("tentative");
+        return { siteVisit: (planned ? 1 : 0) + (done ? 1 : 0), siteVisitPlanned: planned ? 1 : 0, siteVisitDone: done ? 1 : 0 };
+      };
       if (text.includes("mobile call")) {
         const followup = text.includes("outcome: follow-up") || text.includes("outcome: negotiation") ? 1 : 0;
-        const siteVisit = text.includes("outcome: site visit") ? 1 : 0;
+        const siteVisitDone = text.includes("outcome: site visit completed") || text.includes("outcome: site visit done");
+        const siteVisitPlanned = text.includes("outcome: site visit") && !siteVisitDone ? 1 : 0;
+        const siteVisit = siteVisitPlanned + (siteVisitDone ? 1 : 0);
         const booking = text.includes("outcome: booking") || text.includes("outcome: booked") ? 1 : 0;
-        return { type:"Call", callStatus:"Call", callsMade:1, followup, siteVisit, booking, registration:0, cancellation:0, collection:0 };
+        return { type:"Call", callStatus:"Call", ...empty, callsMade:1, followup, siteVisit, siteVisitPlanned, siteVisitDone: siteVisitDone ? 1 : 0, booking };
       }
-      if (text.includes("contacted")) return { type:"Contacted", callStatus:"Contacted", callsMade:1, followup:0, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
-      if (text.includes("follow-up") || text.includes("follow up")) return { type:"Follow-Up", callStatus:"Follow-Up", callsMade:1, followup:1, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
-      if (text.includes("negotiation")) return { type:"Negotiation", callStatus:"Negotiation", callsMade:1, followup:1, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
-      if (text.includes("site visit")) return { type:"Site Visit", callStatus:"Site Visit", callsMade:1, followup:0, siteVisit:1, booking:0, registration:0, cancellation:0, collection:0 };
-      if (text.includes("booking")) return { type:"Booking", callStatus:"Booking", callsMade:0, followup:0, siteVisit:0, booking:1, registration:0, cancellation:0, collection:0 };
-      if (text.includes("registration")) return { type:"Registration", callStatus:"Registration", callsMade:0, followup:0, siteVisit:0, booking:0, registration:1, cancellation:0, collection:0 };
-      if (text.includes("cancel")) return { type:"Cancellation", callStatus:"Cancellation", callsMade:0, followup:0, siteVisit:0, booking:0, registration:0, cancellation:1, collection:0 };
-      if (text.includes("assigned")) return { type:"Assignment", callStatus:"Assigned", callsMade:0, followup:0, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
-      if (text.includes("lead captured") || text.includes("imported")) return { type:"Lead", callStatus:"Lead", callsMade:0, followup:0, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
-      return { type:"Update", callStatus:"Update", callsMade:0, followup:0, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0 };
+      if (text.includes("contacted")) return { type:"Contacted", callStatus:"Contacted", ...empty, callsMade:1 };
+      if (text.includes("follow-up") || text.includes("follow up")) return { type:"Follow-Up", callStatus:"Follow-Up", ...empty, callsMade:1, followup:1 };
+      if (text.includes("negotiation")) return { type:"Negotiation", callStatus:"Negotiation", ...empty, callsMade:1, followup:1 };
+      if (text.includes("site visit")) return { type:"Site Visit", callStatus:"Site Visit", ...empty, callsMade:1, ...siteVisitMeta() };
+      if (text.includes("booking")) return { type:"Booking", callStatus:"Booking", ...empty, booking:1 };
+      if (text.includes("registration")) return { type:"Registration", callStatus:"Registration", ...empty, registration:1 };
+      if (text.includes("cancel")) return { type:"Cancellation", callStatus:"Cancellation", ...empty, cancellation:1 };
+      if (text.includes("assigned")) return { type:"Assignment", callStatus:"Assigned", ...empty };
+      if (text.includes("lead captured") || text.includes("imported")) return { type:"Lead", callStatus:"Lead", ...empty };
+      return { type:"Update", callStatus:"Update", ...empty };
     };
     return leads.flatMap(lead => (lead.history || []).map((h, index) => {
       const meta = classify(h.action);
@@ -1494,6 +1507,8 @@ export default function App() {
         callsMade: 0,
         followup: 0,
         siteVisit: 0,
+        siteVisitPlanned: 0,
+        siteVisitDone: 0,
         booking: 0,
         registration: 0,
         cancellation: 0,
@@ -1503,6 +1518,8 @@ export default function App() {
       current.callsMade += log.callsMade || 0;
       current.followup += log.followup || 0;
       current.siteVisit += log.siteVisit || 0;
+      current.siteVisitPlanned += log.siteVisitPlanned || 0;
+      current.siteVisitDone += log.siteVisitDone || 0;
       current.booking += log.booking || 0;
       current.registration += log.registration || 0;
       current.cancellation += log.cancellation || 0;
@@ -1552,19 +1569,21 @@ export default function App() {
   const summarizePeopleActivity = useCallback((logs)=>{
     const map = {};
     reportPeopleUsers.filter(u=>["Manager","Executive","Telecaller"].includes(u.role)).forEach(u=>{
-      map[u.name]={name:u.name,role:u.role,calls:0,followup:0,siteVisit:0,booking:0,registration:0,cancellation:0,productivity:0};
+      map[u.name]={name:u.name,role:u.role,calls:0,followup:0,siteVisit:0,siteVisitPlanned:0,siteVisitDone:0,booking:0,registration:0,cancellation:0,productivity:0};
     });
     logs.forEach(l=>{
       const name = l.executive || "System";
-      if(!map[name])map[name]={name,role:reportPeopleUsers.find(u=>u.name===name)?.role||"User",calls:0,followup:0,siteVisit:0,booking:0,registration:0,cancellation:0,productivity:0};
+      if(!map[name])map[name]={name,role:reportPeopleUsers.find(u=>u.name===name)?.role||"User",calls:0,followup:0,siteVisit:0,siteVisitPlanned:0,siteVisitDone:0,booking:0,registration:0,cancellation:0,productivity:0};
       map[name].calls += l.callsMade || 0;
       map[name].followup += l.followup || 0;
       map[name].siteVisit += l.siteVisit || 0;
+      map[name].siteVisitPlanned += l.siteVisitPlanned || 0;
+      map[name].siteVisitDone += l.siteVisitDone || 0;
       map[name].booking += l.booking || 0;
       map[name].registration += l.registration || 0;
       map[name].cancellation += l.cancellation || 0;
     });
-    return Object.values(map).map(row=>({...row,productivity:(row.calls||0)+(row.followup||0)+(row.siteVisit||0)+(row.booking||0)+(row.registration||0)})).sort((a,b)=>a.name.localeCompare(b.name));
+    return Object.values(map).map(row=>({...row,productivity:(row.calls||0)+(row.followup||0)+(row.siteVisitPlanned||0)+(row.siteVisitDone||0)+(row.booking||0)+(row.registration||0)})).sort((a,b)=>a.name.localeCompare(b.name));
   },[reportPeopleUsers]);
 
   const todayPeopleActivitySummary = useMemo(()=>summarizePeopleActivity(reportScopedActivityLogs.filter(l=>l.date===TODAY_STR)),[summarizePeopleActivity,reportScopedActivityLogs,TODAY_STR]);
@@ -1575,7 +1594,7 @@ export default function App() {
     const map = {};
     const ensure = (source) => {
       const key = source || "Unknown";
-      if(!map[key])map[key]={source:key,enquirySet:new Set(),siteVisitSet:new Set(),bookingSet:new Set(),conversionSet:new Set(),cancellationSet:new Set()};
+      if(!map[key])map[key]={source:key,enquirySet:new Set(),siteVisitPlannedSet:new Set(),siteVisitDoneSet:new Set(),bookingSet:new Set(),conversionSet:new Set(),cancellationSet:new Set()};
       return map[key];
     };
     reportScopedLeads.forEach(lead=>{
@@ -1584,18 +1603,20 @@ export default function App() {
     reportScopedActivityLogs.forEach(log=>{
       if(!isDateInRange(log.date,start,end))return;
       const row = ensure(log.source);
-      if(log.siteVisit)row.siteVisitSet.add(log.leadId || `${log.phone}-${log.leadName}`);
+      if(log.siteVisitPlanned)row.siteVisitPlannedSet.add(log.leadId || `${log.phone}-${log.leadName}`);
+      if(log.siteVisitDone)row.siteVisitDoneSet.add(log.leadId || `${log.phone}-${log.leadName}`);
       if(log.booking)row.bookingSet.add(log.leadId || `${log.phone}-${log.leadName}`);
       if(log.booking || log.registration)row.conversionSet.add(log.leadId || `${log.phone}-${log.leadName}`);
       if(log.cancellation)row.cancellationSet.add(log.leadId || `${log.phone}-${log.leadName}`);
     });
     return Object.values(map).map(row=>{
       const enquiry = row.enquirySet.size;
-      const siteVisit = row.siteVisitSet.size;
+      const siteVisitPlanned = row.siteVisitPlannedSet.size;
+      const siteVisitDone = row.siteVisitDoneSet.size;
       const booking = row.bookingSet.size;
       const conversion = row.conversionSet.size;
       const cancellation = row.cancellationSet.size;
-      return { source:row.source, enquiry, siteVisit, booking, conversion, cancellation, percentage: enquiry ? ((conversion/enquiry)*100).toFixed(1) : "0.0" };
+      return { source:row.source, enquiry, siteVisitPlanned, siteVisitDone, siteVisit:siteVisitPlanned+siteVisitDone, booking, conversion, cancellation, percentage: enquiry ? ((conversion/enquiry)*100).toFixed(1) : "0.0" };
     }).sort((a,b)=>b.enquiry-a.enquiry || b.conversion-a.conversion);
   },[reportScopedLeads,reportScopedActivityLogs,isDateInRange]);
 
@@ -1607,7 +1628,7 @@ export default function App() {
     const map = {};
     const ensure = (project) => {
       const key = project || "Unknown";
-      if(!map[key])map[key]={project:key,enquirySet:new Set(),siteVisitSet:new Set(),bookingSet:new Set(),conversionSet:new Set(),cancellationSet:new Set()};
+      if(!map[key])map[key]={project:key,enquirySet:new Set(),siteVisitPlannedSet:new Set(),siteVisitDoneSet:new Set(),bookingSet:new Set(),conversionSet:new Set(),cancellationSet:new Set()};
       return map[key];
     };
     reportScopedLeads.forEach(lead=>{ if(isDateInRange(lead.dateCreated,reportStartDate,reportEndDate))ensure(lead.project).enquirySet.add(lead.id); });
@@ -1615,14 +1636,15 @@ export default function App() {
       if(!isDateInRange(log.date,reportStartDate,reportEndDate))return;
       const row=ensure(log.project);
       const id=log.leadId || `${log.phone}-${log.leadName}`;
-      if(log.siteVisit)row.siteVisitSet.add(id);
+      if(log.siteVisitPlanned)row.siteVisitPlannedSet.add(id);
+      if(log.siteVisitDone)row.siteVisitDoneSet.add(id);
       if(log.booking)row.bookingSet.add(id);
       if(log.booking || log.registration)row.conversionSet.add(id);
       if(log.cancellation)row.cancellationSet.add(id);
     });
     return Object.values(map).map(row=>{
-      const enquiry=row.enquirySet.size, siteVisit=row.siteVisitSet.size, booking=row.bookingSet.size, conversion=row.conversionSet.size, cancellation=row.cancellationSet.size;
-      return { project:row.project,enquiry,siteVisit,booking,conversion,cancellation,percentage:enquiry?((conversion/enquiry)*100).toFixed(1):"0.0" };
+      const enquiry=row.enquirySet.size, siteVisitPlanned=row.siteVisitPlannedSet.size, siteVisitDone=row.siteVisitDoneSet.size, booking=row.bookingSet.size, conversion=row.conversionSet.size, cancellation=row.cancellationSet.size;
+      return { project:row.project,enquiry,siteVisitPlanned,siteVisitDone,siteVisit:siteVisitPlanned+siteVisitDone,booking,conversion,cancellation,percentage:enquiry?((conversion/enquiry)*100).toFixed(1):"0.0" };
     }).sort((a,b)=>b.enquiry-a.enquiry || b.conversion-a.conversion);
   },[reportScopedLeads,reportScopedActivityLogs,isDateInRange,reportStartDate,reportEndDate]);
 
@@ -1631,22 +1653,23 @@ export default function App() {
     reportScopedLeads.forEach(lead=>{
       if(!isDateInRange(lead.dateCreated,reportStartDate,reportEndDate))return;
       const key=`${lead.source||"Unknown"}|${lead.project||"Unknown"}`;
-      if(!map[key])map[key]={source:lead.source||"Unknown",project:lead.project||"Unknown",enquirySet:new Set(),siteVisitSet:new Set(),bookingSet:new Set(),conversionSet:new Set(),cancellationSet:new Set()};
+      if(!map[key])map[key]={source:lead.source||"Unknown",project:lead.project||"Unknown",enquirySet:new Set(),siteVisitPlannedSet:new Set(),siteVisitDoneSet:new Set(),bookingSet:new Set(),conversionSet:new Set(),cancellationSet:new Set()};
       map[key].enquirySet.add(lead.id);
     });
     reportScopedActivityLogs.forEach(log=>{
       if(!isDateInRange(log.date,reportStartDate,reportEndDate))return;
       const key=`${log.source||"Unknown"}|${log.project||"Unknown"}`;
-      if(!map[key])map[key]={source:log.source||"Unknown",project:log.project||"Unknown",enquirySet:new Set(),siteVisitSet:new Set(),bookingSet:new Set(),conversionSet:new Set(),cancellationSet:new Set()};
+      if(!map[key])map[key]={source:log.source||"Unknown",project:log.project||"Unknown",enquirySet:new Set(),siteVisitPlannedSet:new Set(),siteVisitDoneSet:new Set(),bookingSet:new Set(),conversionSet:new Set(),cancellationSet:new Set()};
       const id=log.leadId || `${log.phone}-${log.leadName}`;
-      if(log.siteVisit)map[key].siteVisitSet.add(id);
+      if(log.siteVisitPlanned)map[key].siteVisitPlannedSet.add(id);
+      if(log.siteVisitDone)map[key].siteVisitDoneSet.add(id);
       if(log.booking)map[key].bookingSet.add(id);
       if(log.booking || log.registration)map[key].conversionSet.add(id);
       if(log.cancellation)map[key].cancellationSet.add(id);
     });
     return Object.values(map).map(row=>{
-      const enquiry=row.enquirySet.size, siteVisit=row.siteVisitSet.size, booking=row.bookingSet.size, conversion=row.conversionSet.size, cancellation=row.cancellationSet.size;
-      return { source:row.source,project:row.project,enquiry,siteVisit,booking,conversion,cancellation,percentage:enquiry?((conversion/enquiry)*100).toFixed(1):"0.0" };
+      const enquiry=row.enquirySet.size, siteVisitPlanned=row.siteVisitPlannedSet.size, siteVisitDone=row.siteVisitDoneSet.size, booking=row.bookingSet.size, conversion=row.conversionSet.size, cancellation=row.cancellationSet.size;
+      return { source:row.source,project:row.project,enquiry,siteVisitPlanned,siteVisitDone,siteVisit:siteVisitPlanned+siteVisitDone,booking,conversion,cancellation,percentage:enquiry?((conversion/enquiry)*100).toFixed(1):"0.0" };
     }).sort((a,b)=>a.source.localeCompare(b.source)||b.enquiry-a.enquiry);
   },[reportScopedLeads,reportScopedActivityLogs,isDateInRange,reportStartDate,reportEndDate]);
 
@@ -1660,26 +1683,28 @@ export default function App() {
   const activityKPIs = useMemo(()=>{
     const totalCalls=dashboardActivityLogs.reduce((s,l)=>s+(l.callsMade||0),0);
     const totalFollowups=dashboardActivityLogs.reduce((s,l)=>s+(l.followup||0),0);
-    const totalSiteVisits=dashboardActivityLogs.reduce((s,l)=>s+(l.siteVisit||0),0);
+    const totalSiteVisitPlanned=dashboardActivityLogs.reduce((s,l)=>s+(l.siteVisitPlanned||0),0);
+    const totalSiteVisitDone=dashboardActivityLogs.reduce((s,l)=>s+(l.siteVisitDone||0),0);
+    const totalSiteVisits=totalSiteVisitPlanned+totalSiteVisitDone;
     const totalBookings=dashboardActivityLogs.reduce((s,l)=>s+(l.booking||0),0);
     const totalRegistrations=dashboardActivityLogs.reduce((s,l)=>s+(l.registration||0),0);
     const totalCancellations=dashboardActivityLogs.reduce((s,l)=>s+(l.cancellation||0),0);
     const totalCollection=dashboardActivityLogs.reduce((s,l)=>s+(l.collection||0),0);
     const convRate=totalCalls>0?((totalBookings/totalCalls)*100).toFixed(1):0;
-    return{totalCalls,totalFollowups,totalSiteVisits,totalBookings,totalRegistrations,totalCancellations,totalCollection,convRate};
+    return{totalCalls,totalFollowups,totalSiteVisitPlanned,totalSiteVisitDone,totalSiteVisits,totalBookings,totalRegistrations,totalCancellations,totalCollection,convRate};
   },[dashboardActivityLogs]);
 
-  const callsTrendData = useMemo(()=>{ const map={}; filteredActivityLogs.forEach(l=>{if(!map[l.date])map[l.date]={date:l.date,calls:0,followups:0,siteVisits:0,bookings:0};map[l.date].calls+=l.callsMade||0;map[l.date].followups+=l.followup||0;map[l.date].siteVisits+=l.siteVisit||0;map[l.date].bookings+=l.booking||0;}); return Object.values(map).sort((a,b)=>a.date.localeCompare(b.date)); },[filteredActivityLogs]);
-  const projectPerfData = useMemo(()=>{ const map={}; filteredActivityLogs.forEach(l=>{if(!map[l.project])map[l.project]={project:l.project,calls:0,followups:0,siteVisits:0,bookings:0};map[l.project].calls+=l.callsMade||0;map[l.project].followups+=l.followup||0;map[l.project].siteVisits+=l.siteVisit||0;map[l.project].bookings+=l.booking||0;}); return Object.values(map).sort((a,b)=>b.calls-a.calls); },[filteredActivityLogs]);
+  const callsTrendData = useMemo(()=>{ const map={}; filteredActivityLogs.forEach(l=>{if(!map[l.date])map[l.date]={date:l.date,calls:0,followups:0,siteVisitPlanned:0,siteVisitDone:0,siteVisits:0,bookings:0};map[l.date].calls+=l.callsMade||0;map[l.date].followups+=l.followup||0;map[l.date].siteVisitPlanned+=l.siteVisitPlanned||0;map[l.date].siteVisitDone+=l.siteVisitDone||0;map[l.date].siteVisits+=l.siteVisit||0;map[l.date].bookings+=l.booking||0;}); return Object.values(map).sort((a,b)=>a.date.localeCompare(b.date)); },[filteredActivityLogs]);
+  const projectPerfData = useMemo(()=>{ const map={}; filteredActivityLogs.forEach(l=>{if(!map[l.project])map[l.project]={project:l.project,calls:0,followups:0,siteVisitPlanned:0,siteVisitDone:0,siteVisits:0,bookings:0};map[l.project].calls+=l.callsMade||0;map[l.project].followups+=l.followup||0;map[l.project].siteVisitPlanned+=l.siteVisitPlanned||0;map[l.project].siteVisitDone+=l.siteVisitDone||0;map[l.project].siteVisits+=l.siteVisit||0;map[l.project].bookings+=l.booking||0;}); return Object.values(map).sort((a,b)=>b.calls-a.calls); },[filteredActivityLogs]);
   const sourcewisePieData = useMemo(()=>{ const map={}; filteredActivityLogs.forEach(l=>{if(!map[l.source])map[l.source]=0;map[l.source]+=l.callsMade||0;}); return Object.entries(map).map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value); },[filteredActivityLogs]);
-  const execPerfChartData = useMemo(()=>{ const map={}; filteredActivityLogs.forEach(l=>{if(!map[l.executive])map[l.executive]={name:l.executive,calls:0,followups:0,siteVisits:0,bookings:0};map[l.executive].calls+=l.callsMade||0;map[l.executive].followups+=l.followup||0;map[l.executive].siteVisits+=l.siteVisit||0;map[l.executive].bookings+=l.booking||0;}); return Object.values(map).sort((a,b)=>b.calls-a.calls); },[filteredActivityLogs]);
-  const execDetailedMatrix = useMemo(()=>{ const map={}; filteredActivityLogs.forEach(l=>{if(!map[l.executive])map[l.executive]={name:l.executive,calls:0,followups:0,siteVisits:0,bookings:0,registrations:0,cancellations:0,collection:0};map[l.executive].calls+=l.callsMade||0;map[l.executive].followups+=l.followup||0;map[l.executive].siteVisits+=l.siteVisit||0;map[l.executive].bookings+=l.booking||0;map[l.executive].registrations+=l.registration||0;map[l.executive].cancellations+=l.cancellation||0;map[l.executive].collection+=l.collection||0;}); return Object.values(map).sort((a,b)=>b.calls-a.calls); },[filteredActivityLogs]);
+  const execPerfChartData = useMemo(()=>{ const map={}; filteredActivityLogs.forEach(l=>{if(!map[l.executive])map[l.executive]={name:l.executive,calls:0,followups:0,siteVisitPlanned:0,siteVisitDone:0,siteVisits:0,bookings:0};map[l.executive].calls+=l.callsMade||0;map[l.executive].followups+=l.followup||0;map[l.executive].siteVisitPlanned+=l.siteVisitPlanned||0;map[l.executive].siteVisitDone+=l.siteVisitDone||0;map[l.executive].siteVisits+=l.siteVisit||0;map[l.executive].bookings+=l.booking||0;}); return Object.values(map).sort((a,b)=>b.calls-a.calls); },[filteredActivityLogs]);
+  const execDetailedMatrix = useMemo(()=>{ const map={}; filteredActivityLogs.forEach(l=>{if(!map[l.executive])map[l.executive]={name:l.executive,calls:0,followups:0,siteVisitPlanned:0,siteVisitDone:0,siteVisits:0,bookings:0,registrations:0,cancellations:0,collection:0};map[l.executive].calls+=l.callsMade||0;map[l.executive].followups+=l.followup||0;map[l.executive].siteVisitPlanned+=l.siteVisitPlanned||0;map[l.executive].siteVisitDone+=l.siteVisitDone||0;map[l.executive].siteVisits+=l.siteVisit||0;map[l.executive].bookings+=l.booking||0;map[l.executive].registrations+=l.registration||0;map[l.executive].cancellations+=l.cancellation||0;map[l.executive].collection+=l.collection||0;}); return Object.values(map).sort((a,b)=>b.calls-a.calls); },[filteredActivityLogs]);
 
   const reportSummaryMatrix = useMemo(()=>{
     const projectNames=[...new Set(filteredActivityLogs.map(l=>l.project))].sort();
-    const metrics=["Calls made","Followup","Site Visit","Booking","Registration","Cancellation"];
+    const metrics=["Calls made","Followup","Site Visit Planned","Site Visit Done","Booking","Registration","Cancellation"];
     const data={};metrics.forEach(m=>{data[m]={};projectNames.forEach(p=>{data[m][p]=0;});});
-    filteredActivityLogs.forEach(l=>{ data["Calls made"][l.project]=(data["Calls made"][l.project]||0)+(l.callsMade||0); data["Followup"][l.project]=(data["Followup"][l.project]||0)+(l.followup||0); data["Site Visit"][l.project]=(data["Site Visit"][l.project]||0)+(l.siteVisit||0); data["Booking"][l.project]=(data["Booking"][l.project]||0)+(l.booking||0); data["Registration"][l.project]=(data["Registration"][l.project]||0)+(l.registration||0); data["Cancellation"][l.project]=(data["Cancellation"][l.project]||0)+(l.cancellation||0); });
+    filteredActivityLogs.forEach(l=>{ data["Calls made"][l.project]=(data["Calls made"][l.project]||0)+(l.callsMade||0); data["Followup"][l.project]=(data["Followup"][l.project]||0)+(l.followup||0); data["Site Visit Planned"][l.project]=(data["Site Visit Planned"][l.project]||0)+(l.siteVisitPlanned||0); data["Site Visit Done"][l.project]=(data["Site Visit Done"][l.project]||0)+(l.siteVisitDone||0); data["Booking"][l.project]=(data["Booking"][l.project]||0)+(l.booking||0); data["Registration"][l.project]=(data["Registration"][l.project]||0)+(l.registration||0); data["Cancellation"][l.project]=(data["Cancellation"][l.project]||0)+(l.cancellation||0); });
     return{metrics,projectNames,data};
   },[filteredActivityLogs]);
 
@@ -2046,8 +2071,8 @@ export default function App() {
 
   const executeDataExportSequence=(formatType)=>{
     if(customerActivityRows.length===0){triggerToastAlert("No data to export.");return;}
-    const headers=["Last Contacted","User","Client","Phone","Project","Source","Calls Made","Followup","Site Visit","Booking","Registration","Cancellation","Collection","Last Remark"];
-    const rows=customerActivityRows.map(l=>[formatDateTimeLabel({date:l.lastContactedDate,time:l.lastContactedTime}),l.executive,l.leadName,l.phone,l.project,l.source,l.callsMade,l.followup,l.siteVisit,l.booking,l.registration,l.cancellation,l.collection,l.lastRemark]);
+    const headers=["Last Contacted","User","Client","Phone","Project","Source","Calls Made","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Collection","Last Remark"];
+    const rows=customerActivityRows.map(l=>[formatDateTimeLabel({date:l.lastContactedDate,time:l.lastContactedTime}),l.executive,l.leadName,l.phone,l.project,l.source,l.callsMade,l.followup,l.siteVisitPlanned,l.siteVisitDone,l.booking,l.registration,l.cancellation,l.collection,l.lastRemark]);
     const ext=formatType==="excel"?"xlsx":"csv";
     let blob;
     if (formatType === "excel") {
@@ -2219,36 +2244,37 @@ export default function App() {
 
   const selectedRangeReportTotals = useMemo(()=>{
     const people = rangePeopleActivitySummary.reduce((acc,row)=>{
-      acc.calls += row.calls || 0; acc.followup += row.followup || 0; acc.siteVisit += row.siteVisit || 0; acc.booking += row.booking || 0; acc.registration += row.registration || 0; acc.cancellation += row.cancellation || 0; acc.productivity += row.productivity || 0;
+      acc.calls += row.calls || 0; acc.followup += row.followup || 0; acc.siteVisitPlanned += row.siteVisitPlanned || 0; acc.siteVisitDone += row.siteVisitDone || 0; acc.siteVisit += row.siteVisit || 0; acc.booking += row.booking || 0; acc.registration += row.registration || 0; acc.cancellation += row.cancellation || 0; acc.productivity += row.productivity || 0;
       return acc;
-    },{calls:0,followup:0,siteVisit:0,booking:0,registration:0,cancellation:0,productivity:0});
+    },{calls:0,followup:0,siteVisitPlanned:0,siteVisitDone:0,siteVisit:0,booking:0,registration:0,cancellation:0,productivity:0});
     const source = rangeSourceReport.reduce((acc,row)=>{
-      acc.enquiry += row.enquiry || 0; acc.siteVisit += row.siteVisit || 0; acc.conversion += row.conversion || 0;
+      acc.enquiry += row.enquiry || 0; acc.siteVisitPlanned += row.siteVisitPlanned || 0; acc.siteVisitDone += row.siteVisitDone || 0; acc.siteVisit += row.siteVisit || 0; acc.conversion += row.conversion || 0;
       return acc;
-    },{enquiry:0,siteVisit:0,conversion:0});
+    },{enquiry:0,siteVisitPlanned:0,siteVisitDone:0,siteVisit:0,conversion:0});
     source.percentage = source.enquiry ? ((source.conversion/source.enquiry)*100).toFixed(1) : "0.0";
     return { people, source };
   },[rangePeopleActivitySummary,rangeSourceReport]);
 
   const activeRangeReport = useMemo(()=>{
     const sumRows = (rows, fields) => fields.reduce((acc, field)=>{acc[field]=rows.reduce((s,r)=>s+(Number(r[field])||0),0);return acc;},{});
+    const fmtRow = (row) => row.map(formatReportValue);
     if(selectedMatrixReport==="Projectwise"){
-      const totals=sumRows(rangeProjectReport,["enquiry","siteVisit","booking","conversion","cancellation"]);
+      const totals=sumRows(rangeProjectReport,["enquiry","siteVisitPlanned","siteVisitDone","booking","conversion","cancellation"]);
       totals.percentage=totals.enquiry?((totals.conversion/totals.enquiry)*100).toFixed(1):"0.0";
-      return {title:"Projectwise Report",headers:["Project","Enquiry","Site Visit","Booking","Conversion","Cancellation","Percentage"],rows:rangeProjectReport.map(r=>[r.project,r.enquiry,r.siteVisit,r.booking,r.conversion,r.cancellation,`${r.percentage}%`]),totals:["TOTAL",totals.enquiry,totals.siteVisit,totals.booking,totals.conversion,totals.cancellation,`${totals.percentage}%`]};
+      return {title:"Projectwise Report",headers:["Project","Enquiry","SV Planned","SV Done","Booking","Conversion","Cancellation","Percentage"],rows:rangeProjectReport.map(r=>fmtRow([r.project,r.enquiry,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.conversion,r.cancellation,`${r.percentage}%`])),totals:fmtRow(["TOTAL",totals.enquiry,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.conversion,totals.cancellation,`${totals.percentage}%`])};
     }
     if(selectedMatrixReport==="Sourcewise"){
-      const totals=sumRows(rangeSourceReport,["enquiry","siteVisit","booking","conversion","cancellation"]);
+      const totals=sumRows(rangeSourceReport,["enquiry","siteVisitPlanned","siteVisitDone","booking","conversion","cancellation"]);
       totals.percentage=totals.enquiry?((totals.conversion/totals.enquiry)*100).toFixed(1):"0.0";
-      return {title:"Sourcewise Report",headers:["Source","Enquiry","Site Visit","Booking","Conversion","Cancellation","Percentage"],rows:rangeSourceReport.map(r=>[r.source,r.enquiry,r.siteVisit,r.booking,r.conversion,r.cancellation,`${r.percentage}%`]),totals:["TOTAL",totals.enquiry,totals.siteVisit,totals.booking,totals.conversion,totals.cancellation,`${totals.percentage}%`]};
+      return {title:"Sourcewise Report",headers:["Source","Enquiry","SV Planned","SV Done","Booking","Conversion","Cancellation","Percentage"],rows:rangeSourceReport.map(r=>fmtRow([r.source,r.enquiry,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.conversion,r.cancellation,`${r.percentage}%`])),totals:fmtRow(["TOTAL",totals.enquiry,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.conversion,totals.cancellation,`${totals.percentage}%`])};
     }
     if(selectedMatrixReport==="SourceProjectwise"){
-      const totals=sumRows(rangeSourceProjectReport,["enquiry","siteVisit","booking","conversion","cancellation"]);
+      const totals=sumRows(rangeSourceProjectReport,["enquiry","siteVisitPlanned","siteVisitDone","booking","conversion","cancellation"]);
       totals.percentage=totals.enquiry?((totals.conversion/totals.enquiry)*100).toFixed(1):"0.0";
-      return {title:"Sourcewise-Projectwise Report",headers:["Source","Project","Enquiry","Site Visit","Booking","Conversion","Cancellation","Percentage"],rows:rangeSourceProjectReport.map(r=>[r.source,r.project,r.enquiry,r.siteVisit,r.booking,r.conversion,r.cancellation,`${r.percentage}%`]),totals:["TOTAL","",totals.enquiry,totals.siteVisit,totals.booking,totals.conversion,totals.cancellation,`${totals.percentage}%`]};
+      return {title:"Sourcewise-Projectwise Report",headers:["Source","Project","Enquiry","SV Planned","SV Done","Booking","Conversion","Cancellation","Percentage"],rows:rangeSourceProjectReport.map(r=>fmtRow([r.source,r.project,r.enquiry,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.conversion,r.cancellation,`${r.percentage}%`])),totals:fmtRow(["TOTAL","",totals.enquiry,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.conversion,totals.cancellation,`${totals.percentage}%`])};
     }
-    const totals=sumRows(rangePeopleActivitySummary,["calls","followup","siteVisit","booking","registration","cancellation","productivity"]);
-    return {title:"Executivewise Report",headers:["Name","Calls","Followup","Site Visit","Booking","Registration","Cancellation","Productivity"],rows:rangePeopleActivitySummary.map(r=>[r.name,r.calls,r.followup,r.siteVisit,r.booking,r.registration,r.cancellation,r.productivity]),totals:["TOTAL",totals.calls,totals.followup,totals.siteVisit,totals.booking,totals.registration,totals.cancellation,totals.productivity]};
+    const totals=sumRows(rangePeopleActivitySummary,["calls","followup","siteVisitPlanned","siteVisitDone","booking","registration","cancellation","productivity"]);
+    return {title:"Executivewise Report",headers:["Name","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity"],rows:rangePeopleActivitySummary.map(r=>fmtRow([r.name,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),totals:fmtRow(["TOTAL",totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
   },[selectedMatrixReport,rangePeopleActivitySummary,rangeSourceReport,rangeProjectReport,rangeSourceProjectReport]);
 
   const exportSelectedRangeReport = (formatType) => {
@@ -2282,7 +2308,7 @@ export default function App() {
     const totalRow = `<tr style="font-weight:700;background:#f8fafc">${activeRangeReport.totals.map(c=>`<td>${c}</td>`).join("")}</tr>`;
     const win = window.open("", "_blank");
     if(!win){ triggerToastAlert("Allow popup to export PDF."); return; }
-    win.document.write(`<html><head><title>${fileStem}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px}h2{font-size:15px;margin-top:24px}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px}th,td{border:1px solid #ddd;padding:7px;text-align:left}th{background:#f1f5f9}.summary{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:16px 0}.box{border:1px solid #ddd;padding:10px}.box b{display:block;font-size:16px}</style></head><body><h1>${activeRangeReport.title}</h1><p>${reportStartDate} to ${reportEndDate}</p><div class="summary"><div class="box">Calls<b>${selectedRangeReportTotals.people.calls}</b></div><div class="box">Followup<b>${selectedRangeReportTotals.people.followup}</b></div><div class="box">Site Visit<b>${selectedRangeReportTotals.people.siteVisit}</b></div><div class="box">Booking<b>${selectedRangeReportTotals.people.booking}</b></div><div class="box">Conversion %<b>${selectedRangeReportTotals.source.percentage}%</b></div><div class="box">Cancellation<b>${selectedRangeReportTotals.people.cancellation}</b></div></div><h2>${activeRangeReport.title}</h2><table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${bodyRows}${totalRow}</tbody></table><script>window.onload=()=>{window.print();}</script></body></html>`);
+    win.document.write(`<html><head><title>${fileStem}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px}h2{font-size:15px;margin-top:24px}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px}th,td{border:1px solid #ddd;padding:7px;text-align:left}th{background:#f1f5f9}.summary{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin:16px 0}.box{border:1px solid #ddd;padding:10px}.box b{display:block;font-size:16px}</style></head><body><h1>${activeRangeReport.title}</h1><p>${reportStartDate} to ${reportEndDate}</p><div class="summary"><div class="box">Calls<b>${formatReportValue(selectedRangeReportTotals.people.calls)}</b></div><div class="box">Followup<b>${formatReportValue(selectedRangeReportTotals.people.followup)}</b></div><div class="box">SV Planned<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitPlanned)}</b></div><div class="box">SV Done<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitDone)}</b></div><div class="box">Booking<b>${formatReportValue(selectedRangeReportTotals.people.booking)}</b></div><div class="box">Conversion %<b>${formatReportValue(`${selectedRangeReportTotals.source.percentage}%`)}</b></div><div class="box">Cancellation<b>${formatReportValue(selectedRangeReportTotals.people.cancellation)}</b></div></div><h2>${activeRangeReport.title}</h2><table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${bodyRows}${totalRow}</tbody></table><script>window.onload=()=>{window.print();}</script></body></html>`);
     win.document.close();
     triggerToastAlert("PDF report opened.");
   };
@@ -2292,15 +2318,15 @@ export default function App() {
       <h3 className="text-xs font-black text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2"><Users className="h-4 w-4 text-blue-400"/>{title}</h3>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-[10px] whitespace-nowrap">
-          <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold"><tr><th className="p-3">Name</th><th className="p-3 text-center">Calls</th><th className="p-3 text-center">Followup</th><th className="p-3 text-center">Site Visit</th><th className="p-3 text-center">Booking</th><th className="p-3 text-center">Registration</th><th className="p-3 text-center">Cancellation</th><th className="p-3 text-center">Productivity</th></tr></thead>
+          <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold"><tr><th className="p-3">Name</th><th className="p-3 text-center">Calls</th><th className="p-3 text-center">Followup</th><th className="p-3 text-center">SV Planned</th><th className="p-3 text-center">SV Done</th><th className="p-3 text-center">Booking</th><th className="p-3 text-center">Registration</th><th className="p-3 text-center">Cancellation</th><th className="p-3 text-center">Productivity</th></tr></thead>
           <tbody className="divide-y divide-slate-800">
-            {rows.length===0?<tr><td colSpan="8" className="p-5 text-center text-slate-500 font-bold uppercase tracking-wider">No activity</td></tr>:rows.map(row=>(
+            {rows.length===0?<tr><td colSpan="9" className="p-5 text-center text-slate-500 font-bold uppercase tracking-wider">No activity</td></tr>:rows.map(row=>(
               <tr key={`${title}-${row.name}`} className="hover:bg-slate-900/50">
-                <td className="p-3 font-black text-white">{row.name}</td><td className="p-3 text-center font-mono">{row.calls}</td><td className="p-3 text-center font-mono text-blue-400">{row.followup}</td><td className="p-3 text-center font-mono text-emerald-400">{row.siteVisit}</td><td className="p-3 text-center font-mono text-purple-400">{row.booking}</td><td className="p-3 text-center font-mono text-amber-400">{row.registration}</td><td className="p-3 text-center font-mono text-rose-400">{row.cancellation}</td><td className="p-3 text-center font-mono text-orange-400 font-black">{row.productivity}</td>
+                <td className="p-3 font-black text-white">{row.name}</td><td className="p-3 text-center font-mono">{formatReportValue(row.calls)}</td><td className="p-3 text-center font-mono text-blue-400">{formatReportValue(row.followup)}</td><td className="p-3 text-center font-mono text-violet-400">{formatReportValue(row.siteVisitPlanned)}</td><td className="p-3 text-center font-mono text-emerald-400">{formatReportValue(row.siteVisitDone)}</td><td className="p-3 text-center font-mono text-purple-400">{formatReportValue(row.booking)}</td><td className="p-3 text-center font-mono text-amber-400">{formatReportValue(row.registration)}</td><td className="p-3 text-center font-mono text-rose-400">{formatReportValue(row.cancellation)}</td><td className="p-3 text-center font-mono text-orange-400 font-black">{formatReportValue(row.productivity)}</td>
               </tr>
             ))}
           </tbody>
-          {rows.length>0&&<tfoot className="border-t border-slate-700 bg-slate-900/70 text-white font-black"><tr><td className="p-3">TOTAL</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.calls||0),0)}</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.followup||0),0)}</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.siteVisit||0),0)}</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.booking||0),0)}</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.registration||0),0)}</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.cancellation||0),0)}</td><td className="p-3 text-center font-mono text-orange-400">{rows.reduce((s,r)=>s+(r.productivity||0),0)}</td></tr></tfoot>}
+          {rows.length>0&&<tfoot className="border-t border-slate-700 bg-slate-900/70 text-white font-black"><tr><td className="p-3">TOTAL</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.calls||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.followup||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.siteVisitPlanned||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.siteVisitDone||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.booking||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.registration||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.cancellation||0),0))}</td><td className="p-3 text-center font-mono text-orange-400">{formatReportValue(rows.reduce((s,r)=>s+(r.productivity||0),0))}</td></tr></tfoot>}
         </table>
       </div>
     </div>
@@ -2311,15 +2337,15 @@ export default function App() {
       <h3 className="text-xs font-black text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2"><PieChart className="h-4 w-4 text-orange-400"/>{title}</h3>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-[10px] whitespace-nowrap">
-          <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold"><tr><th className="p-3">Source</th><th className="p-3 text-center">Enquiry</th><th className="p-3 text-center">Site Visit</th><th className="p-3 text-center">Booking</th><th className="p-3 text-center">Conversion</th><th className="p-3 text-center">Cancellation</th><th className="p-3 text-center">Percentage</th></tr></thead>
+          <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold"><tr><th className="p-3">Source</th><th className="p-3 text-center">Enquiry</th><th className="p-3 text-center">SV Planned</th><th className="p-3 text-center">SV Done</th><th className="p-3 text-center">Booking</th><th className="p-3 text-center">Conversion</th><th className="p-3 text-center">Cancellation</th><th className="p-3 text-center">Percentage</th></tr></thead>
           <tbody className="divide-y divide-slate-800">
-            {rows.length===0?<tr><td colSpan="7" className="p-5 text-center text-slate-500 font-bold uppercase tracking-wider">No source data</td></tr>:rows.map(row=>(
+            {rows.length===0?<tr><td colSpan="8" className="p-5 text-center text-slate-500 font-bold uppercase tracking-wider">No source data</td></tr>:rows.map(row=>(
               <tr key={`${title}-${row.source}`} className="hover:bg-slate-900/50">
-                <td className="p-3 font-black text-white">{row.source}</td><td className="p-3 text-center font-mono">{row.enquiry}</td><td className="p-3 text-center font-mono text-emerald-400">{row.siteVisit}</td><td className="p-3 text-center font-mono text-purple-400">{row.booking}</td><td className="p-3 text-center font-mono text-orange-400">{row.conversion}</td><td className="p-3 text-center font-mono text-rose-400">{row.cancellation}</td><td className="p-3 text-center font-mono text-orange-400 font-black">{row.percentage}%</td>
+                <td className="p-3 font-black text-white">{row.source}</td><td className="p-3 text-center font-mono">{formatReportValue(row.enquiry)}</td><td className="p-3 text-center font-mono text-violet-400">{formatReportValue(row.siteVisitPlanned)}</td><td className="p-3 text-center font-mono text-emerald-400">{formatReportValue(row.siteVisitDone)}</td><td className="p-3 text-center font-mono text-purple-400">{formatReportValue(row.booking)}</td><td className="p-3 text-center font-mono text-orange-400">{formatReportValue(row.conversion)}</td><td className="p-3 text-center font-mono text-rose-400">{formatReportValue(row.cancellation)}</td><td className="p-3 text-center font-mono text-orange-400 font-black">{formatReportValue(`${row.percentage}%`)}</td>
               </tr>
             ))}
           </tbody>
-          {rows.length>0&&<tfoot className="border-t border-slate-700 bg-slate-900/70 text-white font-black"><tr><td className="p-3">TOTAL</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.enquiry||0),0)}</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.siteVisit||0),0)}</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.booking||0),0)}</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.conversion||0),0)}</td><td className="p-3 text-center font-mono">{rows.reduce((s,r)=>s+(r.cancellation||0),0)}</td><td className="p-3 text-center font-mono text-orange-400">{rows.reduce((s,r)=>s+(r.enquiry||0),0)?((rows.reduce((s,r)=>s+(r.conversion||0),0)/rows.reduce((s,r)=>s+(r.enquiry||0),0))*100).toFixed(1):"0.0"}%</td></tr></tfoot>}
+          {rows.length>0&&<tfoot className="border-t border-slate-700 bg-slate-900/70 text-white font-black"><tr><td className="p-3">TOTAL</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.enquiry||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.siteVisitPlanned||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.siteVisitDone||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.booking||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.conversion||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.cancellation||0),0))}</td><td className="p-3 text-center font-mono text-orange-400">{formatReportValue(`${rows.reduce((s,r)=>s+(r.enquiry||0),0)?((rows.reduce((s,r)=>s+(r.conversion||0),0)/rows.reduce((s,r)=>s+(r.enquiry||0),0))*100).toFixed(1):"0.0"}%`)}</td></tr></tfoot>}
         </table>
       </div>
     </div>
@@ -2509,22 +2535,24 @@ export default function App() {
                   </div>
                 </div>
               )}
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-3">
                 <KpiTile label="Total Calls" value={activityKPIs.totalCalls.toLocaleString()} icon={<Phone/>} color="#ea580c"/>
                 <KpiTile label="Followups" value={activityKPIs.totalFollowups.toLocaleString()} icon={<PhoneCall/>} color="#3b82f6"/>
-                <KpiTile label="Site Visits" value={activityKPIs.totalSiteVisits} icon={<MapPin/>} color="#10b981"/>
+                <KpiTile label="SV Planned" value={activityKPIs.totalSiteVisitPlanned} icon={<Calendar/>} color="#8b5cf6"/>
+                <KpiTile label="SV Done" value={activityKPIs.totalSiteVisitDone} icon={<MapPin/>} color="#10b981"/>
                 <KpiTile label="Bookings" value={activityKPIs.totalBookings} icon={<BookOpen/>} color="#8b5cf6"/>
                 <KpiTile label="Registration" value={activityKPIs.totalRegistrations} icon={<UserCheck/>} color="#f59e0b"/>
                 <KpiTile label="Cancellation" value={activityKPIs.totalCancellations} icon={<XCircle/>} color="#ef4444"/>
                 <KpiTile label="Collection" value={`₹${activityKPIs.totalCollection}L`} icon={<Banknote/>} color="#06b6d4"/>
                 <KpiTile label="Conversion %" value={`${activityKPIs.convRate}%`} icon={<TrendingUp/>} color="#a3e635"/>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-5">
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Scoped Leads <Briefcase className="h-4 w-4 text-orange-400"/></p><p className="text-3xl font-black text-white mt-1">{processedLeads.length}</p></div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Conversions <CheckCircle2 className="h-4 w-4 text-emerald-400"/></p><p className="text-3xl font-black text-emerald-400 mt-1">{processedLeads.filter(l=>["Booking Confirmed","Booked","Closed"].includes(l.status)).length}</p></div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Conv Rate <TrendingUp className="h-4 w-4 text-blue-400"/></p><p className="text-3xl font-black text-blue-400 mt-1">{conversionRate}%</p></div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Budget Vol <DollarSign className="h-4 w-4 text-orange-400"/></p><p className="text-3xl font-black text-white mt-1">₹{processedLeads.reduce((a,c)=>a+c.budget,0)}L</p></div>
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Site Visits <Calendar className="h-4 w-4 text-amber-400"/></p><p className="text-3xl font-black text-amber-400 mt-1">{processedLeads.filter(l=>l.status==="Site Visit Completed").length}</p></div>
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">SV Planned <Calendar className="h-4 w-4 text-violet-400"/></p><p className="text-3xl font-black text-violet-400 mt-1">{processedLeads.filter(l=>l.status==="Site Visit Planned").length}</p></div>
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">SV Done <MapPin className="h-4 w-4 text-emerald-400"/></p><p className="text-3xl font-black text-emerald-400 mt-1">{processedLeads.filter(l=>l.status==="Site Visit Completed").length}</p></div>
               </div>
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 space-y-4">
                 <h2 className="text-xs font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider"><Activity className="h-4 w-4"/> Action Queue</h2>
@@ -2606,10 +2634,10 @@ export default function App() {
                  <div className="overflow-x-auto border border-slate-800 rounded-xl bg-slate-900/40">
                    <table className="w-full text-left text-[10px] whitespace-nowrap">
                      <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold bg-slate-950">
-                      <tr><th className="p-3">Last Contacted</th><th className="p-3">User</th><th className="p-3">Client</th><th className="p-3">Phone</th><th className="p-3">Project</th><th className="p-3">Source</th><th className="p-3 text-center">Calls</th><th className="p-3 text-center">FU</th><th className="p-3 text-center">SV</th><th className="p-3 text-center">BK</th><th className="p-3 text-center">Reg.</th><th className="p-3 text-center">Cxl.</th><th className="p-3">Last Remark</th></tr>
+                      <tr><th className="p-3">Last Contacted</th><th className="p-3">User</th><th className="p-3">Client</th><th className="p-3">Phone</th><th className="p-3">Project</th><th className="p-3">Source</th><th className="p-3 text-center">Calls</th><th className="p-3 text-center">FU</th><th className="p-3 text-center">SV Plan</th><th className="p-3 text-center">SV Done</th><th className="p-3 text-center">BK</th><th className="p-3 text-center">Reg.</th><th className="p-3 text-center">Cxl.</th><th className="p-3">Last Remark</th></tr>
                      </thead>
                      <tbody className="divide-y divide-slate-800">
-                      {customerActivityRows.length===0?<tr><td colSpan="13" className="p-6 text-center text-slate-500 font-bold uppercase tracking-wider">No activity found</td></tr>:customerActivityRows.map((log,i)=>(
+                      {customerActivityRows.length===0?<tr><td colSpan="14" className="p-6 text-center text-slate-500 font-bold uppercase tracking-wider">No activity found</td></tr>:customerActivityRows.map((log,i)=>(
                         <tr key={log.id||i} className="hover:bg-slate-800/50 transition-colors">
                           <td className="p-3 font-mono text-slate-400">{formatDateTimeLabel({date:log.lastContactedDate,time:log.lastContactedTime})}</td>
                           <td className="p-3 font-bold text-white">{log.executive}</td>
@@ -2619,7 +2647,8 @@ export default function App() {
                           <td className="p-3 text-slate-400">{log.source}</td>
                           <td className="p-3 text-center font-mono font-black text-white">{log.callsMade}</td>
                           <td className="p-3 text-center text-blue-400 font-bold">{log.followup||"-"}</td>
-                          <td className="p-3 text-center text-emerald-400 font-bold">{log.siteVisit||"-"}</td>
+                          <td className="p-3 text-center text-violet-400 font-bold">{log.siteVisitPlanned||"-"}</td>
+                          <td className="p-3 text-center text-emerald-400 font-bold">{log.siteVisitDone||"-"}</td>
                           <td className="p-3 text-center text-purple-400 font-bold">{log.booking||"-"}</td>
                           <td className="p-3 text-center text-amber-400 font-bold">{log.registration||"-"}</td>
                           <td className="p-3 text-center text-rose-400 font-bold">{log.cancellation||"-"}</td>
@@ -2745,13 +2774,14 @@ export default function App() {
               <div className="space-y-5">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                   <div><h3 className="text-sm font-black text-white uppercase tracking-wider">Selected Range Full View</h3><p className="text-[10px] text-slate-500 mt-1">{reportStartDate} to {reportEndDate}</p></div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 text-[10px]">
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Calls</p><p className="text-lg font-black text-white font-mono">{selectedRangeReportTotals.people.calls}</p></div>
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Followup</p><p className="text-lg font-black text-blue-400 font-mono">{selectedRangeReportTotals.people.followup}</p></div>
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Site Visit</p><p className="text-lg font-black text-emerald-400 font-mono">{selectedRangeReportTotals.people.siteVisit}</p></div>
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Booking</p><p className="text-lg font-black text-purple-400 font-mono">{selectedRangeReportTotals.people.booking}</p></div>
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Conversion</p><p className="text-lg font-black text-orange-400 font-mono">{selectedRangeReportTotals.source.percentage}%</p></div>
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Cancellation</p><p className="text-lg font-black text-rose-400 font-mono">{selectedRangeReportTotals.people.cancellation}</p></div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-2 text-[10px]">
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Calls</p><p className="text-lg font-black text-white font-mono">{formatReportValue(selectedRangeReportTotals.people.calls)}</p></div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Followup</p><p className="text-lg font-black text-blue-400 font-mono">{formatReportValue(selectedRangeReportTotals.people.followup)}</p></div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">SV Planned</p><p className="text-lg font-black text-violet-400 font-mono">{formatReportValue(selectedRangeReportTotals.people.siteVisitPlanned)}</p></div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">SV Done</p><p className="text-lg font-black text-emerald-400 font-mono">{formatReportValue(selectedRangeReportTotals.people.siteVisitDone)}</p></div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Booking</p><p className="text-lg font-black text-purple-400 font-mono">{formatReportValue(selectedRangeReportTotals.people.booking)}</p></div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Conversion</p><p className="text-lg font-black text-orange-400 font-mono">{formatReportValue(`${selectedRangeReportTotals.source.percentage}%`)}</p></div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><p className="text-slate-500 uppercase font-bold">Cancellation</p><p className="text-lg font-black text-rose-400 font-mono">{formatReportValue(selectedRangeReportTotals.people.cancellation)}</p></div>
                 </div>
               </div>
                 {renderActiveRangeReportTable()}
@@ -2765,9 +2795,9 @@ export default function App() {
                 {renderSourceReportTable(`Month Sourcewise (${monthStartDate} to ${TODAY_STR})`, monthSourceReport)}
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl"><h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><TrendingUp className="h-4 w-4"/> Daily Activity Trajectory</h3><div className="h-72 w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={callsTrendData} margin={{top:5,right:20,left:-20,bottom:5}}><defs><linearGradient id="colorCalls" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false}/><XAxis dataKey="date" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false}/><YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false}/><Tooltip contentStyle={{backgroundColor:'#0f172a',border:'1px solid #1e293b',borderRadius:'12px',fontSize:'12px',color:'#fff'}} itemStyle={{fontWeight:'900'}}/><Legend wrapperStyle={{fontSize:'10px',fontWeight:'700',paddingTop:'10px'}}/><Area type="monotone" dataKey="calls" name="Total Calls" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorCalls)"/><Line type="monotone" dataKey="siteVisits" name="Site Visits" stroke="#10b981" strokeWidth={3} dot={{r:4}}/><Line type="monotone" dataKey="bookings" name="Bookings" stroke="#8b5cf6" strokeWidth={3} dot={{r:4}}/></ComposedChart></ResponsiveContainer></div></div>
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl"><h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><TrendingUp className="h-4 w-4"/> Daily Activity Trajectory</h3><div className="h-72 w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={callsTrendData} margin={{top:5,right:20,left:-20,bottom:5}}><defs><linearGradient id="colorCalls" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false}/><XAxis dataKey="date" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false}/><YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false}/><Tooltip contentStyle={{backgroundColor:'#0f172a',border:'1px solid #1e293b',borderRadius:'12px',fontSize:'12px',color:'#fff'}} itemStyle={{fontWeight:'900'}}/><Legend wrapperStyle={{fontSize:'10px',fontWeight:'700',paddingTop:'10px'}}/><Area type="monotone" dataKey="calls" name="Total Calls" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorCalls)"/><Line type="monotone" dataKey="siteVisitPlanned" name="SV Planned" stroke="#8b5cf6" strokeWidth={3} dot={{r:4}}/><Line type="monotone" dataKey="siteVisitDone" name="SV Done" stroke="#10b981" strokeWidth={3} dot={{r:4}}/><Line type="monotone" dataKey="bookings" name="Bookings" stroke="#f59e0b" strokeWidth={3} dot={{r:4}}/></ComposedChart></ResponsiveContainer></div></div>
                 <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl"><h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><PieChart className="h-4 w-4"/> Source Origination Share</h3><div className="h-72 w-full"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={sourcewisePieData} cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={4} dataKey="value">{sourcewisePieData.map((entry,index)=><Cell key={`cell-${index}`} fill={PIE_COLORS[index%PIE_COLORS.length]} stroke="rgba(0,0,0,0.2)"/>)}</Pie><Tooltip contentStyle={{backgroundColor:'#0f172a',border:'1px solid #1e293b',borderRadius:'12px',fontSize:'12px',color:'#fff'}} itemStyle={{fontWeight:'900'}}/><Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{fontSize:'10px',fontWeight:'700'}}/></PieChart></ResponsiveContainer></div></div>
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl col-span-1 lg:col-span-2"><h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><Users className="h-4 w-4"/> Executive Matrix Board</h3><div className="overflow-x-auto"><table className="w-full text-left text-[10px] whitespace-nowrap"><thead className="border-b border-slate-800 text-slate-500 uppercase font-bold"><tr><th className="p-3">Personnel</th><th className="p-3 text-center">Calls</th><th className="p-3 text-center">Followup</th><th className="p-3 text-center text-emerald-400">Site Visits</th><th className="p-3 text-center text-purple-400">Bookings</th><th className="p-3 text-center text-amber-400">Reg.</th><th className="p-3 text-center text-rose-400">Cxl.</th><th className="p-3 text-center text-blue-400">Coll.</th></tr></thead><tbody className="divide-y divide-slate-800">{execDetailedMatrix.map(e=><tr key={e.name} className="hover:bg-slate-900/40"><td className="p-3 font-black text-white">{e.name}</td><td className="p-3 text-center font-mono">{e.calls}</td><td className="p-3 text-center font-mono">{e.followups}</td><td className="p-3 text-center font-mono text-emerald-400">{e.siteVisits}</td><td className="p-3 text-center font-mono text-purple-400">{e.bookings}</td><td className="p-3 text-center font-mono text-amber-400">{e.registrations}</td><td className="p-3 text-center font-mono text-rose-400">{e.cancellations}</td><td className="p-3 text-center font-mono text-blue-400">{e.collection}</td></tr>)}</tbody></table></div></div>
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl col-span-1 lg:col-span-2"><h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2"><Users className="h-4 w-4"/> Executive Matrix Board</h3><div className="overflow-x-auto"><table className="w-full text-left text-[10px] whitespace-nowrap"><thead className="border-b border-slate-800 text-slate-500 uppercase font-bold"><tr><th className="p-3">Personnel</th><th className="p-3 text-center">Calls</th><th className="p-3 text-center">Followup</th><th className="p-3 text-center text-violet-400">SV Planned</th><th className="p-3 text-center text-emerald-400">SV Done</th><th className="p-3 text-center text-purple-400">Bookings</th><th className="p-3 text-center text-amber-400">Reg.</th><th className="p-3 text-center text-rose-400">Cxl.</th><th className="p-3 text-center text-blue-400">Coll.</th></tr></thead><tbody className="divide-y divide-slate-800">{execDetailedMatrix.map(e=><tr key={e.name} className="hover:bg-slate-900/40"><td className="p-3 font-black text-white">{e.name}</td><td className="p-3 text-center font-mono">{e.calls}</td><td className="p-3 text-center font-mono">{e.followups}</td><td className="p-3 text-center font-mono text-violet-400">{e.siteVisitPlanned}</td><td className="p-3 text-center font-mono text-emerald-400">{e.siteVisitDone}</td><td className="p-3 text-center font-mono text-purple-400">{e.bookings}</td><td className="p-3 text-center font-mono text-amber-400">{e.registrations}</td><td className="p-3 text-center font-mono text-rose-400">{e.cancellations}</td><td className="p-3 text-center font-mono text-blue-400">{e.collection}</td></tr>)}</tbody></table></div></div>
               </div>
             </div>
           )}

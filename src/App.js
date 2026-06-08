@@ -1227,7 +1227,7 @@ export default function App() {
   const [selectedWhatsappTemplateId, setSelectedWhatsappTemplateId] = useState("");
   const [isLeadEditMode, setIsLeadEditMode] = useState(false);
   const [isLeadUpdateSaving, setIsLeadUpdateSaving] = useState(false);
-  const [leadEditDraft, setLeadEditDraft] = useState({ status:"", assignedTo:"Unassigned", project:"", statusEventDate:"", statusEventRemark:"" });
+  const [leadEditDraft, setLeadEditDraft] = useState({ status:"", assignedTo:"Unassigned", project:"", phone:"", altPhone:"", statusEventDate:"", statusEventRemark:"" });
   const [leadStatusEventPopup, setLeadStatusEventPopup] = useState({ isOpen:false, status:"", previousStatus:"", date:"", event:"" });
   const [newWhatsappTemplateForm, setNewWhatsappTemplateForm] = useState({ project:"All", title:"", message:"", imageUrl:"", imageDataUrl:"" });
   const allowBrowserExitRef = useRef(false);
@@ -1657,11 +1657,18 @@ export default function App() {
 
   const dashboardActionQueueLeads = useMemo(()=>{
     if(!currentUser)return[];
-    if(currentUser.role==="Admin")return leads.filter(l=>l.assignedTo==="Unassigned"||l.status==="Site Visit Planned");
-    if(currentUser.role==="Manager")return leads.filter(l=>isLeadInCurrentManagerScope(l)&&(l.assignedTo==="Unassigned"||l.status==="Site Visit Planned"));
-    if(["Executive","Telecaller"].includes(currentUser.role))return leads.filter(isAssignedToCurrentUser);
+    const followUpReminderStatuses = ["Contacted","Follow-Up","Negotiation","RNR","Switched Off"];
+    const isImmediateAction = (lead) => (
+      lead.assignedTo === "Unassigned" ||
+      isFreshLead(lead) ||
+      (followUpReminderStatuses.includes(lead.status) && lead.nextFollowUp === TODAY_STR) ||
+      (lead.status === "Site Visit Planned" && lead.siteVisitTentativeDate === TODAY_STR)
+    );
+    if(currentUser.role==="Admin")return leads.filter(isImmediateAction);
+    if(currentUser.role==="Manager")return leads.filter(l=>isLeadInCurrentManagerScope(l)&&isImmediateAction(l));
+    if(["Executive","Telecaller"].includes(currentUser.role))return leads.filter(l=>isAssignedToCurrentUser(l)&&isImmediateAction(l));
     return[];
-  },[leads,currentUser,isAssignedToCurrentUser,isLeadInCurrentManagerScope]);
+  },[leads,currentUser,isAssignedToCurrentUser,isLeadInCurrentManagerScope,TODAY_STR]);
 
   const newLeadDashboardItems = useMemo(()=>{
     if(!currentUser)return[];
@@ -1679,15 +1686,16 @@ export default function App() {
 
   const dueFollowUpLeads = useMemo(() => {
     if (!currentUser) return [];
+    const followUpReminderStatuses = ["Contacted","Follow-Up","Negotiation","RNR","Switched Off"];
     return processedLeads
-      .filter(l => l.nextFollowUp && l.nextFollowUp !== "None" && l.nextFollowUp <= TODAY_STR && !["New","Assigned","Closed","Booked","Booking Confirmed","Not Interested","Wrong Number"].includes(l.status))
+      .filter(l => followUpReminderStatuses.includes(l.status) && l.nextFollowUp && l.nextFollowUp !== "None" && l.nextFollowUp === TODAY_STR)
       .sort((a,b)=>a.nextFollowUp.localeCompare(b.nextFollowUp));
   }, [processedLeads, currentUser, TODAY_STR]);
 
   const appointmentReminderLeads = useMemo(() => {
     if (!currentUser) return [];
     return processedLeads
-      .filter(l => l.siteVisitTentativeDate && l.siteVisitTentativeDate <= TODAY_STR && l.status === "Site Visit Planned")
+      .filter(l => l.siteVisitTentativeDate && l.siteVisitTentativeDate === TODAY_STR && l.status === "Site Visit Planned")
       .sort((a,b)=>a.siteVisitTentativeDate.localeCompare(b.siteVisitTentativeDate));
   }, [processedLeads, currentUser, TODAY_STR]);
 
@@ -1698,7 +1706,7 @@ export default function App() {
     return leads.filter(l=>{
       if(terminalStatuses.includes(l.status))return false;
       const ageDays = l.dateCreated ? Math.floor((today-new Date(l.dateCreated))/(1000*60*60*24)) : 0;
-      const isUnattended = (["New","Assigned"].includes(l.status)&&ageDays>=1) || (l.nextFollowUp&&l.nextFollowUp!=="None"&&l.nextFollowUp<TODAY_STR);
+      const isUnattended = ["New","Assigned"].includes(l.status)&&ageDays>=1;
       if(!isUnattended)return false;
       if(currentUser.role==="Admin")return true;
       if(currentUser.role==="Manager")return isLeadInCurrentManagerScope(l);
@@ -1781,6 +1789,8 @@ export default function App() {
       status: getEditableLeadStatus(selectedLead.status),
       assignedTo: selectedLead.assignedTo || "Unassigned",
       project: selectedLead.project || "",
+      phone: selectedLead.phone || "",
+      altPhone: selectedLead.altPhone || "",
       statusEventDate: "",
       statusEventRemark: "",
     });
@@ -1793,6 +1803,8 @@ export default function App() {
         status: getEditableLeadStatus(selectedLead.status),
         assignedTo: selectedLead.assignedTo || "Unassigned",
         project: selectedLead.project || "",
+        phone: selectedLead.phone || "",
+        altPhone: selectedLead.altPhone || "",
         statusEventDate: "",
         statusEventRemark: "",
       });
@@ -1862,9 +1874,22 @@ export default function App() {
     const targetStatus = leadEditDraft.status || currentLead.status || "New";
     const targetAssignedTo = ["Admin","Manager"].includes(currentUser.role) ? (leadEditDraft.assignedTo || "Unassigned") : (currentLead.assignedTo || "Unassigned");
     const targetProject = leadEditDraft.project || currentLead.project || "";
+    const targetPhone = stripPhone(leadEditDraft.phone || currentLead.phone);
+    const targetAltPhone = stripPhone(leadEditDraft.altPhone || "");
     const assignedUser = targetAssignedTo !== "Unassigned" ? users.find(u => u.name === targetAssignedTo) : null;
     const project = projects.find(p => p.name === targetProject);
     const statusChanged = (currentLead.status || "") !== targetStatus;
+    const phoneChanged = stripPhone(currentLead.phone) !== targetPhone;
+    const altPhoneChanged = stripPhone(currentLead.altPhone) !== targetAltPhone;
+    if (!targetPhone) {
+      triggerToastAlert("Please enter the primary phone number.");
+      return;
+    }
+    const duplicatePhoneLead = leads.find(l => l.id !== currentLead.id && stripPhone(l.phone) === targetPhone);
+    if (duplicatePhoneLead) {
+      triggerToastAlert(`This phone number already exists for ${duplicatePhoneLead.name}.`);
+      return;
+    }
     const statusEventConfig = getStatusEventConfig(targetStatus);
     const statusEventNeedsDate = statusEventConfig?.dateRequired !== false;
     if (statusChanged && statusEventConfig && ((statusEventNeedsDate && !leadEditDraft.statusEventDate) || !leadEditDraft.statusEventRemark?.trim())) {
@@ -1896,6 +1921,8 @@ export default function App() {
     }
     if ((currentLead.assignedTo || "Unassigned") !== targetAssignedTo) logs.push(makeHistoryLog(currentUser.name, `Assigned to: ${targetAssignedTo}`));
     if ((currentLead.project || "") !== targetProject) logs.push(makeHistoryLog(currentUser.name, `Project changed from ${currentLead.project || "Not set"} to ${targetProject}.`));
+    if (phoneChanged) logs.push(makeHistoryLog(currentUser.name, `Primary phone changed from ${currentLead.phone || "Not set"} to ${targetPhone}.`));
+    if (altPhoneChanged) logs.push(makeHistoryLog(currentUser.name, `Alternate phone changed from ${currentLead.altPhone || "Not set"} to ${targetAltPhone || "Not set"}.`));
     if (!logs.length) {
       setIsLeadEditMode(false);
       setSelectedLead(null);
@@ -1914,6 +1941,8 @@ export default function App() {
         nextFollowUp: ["Contacted","Follow-Up","Negotiation","RNR","Switched Off"].includes(targetStatus) && leadEditDraft.statusEventDate ? leadEditDraft.statusEventDate : l.nextFollowUp,
         siteVisitTentativeDate: targetStatus.startsWith("Site Visit") && leadEditDraft.statusEventDate ? leadEditDraft.statusEventDate : l.siteVisitTentativeDate,
         bookingDate: (targetStatus.startsWith("Booking") || targetStatus === "Booked") && leadEditDraft.statusEventDate ? leadEditDraft.statusEventDate : l.bookingDate,
+        phone: targetPhone,
+        altPhone: targetAltPhone,
         assignedTo: targetAssignedTo,
         assignedToId: assignedUser?.id || null,
         assignedAt: assignmentChanged && assignedUser ? Date.now() : l.assignedAt,
@@ -2140,7 +2169,7 @@ export default function App() {
   const handleCallFeedback = (leadId, feedbackData) => {
     const { notes, outcome, followUpDate, callDuration } = feedbackData;
     const log = makeHistoryLog(currentUser.name, `[Mobile Call]: Duration ${Math.floor(callDuration/60)}m${callDuration%60}s. Outcome: ${outcome}.${notes ? ` Notes: ${notes}` : ""}${followUpDate ? ` Next follow-up: ${followUpDate}` : ""}`);
-    const updated = leads.map(l => { if (l.id !== leadId) return l; return { ...l, status: outcome || l.status, lastFollowUp: TODAY_STR, nextFollowUp: followUpDate || l.nextFollowUp, history: [log, ...(l.history || [])] }; });
+    const updated = leads.map(l => { if (l.id !== leadId) return l; return { ...l, status: outcome || l.status, lastFollowUp: TODAY_STR, nextFollowUp: followUpDate || "None", history: [log, ...(l.history || [])] }; });
     setLeads(updated);
     if (selectedLead && selectedLead.id === leadId) { setSelectedLead(prev => ({ ...prev, status: outcome || prev.status, history: [log, ...(prev.history || [])] })); }
     triggerToastAlert("Call feedback saved.");
@@ -2438,13 +2467,13 @@ export default function App() {
                   <div className="bg-slate-950 border border-blue-500/30 rounded-2xl p-5 shadow-xl">
                     <h2 className="text-xs font-black text-blue-400 flex items-center gap-2 uppercase tracking-wider mb-4"><Clock className="h-4 w-4"/> Follow-Up Reminders</h2>
                     <div className="space-y-2">
-                      {dueFollowUpLeads.length===0?<p className="text-xs text-slate-500 font-bold py-3">No due follow-ups.</p>:dueFollowUpLeads.slice(0,5).map(l=><button key={l.id} onClick={()=>setSelectedLead(l)} className="w-full text-left bg-slate-900/70 hover:bg-slate-900 border border-slate-800 hover:border-blue-500/40 rounded-xl p-3 transition-colors"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs font-black text-white truncate">{l.name}</p><p className="text-[10px] text-slate-500 font-mono mt-0.5">{l.phone}</p></div><span className={`text-[10px] font-black font-mono ${l.nextFollowUp<TODAY_STR?"text-rose-400":"text-amber-400"}`}>{l.nextFollowUp}</span></div></button>)}
+                      {dueFollowUpLeads.length===0?<p className="text-xs text-slate-500 font-bold py-3">No follow-ups scheduled for today.</p>:dueFollowUpLeads.slice(0,5).map(l=><button key={l.id} onClick={()=>setSelectedLead(l)} className="w-full text-left bg-slate-900/70 hover:bg-slate-900 border border-slate-800 hover:border-blue-500/40 rounded-xl p-3 transition-colors"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs font-black text-white truncate">{l.name}</p><p className="text-[10px] text-slate-500 font-mono mt-0.5">{l.phone}</p></div><span className="text-[10px] font-black font-mono text-amber-400">{l.nextFollowUp}</span></div></button>)}
                     </div>
                   </div>
                   <div className="bg-slate-950 border border-amber-500/30 rounded-2xl p-5 shadow-xl">
                     <h2 className="text-xs font-black text-amber-400 flex items-center gap-2 uppercase tracking-wider mb-4"><Calendar className="h-4 w-4"/> Appointment Reminders</h2>
                     <div className="space-y-2">
-                      {appointmentReminderLeads.length===0?<p className="text-xs text-slate-500 font-bold py-3">No due appointments.</p>:appointmentReminderLeads.slice(0,5).map(l=><button key={l.id} onClick={()=>setSelectedLead(l)} className="w-full text-left bg-slate-900/70 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/40 rounded-xl p-3 transition-colors"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs font-black text-white truncate">{l.name}</p><p className="text-[10px] text-slate-500 mt-0.5 truncate">{l.project}</p></div><span className={`text-[10px] font-black font-mono ${l.siteVisitTentativeDate<TODAY_STR?"text-rose-400":"text-amber-400"}`}>{l.siteVisitTentativeDate}</span></div></button>)}
+                      {appointmentReminderLeads.length===0?<p className="text-xs text-slate-500 font-bold py-3">No appointments scheduled for today.</p>:appointmentReminderLeads.slice(0,5).map(l=><button key={l.id} onClick={()=>setSelectedLead(l)} className="w-full text-left bg-slate-900/70 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/40 rounded-xl p-3 transition-colors"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs font-black text-white truncate">{l.name}</p><p className="text-[10px] text-slate-500 mt-0.5 truncate">{l.project}</p></div><span className="text-[10px] font-black font-mono text-amber-400">{l.siteVisitTentativeDate}</span></div></button>)}
                     </div>
                   </div>
                 </div>
@@ -2785,6 +2814,8 @@ export default function App() {
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Assigned</p>{isLeadEditMode&&["Admin","Manager"].includes(currentUser.role)?<select value={leadEditDraft.assignedTo||"Unassigned"} onChange={e=>setLeadEditDraft({...leadEditDraft,assignedTo:e.target.value})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500"><option value="Unassigned">Unassigned</option>{assignableUsers.map(u=><option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}</select>:<p className="font-bold text-white truncate mt-1">{selectedLead.assignedTo||"Unassigned"}</p>}</div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Project / Budget</p>{isLeadEditMode?<select value={leadEditDraft.project||""} onChange={e=>setLeadEditDraft({...leadEditDraft,project:e.target.value})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-orange-400 focus:outline-none focus:border-orange-500">{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select>:<p className="font-bold text-orange-400 truncate mt-1">{selectedLead.project} <span className="text-slate-500 mx-1">•</span> <span className="font-mono text-emerald-400">₹{selectedLead.budget}L</span></p>}</div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Source</p><p className="font-bold text-slate-300 mt-1 truncate">{selectedLead.source}</p></div>
+               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Primary Phone</p>{isLeadEditMode?<input type="tel" value={leadEditDraft.phone||""} onChange={e=>setLeadEditDraft({...leadEditDraft,phone:stripPhone(e.target.value)})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 font-mono focus:outline-none focus:border-orange-500"/>:<p className="font-bold text-slate-200 font-mono truncate mt-1">{selectedLead.phone||"Not set"}</p>}</div>
+               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Alt Phone</p>{isLeadEditMode?<input type="tel" value={leadEditDraft.altPhone||""} onChange={e=>setLeadEditDraft({...leadEditDraft,altPhone:stripPhone(e.target.value)})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 font-mono focus:outline-none focus:border-orange-500"/>:<p className="font-bold text-slate-300 font-mono truncate mt-1">{selectedLead.altPhone||"Not set"}</p>}</div>
                {isLeadEditMode&&leadEditDraft.statusEventDate&&<div className="col-span-2 bg-orange-950/20 border border-orange-500/20 p-3 rounded-xl"><p className="text-[9px] font-bold text-orange-300 uppercase tracking-wider">Event Details</p><p className="text-[10px] text-slate-300 mt-1"><span className="font-mono text-orange-200">{leadEditDraft.statusEventDate}</span>{leadEditDraft.statusEventRemark?` - ${leadEditDraft.statusEventRemark}`:""}</p></div>}
                <div className="col-span-2 flex justify-end gap-2">{isLeadEditMode?<><button type="button" disabled={isLeadUpdateSaving} onClick={cancelLeadDrawerEdit} className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-900 border border-slate-700 text-slate-300 hover:text-white disabled:opacity-50">Cancel</button><button type="button" disabled={isLeadUpdateSaving} onClick={commitLeadDrawerUpdate} className="px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-orange-600 hover:bg-orange-700 disabled:bg-slate-700 text-white flex items-center gap-1.5"><Check className="h-3 w-3"/> {isLeadUpdateSaving?"Saving...":"OK"}</button></>:<button type="button" onClick={startLeadDrawerEdit} className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1.5"><Edit2 className="h-3 w-3"/> Edit Lead</button>}</div>
              </div>

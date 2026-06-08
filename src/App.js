@@ -152,6 +152,9 @@ function formatReportValue(value) {
   if (typeof value === "string" && /^(0|0\.0)%?$/.test(value.trim())) return "-";
   return value;
 }
+function calculateBookingProductivity(booking, calls) {
+  return calls ? `${(((booking || 0) / calls) * 100).toFixed(1)}%` : "0.0%";
+}
 function isTimestampToday(value) {
   if (!value) return false;
   const date = new Date(value);
@@ -1586,7 +1589,7 @@ export default function App() {
       map[name].registration += l.registration || 0;
       map[name].cancellation += l.cancellation || 0;
     });
-    return Object.values(map).map(row=>({...row,productivity:(row.calls||0)+(row.followup||0)+(row.siteVisitPlanned||0)+(row.siteVisitDone||0)+(row.booking||0)+(row.registration||0)})).sort((a,b)=>a.name.localeCompare(b.name));
+    return Object.values(map).map(row=>({...row,productivity:calculateBookingProductivity(row.booking,row.calls)})).sort((a,b)=>a.name.localeCompare(b.name));
   },[reportPeopleUsers]);
 
   const todayPeopleActivitySummary = useMemo(()=>summarizePeopleActivity(reportScopedActivityLogs.filter(l=>l.date===TODAY_STR)),[summarizePeopleActivity,reportScopedActivityLogs,TODAY_STR]);
@@ -1698,7 +1701,7 @@ export default function App() {
       row.registration += log.registration || 0;
       row.cancellation += log.cancellation || 0;
     });
-    return Object.values(map).map(row=>({...row,enquiry:row.enquirySet.size,productivity:(row.calls||0)+(row.followup||0)+(row.siteVisitPlanned||0)+(row.siteVisitDone||0)+(row.booking||0)+(row.registration||0)})).sort((a,b)=>a.executive.localeCompare(b.executive)||a.project.localeCompare(b.project));
+    return Object.values(map).map(row=>({...row,enquiry:row.enquirySet.size,productivity:calculateBookingProductivity(row.booking,row.calls)})).sort((a,b)=>a.executive.localeCompare(b.executive)||a.project.localeCompare(b.project));
   },[reportScopedLeads,reportScopedActivityLogs,isDateInRange,reportStartDate,reportEndDate]);
 
   const rangeExecutiveSourceReport = useMemo(()=>{
@@ -1723,7 +1726,7 @@ export default function App() {
       row.registration += log.registration || 0;
       row.cancellation += log.cancellation || 0;
     });
-    return Object.values(map).map(row=>({...row,enquiry:row.enquirySet.size,productivity:(row.calls||0)+(row.followup||0)+(row.siteVisitPlanned||0)+(row.siteVisitDone||0)+(row.booking||0)+(row.registration||0)})).sort((a,b)=>a.executive.localeCompare(b.executive)||a.source.localeCompare(b.source));
+    return Object.values(map).map(row=>({...row,enquiry:row.enquirySet.size,productivity:calculateBookingProductivity(row.booking,row.calls)})).sort((a,b)=>a.executive.localeCompare(b.executive)||a.source.localeCompare(b.source));
   },[reportScopedLeads,reportScopedActivityLogs,isDateInRange,reportStartDate,reportEndDate]);
 
   const buildReportCustomerDetails = useCallback((leadMatcher, logMatcher) => {
@@ -2340,9 +2343,10 @@ export default function App() {
 
   const selectedRangeReportTotals = useMemo(()=>{
     const people = rangePeopleActivitySummary.reduce((acc,row)=>{
-      acc.calls += row.calls || 0; acc.followup += row.followup || 0; acc.siteVisitPlanned += row.siteVisitPlanned || 0; acc.siteVisitDone += row.siteVisitDone || 0; acc.siteVisit += row.siteVisit || 0; acc.booking += row.booking || 0; acc.registration += row.registration || 0; acc.cancellation += row.cancellation || 0; acc.productivity += row.productivity || 0;
+      acc.calls += row.calls || 0; acc.followup += row.followup || 0; acc.siteVisitPlanned += row.siteVisitPlanned || 0; acc.siteVisitDone += row.siteVisitDone || 0; acc.siteVisit += row.siteVisit || 0; acc.booking += row.booking || 0; acc.registration += row.registration || 0; acc.cancellation += row.cancellation || 0;
       return acc;
     },{calls:0,followup:0,siteVisitPlanned:0,siteVisitDone:0,siteVisit:0,booking:0,registration:0,cancellation:0,productivity:0});
+    people.productivity = calculateBookingProductivity(people.booking, people.calls);
     const source = rangeSourceReport.reduce((acc,row)=>{
       acc.enquiry += row.enquiry || 0; acc.siteVisitPlanned += row.siteVisitPlanned || 0; acc.siteVisitDone += row.siteVisitDone || 0; acc.siteVisit += row.siteVisit || 0; acc.conversion += row.conversion || 0;
       return acc;
@@ -2450,7 +2454,7 @@ export default function App() {
     };
     const executiveSummarySection = {
       title:"EXECUTIVEWISE SUMMARY",
-      headers:["Executive","Calls made","Followup","SV Plan","SV Done","Booking","Registration","Cancellation","Productivity"],
+      headers:["Executive","Calls made","Followup","SV Plan","SV Done","Booking","Registration","Cancellation","Productivity %"],
       rows:personNames.map(name=>{
         const logs = logsInRange.filter(log=>(log.executive || "System")===name);
         const calls = logs.reduce((sum,log)=>sum+(log.callsMade||0),0);
@@ -2460,7 +2464,7 @@ export default function App() {
         const booking = logs.reduce((sum,log)=>sum+(log.booking||0),0);
         const registration = logs.reduce((sum,log)=>sum+(log.registration||0),0);
         const cancellation = logs.reduce((sum,log)=>sum+(log.cancellation||0),0);
-        return fmtCells([name,calls,followup,svPlan,svDone,booking,registration,cancellation,calls+followup+svPlan+svDone+booking+registration]);
+        return fmtCells([name,calls,followup,svPlan,svDone,booking,registration,cancellation,calculateBookingProductivity(booking,calls)]);
       }),
       totals:null,
     };
@@ -2528,15 +2532,18 @@ export default function App() {
       return {title:"Sourcewise-Projectwise Report",headers:["Source","Project","Enquiry","SV Planned","SV Done","Booking","Conversion","Cancellation","Percentage"],rows:rangeSourceProjectReport.map(r=>fmtRow([r.source,r.project,r.enquiry,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.conversion,r.cancellation,`${r.percentage}%`])),rowKeys:rangeSourceProjectReport.map(r=>`source-project:${r.source}:${r.project}`),details:rangeSourceProjectReport.map(r=>buildReportCustomerDetails(lead=>lead.source===r.source&&lead.project===r.project,log=>log.source===r.source&&log.project===r.project)),totals:fmtRow(["TOTAL","",totals.enquiry,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.conversion,totals.cancellation,`${totals.percentage}%`])};
     }
     if(selectedMatrixReport==="ExecutiveProjectwise"){
-      const totals=sumRows(rangeExecutiveProjectReport,["enquiry","calls","followup","siteVisitPlanned","siteVisitDone","booking","registration","cancellation","productivity"]);
-      return {title:"Executivewise-Projectwise Report",headers:["Executive","Project","Enquiry","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity"],rows:rangeExecutiveProjectReport.map(r=>fmtRow([r.executive,r.project,r.enquiry,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),rowKeys:rangeExecutiveProjectReport.map(r=>`executive-project:${r.executive}:${r.project}`),details:rangeExecutiveProjectReport.map(r=>buildReportCustomerDetails(lead=>(lead.assignedTo||"Unassigned")===r.executive&&lead.project===r.project,log=>(log.executive||"Unassigned")===r.executive&&log.project===r.project)),totals:fmtRow(["TOTAL","",totals.enquiry,totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
+      const totals=sumRows(rangeExecutiveProjectReport,["enquiry","calls","followup","siteVisitPlanned","siteVisitDone","booking","registration","cancellation"]);
+      totals.productivity=calculateBookingProductivity(totals.booking,totals.calls);
+      return {title:"Executivewise-Projectwise Report",headers:["Executive","Project","Enquiry","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity %"],rows:rangeExecutiveProjectReport.map(r=>fmtRow([r.executive,r.project,r.enquiry,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),rowKeys:rangeExecutiveProjectReport.map(r=>`executive-project:${r.executive}:${r.project}`),details:rangeExecutiveProjectReport.map(r=>buildReportCustomerDetails(lead=>(lead.assignedTo||"Unassigned")===r.executive&&lead.project===r.project,log=>(log.executive||"Unassigned")===r.executive&&log.project===r.project)),totals:fmtRow(["TOTAL","",totals.enquiry,totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
     }
     if(selectedMatrixReport==="ExecutiveSourcewise"){
-      const totals=sumRows(rangeExecutiveSourceReport,["enquiry","calls","followup","siteVisitPlanned","siteVisitDone","booking","registration","cancellation","productivity"]);
-      return {title:"Executivewise-Sourcewise Report",headers:["Executive","Source","Enquiry","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity"],rows:rangeExecutiveSourceReport.map(r=>fmtRow([r.executive,r.source,r.enquiry,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),rowKeys:rangeExecutiveSourceReport.map(r=>`executive-source:${r.executive}:${r.source}`),details:rangeExecutiveSourceReport.map(r=>buildReportCustomerDetails(lead=>(lead.assignedTo||"Unassigned")===r.executive&&lead.source===r.source,log=>(log.executive||"Unassigned")===r.executive&&log.source===r.source)),totals:fmtRow(["TOTAL","",totals.enquiry,totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
+      const totals=sumRows(rangeExecutiveSourceReport,["enquiry","calls","followup","siteVisitPlanned","siteVisitDone","booking","registration","cancellation"]);
+      totals.productivity=calculateBookingProductivity(totals.booking,totals.calls);
+      return {title:"Executivewise-Sourcewise Report",headers:["Executive","Source","Enquiry","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity %"],rows:rangeExecutiveSourceReport.map(r=>fmtRow([r.executive,r.source,r.enquiry,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),rowKeys:rangeExecutiveSourceReport.map(r=>`executive-source:${r.executive}:${r.source}`),details:rangeExecutiveSourceReport.map(r=>buildReportCustomerDetails(lead=>(lead.assignedTo||"Unassigned")===r.executive&&lead.source===r.source,log=>(log.executive||"Unassigned")===r.executive&&log.source===r.source)),totals:fmtRow(["TOTAL","",totals.enquiry,totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
     }
-    const totals=sumRows(rangePeopleActivitySummary,["calls","followup","siteVisitPlanned","siteVisitDone","booking","registration","cancellation","productivity"]);
-    return {title:"Executivewise Report",headers:["Name","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity"],rows:rangePeopleActivitySummary.map(r=>fmtRow([r.name,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),rowKeys:rangePeopleActivitySummary.map(r=>`executive:${r.name}`),details:rangePeopleActivitySummary.map(r=>buildReportCustomerDetails(lead=>(lead.assignedTo||"Unassigned")===r.name,log=>(log.executive||"Unassigned")===r.name)),totals:fmtRow(["TOTAL",totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
+    const totals=sumRows(rangePeopleActivitySummary,["calls","followup","siteVisitPlanned","siteVisitDone","booking","registration","cancellation"]);
+    totals.productivity=calculateBookingProductivity(totals.booking,totals.calls);
+    return {title:"Executivewise Report",headers:["Name","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity %"],rows:rangePeopleActivitySummary.map(r=>fmtRow([r.name,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),rowKeys:rangePeopleActivitySummary.map(r=>`executive:${r.name}`),details:rangePeopleActivitySummary.map(r=>buildReportCustomerDetails(lead=>(lead.assignedTo||"Unassigned")===r.name,log=>(log.executive||"Unassigned")===r.name)),totals:fmtRow(["TOTAL",totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
   },[selectedMatrixReport,managementSummaryReport,performanceSummaryReport,rangePeopleActivitySummary,rangeSourceReport,rangeProjectReport,rangeSourceProjectReport,rangeExecutiveProjectReport,rangeExecutiveSourceReport,buildReportCustomerDetails]);
 
   useEffect(() => {
@@ -2562,7 +2569,13 @@ export default function App() {
     if(formatType==="excel"){
       const wb = XLSX.utils.book_new();
       const worksheetRows = hasSections ? [[activeRangeReport.title], [`${reportStartDate} to ${reportEndDate}`], [], ...sectionAoA] : [headers,...rows];
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(worksheetRows), activeRangeReport.title.slice(0,31));
+      const ws = XLSX.utils.aoa_to_sheet(worksheetRows);
+      const maxCols = worksheetRows.reduce((max,row)=>Math.max(max,row.length),0);
+      ws["!cols"] = Array.from({length:maxCols},(_,idx)=>{
+        const maxLen = worksheetRows.reduce((max,row)=>Math.max(max,String(row[idx] ?? "").length),0);
+        return { wch: Math.min(Math.max(maxLen + 2, idx===0 ? 16 : 10), idx===0 ? 26 : 18) };
+      });
+      XLSX.utils.book_append_sheet(wb, ws, activeRangeReport.title.slice(0,31));
       const buffer = XLSX.write(wb, { bookType:"xlsx", type:"array" });
       const blob = new Blob([buffer], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${fileStem}.xlsx`;document.body.appendChild(a);a.click();URL.revokeObjectURL(a.href);document.body.removeChild(a);
@@ -2593,7 +2606,7 @@ export default function App() {
       : `<h2>${esc(activeRangeReport.title)}</h2><table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${activeRangeReport.rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("")}<tr style="font-weight:700;background:#f8fafc">${activeRangeReport.totals.map(c=>`<td>${esc(c)}</td>`).join("")}</tr></tbody></table>`;
     const win = window.open("", "_blank");
     if(!win){ triggerToastAlert("Allow popup to export PDF."); return; }
-    win.document.write(`<html><head><title>${esc(fileStem)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px}h2{font-size:15px;margin-top:24px}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px}th,td{border:1px solid #111;padding:5px;text-align:left}th{background:#f1f5f9}.summary{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin:16px 0}.box{border:1px solid #ddd;padding:10px}.box b{display:block;font-size:16px}@media print{body{padding:12px}table{page-break-inside:auto}tr{page-break-inside:avoid}}</style></head><body><h1>${esc(activeRangeReport.title)}</h1><p>${esc(reportStartDate)} to ${esc(reportEndDate)}</p><div class="summary"><div class="box">Calls<b>${formatReportValue(selectedRangeReportTotals.people.calls)}</b></div><div class="box">Followup<b>${formatReportValue(selectedRangeReportTotals.people.followup)}</b></div><div class="box">SV Planned<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitPlanned)}</b></div><div class="box">SV Done<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitDone)}</b></div><div class="box">Booking<b>${formatReportValue(selectedRangeReportTotals.people.booking)}</b></div><div class="box">Conversion %<b>${formatReportValue(`${selectedRangeReportTotals.source.percentage}%`)}</b></div><div class="box">Cancellation<b>${formatReportValue(selectedRangeReportTotals.people.cancellation)}</b></div></div>${reportTables}<script>window.onload=()=>{window.print();}</script></body></html>`);
+    win.document.write(`<html><head><title>${esc(fileStem)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px}h2{font-size:15px;margin-top:24px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px;table-layout:auto}th,td{border:1px solid #111;padding:5px;text-align:center;vertical-align:middle}th{background:#f1f5f9;font-weight:700}td:first-child,th:first-child{text-align:left;min-width:120px}.summary{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin:16px 0}.box{border:1px solid #ddd;padding:10px;text-align:center}.box b{display:block;font-size:16px}@media print{body{padding:12px}table{page-break-inside:auto}tr{page-break-inside:avoid}}</style></head><body><h1>${esc(activeRangeReport.title)}</h1><p style="text-align:center">${esc(reportStartDate)} to ${esc(reportEndDate)}</p><div class="summary"><div class="box">Calls<b>${formatReportValue(selectedRangeReportTotals.people.calls)}</b></div><div class="box">Followup<b>${formatReportValue(selectedRangeReportTotals.people.followup)}</b></div><div class="box">SV Planned<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitPlanned)}</b></div><div class="box">SV Done<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitDone)}</b></div><div class="box">Booking<b>${formatReportValue(selectedRangeReportTotals.people.booking)}</b></div><div class="box">Conversion %<b>${formatReportValue(`${selectedRangeReportTotals.source.percentage}%`)}</b></div><div class="box">Cancellation<b>${formatReportValue(selectedRangeReportTotals.people.cancellation)}</b></div></div>${reportTables}<script>window.onload=()=>{window.print();}</script></body></html>`);
     win.document.close();
     triggerToastAlert("PDF report opened.");
   };
@@ -2603,7 +2616,7 @@ export default function App() {
       <h3 className="text-xs font-black text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2"><Users className="h-4 w-4 text-blue-400"/>{title}</h3>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-[10px] whitespace-nowrap">
-          <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold"><tr><th className="p-3">Name</th><th className="p-3 text-center">Calls</th><th className="p-3 text-center">Followup</th><th className="p-3 text-center">SV Planned</th><th className="p-3 text-center">SV Done</th><th className="p-3 text-center">Booking</th><th className="p-3 text-center">Registration</th><th className="p-3 text-center">Cancellation</th><th className="p-3 text-center">Productivity</th></tr></thead>
+          <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold"><tr><th className="p-3">Name</th><th className="p-3 text-center">Calls</th><th className="p-3 text-center">Followup</th><th className="p-3 text-center">SV Planned</th><th className="p-3 text-center">SV Done</th><th className="p-3 text-center">Booking</th><th className="p-3 text-center">Registration</th><th className="p-3 text-center">Cancellation</th><th className="p-3 text-center">Productivity %</th></tr></thead>
           <tbody className="divide-y divide-slate-800">
             {rows.length===0?<tr><td colSpan="9" className="p-5 text-center text-slate-500 font-bold uppercase tracking-wider">No activity</td></tr>:rows.map(row=>(
               <tr key={`${title}-${row.name}`} className="hover:bg-slate-900/50">
@@ -2611,7 +2624,7 @@ export default function App() {
               </tr>
             ))}
           </tbody>
-          {rows.length>0&&<tfoot className="border-t border-slate-700 bg-slate-900/70 text-white font-black"><tr><td className="p-3">TOTAL</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.calls||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.followup||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.siteVisitPlanned||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.siteVisitDone||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.booking||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.registration||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.cancellation||0),0))}</td><td className="p-3 text-center font-mono text-orange-400">{formatReportValue(rows.reduce((s,r)=>s+(r.productivity||0),0))}</td></tr></tfoot>}
+          {rows.length>0&&<tfoot className="border-t border-slate-700 bg-slate-900/70 text-white font-black"><tr><td className="p-3">TOTAL</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.calls||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.followup||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.siteVisitPlanned||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.siteVisitDone||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.booking||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.registration||0),0))}</td><td className="p-3 text-center font-mono">{formatReportValue(rows.reduce((s,r)=>s+(r.cancellation||0),0))}</td><td className="p-3 text-center font-mono text-orange-400">{formatReportValue(calculateBookingProductivity(rows.reduce((s,r)=>s+(r.booking||0),0),rows.reduce((s,r)=>s+(r.calls||0),0)))}</td></tr></tfoot>}
         </table>
       </div>
     </div>
@@ -2637,39 +2650,50 @@ export default function App() {
   );
 
   const renderActiveRangeReportTable = () => {
+    const columnStyle = (rows, index) => {
+      const maxLen = rows.reduce((max,row)=>Math.max(max,String(row?.[index] ?? "").length),0);
+      const width = index === 0 ? Math.min(Math.max(maxLen * 8 + 32, 140), 220) : Math.min(Math.max(maxLen * 8 + 28, 86), 160);
+      return { minWidth:`${width}px`, width:`${width}px` };
+    };
     if (Array.isArray(activeRangeReport.sections)) {
       return (
         <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl">
           <h3 className="text-xs font-black text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2"><BarChart3 className="h-4 w-4 text-blue-400"/>{activeRangeReport.title}</h3>
           <div className="space-y-7">
-            {activeRangeReport.sections.map(section=>(
+            {activeRangeReport.sections.map(section=>{
+              const sectionRowsForWidth = [...(section.headerRows || [section.headers]), ...section.rows, ...(section.totals ? [section.totals] : [])];
+              return (
               <div key={section.title} className="overflow-x-auto border border-slate-800 rounded-xl bg-slate-950">
-                <div className="px-3 py-2 bg-slate-900 border-b border-slate-800 text-[11px] font-black text-orange-300 uppercase tracking-wider">{section.title}</div>
-                <table className="w-full text-left text-[10px] whitespace-nowrap border-collapse">
+                <div className="px-3 py-2 bg-slate-900 border-b border-slate-800 text-center text-[11px] font-black text-orange-300 uppercase tracking-wider">{section.title}</div>
+                <table className="w-full table-fixed text-left text-[10px] whitespace-nowrap border-collapse">
+                  <colgroup>{section.headers.map((_,i)=><col key={`${section.title}-col-${i}`} style={columnStyle(sectionRowsForWidth,i)}/>)}</colgroup>
                   <thead className="bg-slate-900 text-slate-300 uppercase font-black">
-                    {(section.headerRows || [section.headers]).map((headerRow,rowIdx)=><tr key={`${section.title}-head-${rowIdx}`}>{headerRow.map((h,i)=><th key={`${section.title}-${rowIdx}-${h}-${i}`} className={`p-2.5 border border-slate-800 ${i===0?"text-orange-300":"text-center"}`}>{h}</th>)}</tr>)}
+                    {(section.headerRows || [section.headers]).map((headerRow,rowIdx)=><tr key={`${section.title}-head-${rowIdx}`}>{headerRow.map((h,i)=><th key={`${section.title}-${rowIdx}-${h}-${i}`} style={columnStyle(sectionRowsForWidth,i)} className={`p-2.5 border border-slate-800 text-center align-middle ${i===0?"text-orange-300":"text-slate-300"}`}>{h}</th>)}</tr>)}
                   </thead>
                   <tbody>
                     {section.rows.length===0?<tr><td colSpan={section.headers.length} className="p-5 text-center text-slate-500 font-bold uppercase tracking-wider border border-slate-800">No report data</td></tr>:section.rows.map((row,idx)=>(
                       <tr key={`${section.title}-${idx}`} className={`hover:bg-slate-900/60 ${row[0]==="TOTAL"?"bg-slate-900/80 font-black":""}`}>
-                        {row.map((cell,i)=><td key={`${section.title}-${idx}-${i}`} className={`p-2.5 border border-slate-800 ${i===0?"font-black text-white":"text-center font-mono text-slate-300"} ${i===row.length-1||row[0]==="TOTAL"?"font-black text-orange-400":""}`}>{cell}</td>)}
+                        {row.map((cell,i)=><td key={`${section.title}-${idx}-${i}`} style={columnStyle(sectionRowsForWidth,i)} className={`p-2.5 border border-slate-800 align-middle ${i===0?"font-black text-white text-left":"text-center font-mono text-slate-300"} ${i===row.length-1||row[0]==="TOTAL"?"font-black text-orange-400":""}`}>{cell}</td>)}
                       </tr>
                     ))}
                   </tbody>
-                  {section.totals&&<tfoot className="bg-slate-900/90 text-white font-black"><tr>{section.totals.map((cell,i)=><td key={`${section.title}-total-${i}`} className={`p-2.5 border border-slate-700 ${i===0?"":"text-center font-mono text-orange-400"}`}>{cell}</td>)}</tr></tfoot>}
+                  {section.totals&&<tfoot className="bg-slate-900/90 text-white font-black"><tr>{section.totals.map((cell,i)=><td key={`${section.title}-total-${i}`} style={columnStyle(sectionRowsForWidth,i)} className={`p-2.5 border border-slate-700 align-middle ${i===0?"text-left":"text-center font-mono text-orange-400"}`}>{cell}</td>)}</tr></tfoot>}
                 </table>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       );
     }
+    const activeRowsForWidth = [activeRangeReport.headers, ...activeRangeReport.rows, activeRangeReport.totals];
     return (
     <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl">
       <h3 className="text-xs font-black text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2"><BarChart3 className="h-4 w-4 text-blue-400"/>{activeRangeReport.title}</h3>
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-[10px] whitespace-nowrap">
-          <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold"><tr>{activeRangeReport.headers.map(h=><th key={h} className="p-3">{h}</th>)}</tr></thead>
+        <table className="w-full table-fixed text-left text-[10px] whitespace-nowrap">
+          <colgroup>{activeRangeReport.headers.map((_,i)=><col key={`active-col-${i}`} style={columnStyle(activeRowsForWidth,i)}/>)}</colgroup>
+          <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold"><tr>{activeRangeReport.headers.map((h,i)=><th key={h} style={columnStyle(activeRowsForWidth,i)} className={`p-3 text-center align-middle ${i===0?"text-left":""}`}>{h}</th>)}</tr></thead>
           <tbody className="divide-y divide-slate-800">
             {activeRangeReport.rows.length===0?<tr><td colSpan={activeRangeReport.headers.length} className="p-5 text-center text-slate-500 font-bold uppercase tracking-wider">No report data</td></tr>:activeRangeReport.rows.map((row,idx)=>{
               const rowKey = activeRangeReport.rowKeys?.[idx] || `${activeRangeReport.title}-${idx}`;
@@ -2678,7 +2702,7 @@ export default function App() {
               return (
                 <React.Fragment key={rowKey}>
                   <tr className="hover:bg-slate-900/50">
-                    {row.map((cell,i)=><td key={`${idx}-${i}`} className={`p-3 ${i===0?"font-black text-white":"font-mono text-slate-300"}`}>{i===0?<button type="button" onClick={()=>setExpandedRangeReportKey(isExpanded?"":rowKey)} className="flex items-center gap-2 text-left text-white hover:text-blue-300 transition-colors"><span className="inline-flex h-5 w-5 items-center justify-center rounded bg-slate-900 border border-slate-700 text-[10px]">{isExpanded?"-":"+"}</span><span>{cell}</span><span className="text-[9px] text-slate-500 font-mono">({detailRows.length})</span></button>:cell}</td>)}
+                    {row.map((cell,i)=><td key={`${idx}-${i}`} style={columnStyle(activeRowsForWidth,i)} className={`p-3 align-middle ${i===0?"font-black text-white":"text-center font-mono text-slate-300"}`}>{i===0?<button type="button" onClick={()=>setExpandedRangeReportKey(isExpanded?"":rowKey)} className="flex items-center gap-2 text-left text-white hover:text-blue-300 transition-colors"><span className="inline-flex h-5 w-5 items-center justify-center rounded bg-slate-900 border border-slate-700 text-[10px]">{isExpanded?"-":"+"}</span><span>{cell}</span><span className="text-[9px] text-slate-500 font-mono">({detailRows.length})</span></button>:cell}</td>)}
                   </tr>
                   {isExpanded&&(
                     <tr className="bg-slate-950/80">
@@ -2700,7 +2724,7 @@ export default function App() {
               );
             })}
           </tbody>
-          {activeRangeReport.rows.length>0&&<tfoot className="border-t border-slate-700 bg-slate-900/80 text-white font-black"><tr>{activeRangeReport.totals.map((cell,i)=><td key={`total-${i}`} className={`p-3 ${i===0?"":"font-mono text-orange-400"}`}>{cell}</td>)}</tr></tfoot>}
+          {activeRangeReport.rows.length>0&&<tfoot className="border-t border-slate-700 bg-slate-900/80 text-white font-black"><tr>{activeRangeReport.totals.map((cell,i)=><td key={`total-${i}`} style={columnStyle(activeRowsForWidth,i)} className={`p-3 align-middle ${i===0?"text-left":"text-center font-mono text-orange-400"}`}>{cell}</td>)}</tr></tfoot>}
         </table>
       </div>
     </div>

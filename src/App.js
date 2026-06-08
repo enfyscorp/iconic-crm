@@ -2557,14 +2557,21 @@ export default function App() {
       dashboardTrendMap[date].svDone += log.siteVisitDone || 0;
       dashboardTrendMap[date].booking += log.booking || 0;
     });
-    const dashboardTotals = logsInRange.reduce((acc,log)=>{
-      acc.calls += log.callsMade || 0; acc.followup += log.followup || 0; acc.svPlan += log.siteVisitPlanned || 0; acc.svDone += log.siteVisitDone || 0; acc.booking += log.booking || 0; acc.registration += log.registration || 0; acc.cancellation += log.cancellation || 0;
-      return acc;
-    },{enquiry:leadsInRange.length,calls:0,followup:0,svPlan:0,svDone:0,booking:0,registration:0,cancellation:0});
-    dashboardTotals.conversion = pct(dashboardTotals.booking, dashboardTotals.enquiry);
-    dashboardTotals.callProductivity = calculateBookingProductivity(dashboardTotals.booking, dashboardTotals.calls);
+    const buildDashboardTotals = (leadRows, logRows) => {
+      const totals = logRows.reduce((acc,log)=>{
+        acc.calls += log.callsMade || 0; acc.followup += log.followup || 0; acc.svPlan += log.siteVisitPlanned || 0; acc.svDone += log.siteVisitDone || 0; acc.booking += log.booking || 0; acc.registration += log.registration || 0; acc.cancellation += log.cancellation || 0;
+        return acc;
+      },{enquiry:leadRows.length,calls:0,followup:0,svPlan:0,svDone:0,booking:0,registration:0,cancellation:0});
+      totals.conversion = pct(totals.booking, totals.enquiry);
+      totals.callProductivity = calculateBookingProductivity(totals.booking, totals.calls);
+      return totals;
+    };
+    const dashboardTotals = buildDashboardTotals(leadsInRange, logsInRange);
+    const todayLeads = reportScopedLeads.filter(lead=>lead.dateCreated===TODAY_STR);
+    const todayLogs = reportScopedActivityLogs.filter(log=>log.date===TODAY_STR);
     const dashboard = {
       totals:dashboardTotals,
+      todayTotals:buildDashboardTotals(todayLeads, todayLogs),
       trend:Object.values(dashboardTrendMap).sort((a,b)=>a.date.localeCompare(b.date)),
       sourceMix:sourceNames.map(source=>({name:sourceLabel(source),value:sourceMetricValue(source,"Enq"),booking:sourceMetricValue(source,"Booking")})).filter(item=>item.value>0),
       projectMix:projectNames.map(project=>({name:project,value:leadsInRange.filter(lead=>(lead.project || "Unknown")===project).length,booking:uniqueLogCount(logsInRange, log=>(log.project || "Unknown")===project && log.booking)})).filter(item=>item.value>0),
@@ -2576,7 +2583,7 @@ export default function App() {
       }).filter(item=>item.calls||item.booking).sort((a,b)=>b.calls-a.calls).slice(0,10),
     };
     return { title:"Management Summary Sheet", dashboard, sections:[executiveSummarySection, sourceConversionSection, sourcewiseSection, projectwiseSection, projectSourceEnqBookingSection] };
-  },[reportScopedLeads,reportScopedActivityLogs,currentUser,reportPeopleUsers,projects,isDateInRange,reportStartDate,reportEndDate]);
+  },[reportScopedLeads,reportScopedActivityLogs,currentUser,reportPeopleUsers,projects,isDateInRange,reportStartDate,reportEndDate,TODAY_STR]);
 
   const activeRangeReport = useMemo(()=>{
     const sumRows = (rows, fields) => fields.reduce((acc, field)=>{acc[field]=rows.reduce((s,r)=>s+(Number(r[field])||0),0);return acc;},{});
@@ -2678,14 +2685,44 @@ export default function App() {
       return;
     }
     const esc = (val)=>String(val ?? "").replace(/[&<>"']/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+    const pdfDateLabel = (value) => {
+      if(!value || value === "Unknown") return "-";
+      const parts = String(value).split("-");
+      return parts.length === 3 ? `${parts[2]}/${parts[1]}` : String(value);
+    };
+    const renderPdfKpiSection = (title, subtitle, totals) => `<div class="metric-section"><h3>${esc(title)}</h3><p>${esc(subtitle)}</p><div class="kpis"><div class="box">Enquiry<b>${formatReportValue(totals.enquiry)}</b></div><div class="box">Calls<b>${formatReportValue(totals.calls)}</b></div><div class="box">Followup<b>${formatReportValue(totals.followup)}</b></div><div class="box">SV Plan<b>${formatReportValue(totals.svPlan)}</b></div><div class="box">SV Done<b>${formatReportValue(totals.svDone)}</b></div><div class="box">Booking<b>${formatReportValue(totals.booking)}</b></div><div class="box">Conversion<b>${formatReportValue(totals.conversion)}</b></div><div class="box">Productivity<b>${formatReportValue(totals.callProductivity)}</b></div></div></div>`;
+    const renderPdfLineChart = (items) => {
+      const width = 360, height = 160, padX = 28, padY = 20;
+      const chartWidth = width - padX * 2, chartHeight = height - padY * 2;
+      const metrics = [{key:"enquiry",label:"Enquiry",color:"#38bdf8"},{key:"calls",label:"Calls",color:"#f97316"},{key:"booking",label:"Booking",color:"#a855f7"}];
+      const maxVal = Math.max(...items.flatMap(item=>metrics.map(metric=>Number(item[metric.key])||0)),1);
+      const pointFor = (item, idx, key) => {
+        const x = padX + (items.length > 1 ? (idx / (items.length - 1)) * chartWidth : chartWidth / 2);
+        const y = padY + chartHeight - ((Number(item[key]) || 0) / maxVal) * chartHeight;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      };
+      const lines = metrics.map(metric=>`<polyline fill="none" stroke="${metric.color}" stroke-width="3" points="${items.map((item,idx)=>pointFor(item,idx,metric.key)).join(" ")}"/>`).join("");
+      const dots = metrics.map(metric=>items.map((item,idx)=>{
+        const [x,y] = pointFor(item,idx,metric.key).split(",");
+        return `<circle cx="${x}" cy="${y}" r="3" fill="${metric.color}"/>`;
+      }).join("")).join("");
+      const labels = items.map((item,idx)=>{
+        const x = padX + (items.length > 1 ? (idx / (items.length - 1)) * chartWidth : chartWidth / 2);
+        return `<text x="${x.toFixed(1)}" y="${height-4}" text-anchor="middle" font-size="8" fill="#475569">${esc(pdfDateLabel(item.date))}</text>`;
+      }).join("");
+      const legend = metrics.map((metric,idx)=>`<span><i style="background:${metric.color}"></i>${esc(metric.label)}</span>`).join("");
+      return `<div class="line-wrap"><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Enquiry Calls Booking Line Chart"><line x1="${padX}" y1="${padY}" x2="${padX}" y2="${height-padY}" stroke="#cbd5e1"/><line x1="${padX}" y1="${height-padY}" x2="${width-padX}" y2="${height-padY}" stroke="#cbd5e1"/>${lines}${dots}${labels}</svg><div class="legend">${legend}</div></div>`;
+    };
     const dashboard = activeRangeReport.dashboard;
     const dashboardHtml = dashboard ? (() => {
       const maxSource = Math.max(...dashboard.sourceMix.map(item=>item.value),1);
       const maxProject = Math.max(...dashboard.projectMix.map(item=>item.value),1);
       const sourceBars = dashboard.sourceMix.slice(0,8).map((item,idx)=>`<div class="bar-row"><span>${esc(item.name)}</span><b style="width:${Math.max((item.value/maxSource)*100,4)}%;background:${PIE_COLORS[idx%PIE_COLORS.length]}">${formatReportValue(item.value)}</b></div>`).join("");
       const projectBars = dashboard.projectMix.slice(0,8).map((item,idx)=>`<div class="bar-row"><span>${esc(item.name)}</span><b style="width:${Math.max((item.value/maxProject)*100,4)}%;background:${PIE_COLORS[(idx+3)%PIE_COLORS.length]}">${formatReportValue(item.value)}</b></div>`).join("");
-      const trend = dashboard.trend.slice(-10).map(item=>`<div class="trend-col"><span style="height:${Math.max((item.enquiry/Math.max(dashboard.totals.enquiry,1))*150,8)}px;background:#38bdf8"></span><em>${esc(item.date.slice(5))}</em></div>`).join("");
-      return `<section class="report-cover"><div class="cover-head"><div><h1>${esc(activeRangeReport.title)}</h1><p>${esc(reportStartDate)} to ${esc(reportEndDate)}</p></div><img src="${DESAM_LOGO_ASSET}" alt="Logo"/></div><div class="kpis"><div class="box">Enquiry<b>${formatReportValue(dashboard.totals.enquiry)}</b></div><div class="box">Calls<b>${formatReportValue(dashboard.totals.calls)}</b></div><div class="box">Followup<b>${formatReportValue(dashboard.totals.followup)}</b></div><div class="box">SV Plan<b>${formatReportValue(dashboard.totals.svPlan)}</b></div><div class="box">SV Done<b>${formatReportValue(dashboard.totals.svDone)}</b></div><div class="box">Booking<b>${formatReportValue(dashboard.totals.booking)}</b></div><div class="box">Conversion<b>${formatReportValue(dashboard.totals.conversion)}</b></div><div class="box">Productivity<b>${formatReportValue(dashboard.totals.callProductivity)}</b></div></div><div class="dash-grid"><div class="dash-card"><h3>Enquiry Trend</h3><div class="trend">${trend}</div></div><div class="dash-card"><h3>Source Enquiry Share</h3>${sourceBars}</div><div class="dash-card"><h3>Project Enquiry Share</h3>${projectBars}</div></div></section>`;
+      const trendItems = dashboard.trend.slice(-10);
+      const maxTrendEnquiry = Math.max(...trendItems.map(item=>item.enquiry),1);
+      const trend = trendItems.map(item=>`<div class="trend-col"><strong>${formatReportValue(item.enquiry)}</strong><span style="height:${Math.max((item.enquiry/maxTrendEnquiry)*130,8)}px;background:#38bdf8"></span><em>${esc(pdfDateLabel(item.date))}</em></div>`).join("");
+      return `<section class="report-cover"><div class="cover-head"><div><h1>${esc(activeRangeReport.title)}</h1><p>${esc(pdfDateLabel(reportStartDate))} to ${esc(pdfDateLabel(reportEndDate))}</p></div><img src="${DESAM_LOGO_ASSET}" alt="Logo"/></div><div class="metric-grid">${renderPdfKpiSection("Given Period", `${pdfDateLabel(reportStartDate)} to ${pdfDateLabel(reportEndDate)}`, dashboard.totals)}${renderPdfKpiSection("Today", pdfDateLabel(TODAY_STR), dashboard.todayTotals || dashboard.totals)}</div><div class="dash-grid"><div class="dash-card"><h3>Enquiry Trend</h3><div class="trend">${trend}</div></div><div class="dash-card"><h3>Enquiry, Calls & Booking Line</h3>${renderPdfLineChart(trendItems)}</div><div class="dash-card"><h3>Source Enquiry Share</h3>${sourceBars}</div><div class="dash-card"><h3>Project Enquiry Share</h3>${projectBars}</div></div></section>`;
     })() : "";
     const reportTables = hasSections
       ? activeRangeReport.sections.map(section=>{
@@ -2702,7 +2739,7 @@ export default function App() {
       : `<h2>${esc(activeRangeReport.title)}</h2><table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${activeRangeReport.rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("")}<tr style="font-weight:700;background:#f8fafc">${activeRangeReport.totals.map(c=>`<td>${esc(c)}</td>`).join("")}</tr></tbody></table>`;
     const win = window.open("", "_blank");
     if(!win){ triggerToastAlert("Allow popup to export PDF."); return; }
-    win.document.write(`<html><head><title>${esc(fileStem)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px}h2{font-size:15px;margin-top:24px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px;table-layout:fixed}th,td{border:1px solid #111;padding:5px;text-align:center;vertical-align:middle;width:90px}th{background:#f1f5f9;font-weight:700}.cover-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:10px}.cover-head img{height:38px;object-fit:contain}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:16px 0}.box{border:1px solid #ddd;padding:10px;text-align:center}.box b{display:block;font-size:18px}.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.dash-card{border:1px solid #ddd;padding:10px;min-height:180px}.dash-card h3{text-align:center;margin:0 0 10px;font-size:13px}.bar-row{display:grid;grid-template-columns:105px 1fr;gap:8px;align-items:center;margin:7px 0;font-size:10px}.bar-row b{display:block;color:#fff;text-align:right;padding:4px;border-radius:3px;min-width:22px}.funnel{display:flex;flex-direction:column;align-items:center;gap:0}.funnel-step{color:#fff;text-align:center;padding:8px 18px;font-size:10px;clip-path:polygon(8% 0,92% 0,100% 100%,0 100%);margin-top:-1px}.funnel-step b{display:block;font-size:14px}.trend{height:160px;display:flex;align-items:flex-end;gap:6px;border-left:1px solid #ddd;border-bottom:1px solid #ddd;padding:8px}.trend-col{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}.trend-col span{width:100%;display:block;border-radius:3px 3px 0 0}.trend-col em{font-size:8px;font-style:normal}.report-cover{page-break-after:always}.table-head{display:flex;justify-content:flex-end;margin-top:12px}.table-head img{height:30px}@media print{body{padding:12px}table{page-break-inside:auto}tr{page-break-inside:avoid}.report-cover{min-height:96vh}}</style></head><body>${dashboardHtml || `<div class="table-head"><img src="${DESAM_LOGO_ASSET}" alt="Logo"/></div><h1>${esc(activeRangeReport.title)}</h1><p style="text-align:center">${esc(reportStartDate)} to ${esc(reportEndDate)}</p><div class="kpis"><div class="box">Enquiry<b>${formatReportValue(selectedRangeReportTotals.source.enquiry)}</b></div><div class="box">Calls<b>${formatReportValue(selectedRangeReportTotals.people.calls)}</b></div><div class="box">Followup<b>${formatReportValue(selectedRangeReportTotals.people.followup)}</b></div><div class="box">SV Planned<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitPlanned)}</b></div><div class="box">SV Done<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitDone)}</b></div><div class="box">Booking<b>${formatReportValue(selectedRangeReportTotals.people.booking)}</b></div><div class="box">Conversion %<b>${formatReportValue(`${selectedRangeReportTotals.source.percentage}%`)}</b></div><div class="box">Cancellation<b>${formatReportValue(selectedRangeReportTotals.people.cancellation)}</b></div></div>`}${reportTables}<script>window.onload=()=>{window.print();}</script></body></html>`);
+    win.document.write(`<html><head><title>${esc(fileStem)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px}h2{font-size:15px;margin-top:24px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px;table-layout:fixed}th,td{border:1px solid #111;padding:5px;text-align:center;vertical-align:middle;width:90px}th{background:#f1f5f9;font-weight:700}.cover-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:10px}.cover-head img{height:38px;object-fit:contain}.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}.metric-section{border:1px solid #cbd5e1;padding:10px;background:#f8fafc}.metric-section h3{margin:0;text-align:center;font-size:13px}.metric-section p{margin:3px 0 8px;text-align:center;font-size:10px;color:#475569}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.box{border:1px solid #ddd;padding:7px;text-align:center;background:#fff;font-size:9px}.box b{display:block;font-size:15px}.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.dash-card{border:1px solid #ddd;padding:10px;min-height:180px}.dash-card h3{text-align:center;margin:0 0 10px;font-size:13px}.bar-row{display:grid;grid-template-columns:105px 1fr;gap:8px;align-items:center;margin:7px 0;font-size:10px}.bar-row b{display:block;color:#fff;text-align:right;padding:4px;border-radius:3px;min-width:22px}.trend{height:160px;display:flex;align-items:flex-end;gap:6px;border-left:1px solid #ddd;border-bottom:1px solid #ddd;padding:8px}.trend-col{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}.trend-col strong{font-size:9px;font-weight:700}.trend-col span{width:100%;display:block;border-radius:3px 3px 0 0}.trend-col em{font-size:8px;font-style:normal}.line-wrap svg{width:100%;height:160px}.legend{display:flex;justify-content:center;gap:10px;font-size:9px}.legend span{display:inline-flex;align-items:center;gap:4px}.legend i{width:9px;height:9px;display:inline-block;border-radius:99px}.report-cover{page-break-after:always}.table-head{display:flex;justify-content:flex-end;margin-top:12px}.table-head img{height:30px}@media print{body{padding:12px}table{page-break-inside:auto}tr{page-break-inside:avoid}.report-cover{min-height:96vh}}</style></head><body>${dashboardHtml || `<div class="table-head"><img src="${DESAM_LOGO_ASSET}" alt="Logo"/></div><h1>${esc(activeRangeReport.title)}</h1><p style="text-align:center">${esc(pdfDateLabel(reportStartDate))} to ${esc(pdfDateLabel(reportEndDate))}</p><div class="kpis"><div class="box">Enquiry<b>${formatReportValue(selectedRangeReportTotals.source.enquiry)}</b></div><div class="box">Calls<b>${formatReportValue(selectedRangeReportTotals.people.calls)}</b></div><div class="box">Followup<b>${formatReportValue(selectedRangeReportTotals.people.followup)}</b></div><div class="box">SV Planned<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitPlanned)}</b></div><div class="box">SV Done<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitDone)}</b></div><div class="box">Booking<b>${formatReportValue(selectedRangeReportTotals.people.booking)}</b></div><div class="box">Conversion %<b>${formatReportValue(`${selectedRangeReportTotals.source.percentage}%`)}</b></div><div class="box">Cancellation<b>${formatReportValue(selectedRangeReportTotals.people.cancellation)}</b></div></div>`}${reportTables}<script>window.onload=()=>{window.print();}</script></body></html>`);
     win.document.close();
     triggerToastAlert("PDF report opened.");
   };

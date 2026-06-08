@@ -2403,7 +2403,7 @@ export default function App() {
       ...logsInRange.map(l=>l.executive).filter(Boolean),
     ])].filter(Boolean).sort((a,b)=>a.localeCompare(b));
     const sourceOrder = ["Walk-In","Own Leads","99acres","Olx","Office Leads","Meta Ads","Just Dial","Reference","924000"];
-    const sourceNames = [...new Set([...sourceOrder, ...leadsInRange.map(l=>l.source).filter(Boolean), ...logsInRange.map(l=>l.source).filter(Boolean)])].sort((a,b)=>{
+    const sourceNames = [...new Set([...sourceOrder, ...leadsInRange.map(l=>l.source).filter(Boolean), ...logsInRange.map(l=>l.source).filter(Boolean)])].filter(source=>leadsInRange.some(lead=>(lead.source || "Unknown")===source)).sort((a,b)=>{
       const ai=sourceOrder.indexOf(a), bi=sourceOrder.indexOf(b);
       if(ai>=0 && bi>=0)return ai-bi;
       if(ai>=0)return -1;
@@ -2411,7 +2411,7 @@ export default function App() {
       return a.localeCompare(b);
     });
     const sourceLabel = (source) => source === "Own Leads" ? "Own" : source === "Meta Ads" ? "Meta" : source;
-    const projectNames = [...new Set([...projects.map(p=>p.name), ...leadsInRange.map(l=>l.project).filter(Boolean), ...logsInRange.map(l=>l.project).filter(Boolean)])].filter(Boolean).sort((a,b)=>a.localeCompare(b));
+    const projectNames = [...new Set([...projects.map(p=>p.name), ...leadsInRange.map(l=>l.project).filter(Boolean), ...logsInRange.map(l=>l.project).filter(Boolean)])].filter(project=>project&&leadsInRange.some(lead=>(lead.project || "Unknown")===project)).sort((a,b)=>a.localeCompare(b));
     const fmtCells = (row) => row.map(formatReportValue);
     const leadKey = (item) => item?.leadId || item?.id || `${item?.phone || ""}-${item?.leadName || item?.name || ""}`;
     const uniqueLogCount = (logs, predicate) => new Set(logs.filter(predicate).map(leadKey)).size;
@@ -2432,7 +2432,8 @@ export default function App() {
       const values = sourceNames.map(source=>sourceMetricValue(source, metric));
       return fmtCells([metric, ...values, values.reduce((sum,value)=>sum+value,0)]);
     });
-    const sourceTotals = sourceNames.map(source=>sourceMetrics.reduce((sum,metric)=>sum+sourceMetricValue(source, metric),0));
+    const sourceTotalMetrics = sourceMetrics.filter(metric=>metric!=="FU");
+    const sourceTotals = sourceNames.map(source=>sourceTotalMetrics.reduce((sum,metric)=>sum+sourceMetricValue(source, metric),0));
     const sourceEnquiries = sourceNames.map(source=>sourceMetricValue(source, "Enq"));
     const sourceSvDone = sourceNames.map(source=>sourceMetricValue(source, "SV Done"));
     const sourceBookings = sourceNames.map(source=>sourceMetricValue(source, "Booking"));
@@ -2478,7 +2479,7 @@ export default function App() {
     });
     const sourcewiseTotals = sourceNames.map(source=>leadsInRange.filter(lead=>(lead.source || "Unknown")===source).length);
     const sourcewiseSection = {
-      title:"SOURCEWISE",
+      title:"EXECUTIVEWISE - SOURCEWISE",
       headers:["Executive", ...sourceNames.map(sourceLabel), "TOTAL"],
       rows:sourcewiseRows,
       totals:fmtCells(["TOTAL", ...sourcewiseTotals, sourcewiseTotals.reduce((sum,value)=>sum+value,0)]),
@@ -2510,7 +2511,7 @@ export default function App() {
     const projectTotalEnq = projectTotals.filter((_,i)=>i%2===0).reduce((sum,value)=>sum+value,0);
     const projectTotalBooking = projectTotals.filter((_,i)=>i%2===1).reduce((sum,value)=>sum+value,0);
     const projectwiseSection = {
-      title:"PROJECTWISE",
+      title:"PROJECTWISE - EXECUTIVEWISE ENQUIRY Vs BOOKING",
       headers:projectHeaderBottom,
       headerRows:[projectHeaderTop,projectHeaderBottom],
       headerColSpans:[projectHeaderSpansTop,projectHeaderSpansBottom],

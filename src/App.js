@@ -2487,61 +2487,71 @@ export default function App() {
     const projectHeaderBottom = [""];
     const projectHeaderSpansTop = [1];
     const projectHeaderSpansBottom = [1];
-    projectNames.forEach(project=>{ projectHeaderTop.push(project, ""); projectHeaderBottom.push("Enq","Booking"); projectHeaderSpansTop.push(2,0); projectHeaderSpansBottom.push(1,1); });
-    projectHeaderTop.push("TOTAL","");
-    projectHeaderBottom.push("Enq","Booking");
-    projectHeaderSpansTop.push(2,0);
-    projectHeaderSpansBottom.push(1,1);
+    projectNames.forEach(project=>{ projectHeaderTop.push(project, "", ""); projectHeaderBottom.push("Enq","SV","Booking"); projectHeaderSpansTop.push(3,0,0); projectHeaderSpansBottom.push(1,1,1); });
+    projectHeaderTop.push("TOTAL","","");
+    projectHeaderBottom.push("Enq","SV","Booking");
+    projectHeaderSpansTop.push(3,0,0);
+    projectHeaderSpansBottom.push(1,1,1);
     const projectRows = personNames.map(name=>{
       const values = [];
       projectNames.forEach(project=>{
         values.push(leadsInRange.filter(lead=>(lead.assignedTo || "Unassigned")===name && (lead.project || "Unknown")===project).length);
+        values.push(uniqueLogCount(logsInRange, log=>(log.executive || "System")===name && (log.project || "Unknown")===project && log.siteVisitDone));
         values.push(uniqueLogCount(logsInRange, log=>(log.executive || "System")===name && (log.project || "Unknown")===project && log.booking));
       });
-      const totalEnq = values.filter((_,i)=>i%2===0).reduce((sum,value)=>sum+value,0);
-      const totalBooking = values.filter((_,i)=>i%2===1).reduce((sum,value)=>sum+value,0);
-      return fmtCells([name, ...values, totalEnq, totalBooking]);
+      const totalEnq = values.filter((_,i)=>i%3===0).reduce((sum,value)=>sum+value,0);
+      const totalSv = values.filter((_,i)=>i%3===1).reduce((sum,value)=>sum+value,0);
+      const totalBooking = values.filter((_,i)=>i%3===2).reduce((sum,value)=>sum+value,0);
+      return fmtCells([name, ...values, totalEnq, totalSv, totalBooking]);
     });
     const projectTotals = [];
     projectNames.forEach(project=>{
       projectTotals.push(leadsInRange.filter(lead=>(lead.project || "Unknown")===project).length);
+      projectTotals.push(uniqueLogCount(logsInRange, log=>(log.project || "Unknown")===project && log.siteVisitDone));
       projectTotals.push(uniqueLogCount(logsInRange, log=>(log.project || "Unknown")===project && log.booking));
     });
-    const projectTotalEnq = projectTotals.filter((_,i)=>i%2===0).reduce((sum,value)=>sum+value,0);
-    const projectTotalBooking = projectTotals.filter((_,i)=>i%2===1).reduce((sum,value)=>sum+value,0);
+    const projectTotalEnq = projectTotals.filter((_,i)=>i%3===0).reduce((sum,value)=>sum+value,0);
+    const projectTotalSv = projectTotals.filter((_,i)=>i%3===1).reduce((sum,value)=>sum+value,0);
+    const projectTotalBooking = projectTotals.filter((_,i)=>i%3===2).reduce((sum,value)=>sum+value,0);
     const projectwiseSection = {
-      title:"PROJECTWISE - EXECUTIVEWISE ENQUIRY Vs BOOKING",
+      title:"PROJECTWISE - EXECUTIVEWISE",
+      subtitle:"Enq - SV - Booking",
       headers:projectHeaderBottom,
       headerRows:[projectHeaderTop,projectHeaderBottom],
       headerColSpans:[projectHeaderSpansTop,projectHeaderSpansBottom],
       rows:projectRows,
-      totals:fmtCells(["TOTAL", ...projectTotals, projectTotalEnq, projectTotalBooking]),
+      totals:fmtCells(["TOTAL", ...projectTotals, projectTotalEnq, projectTotalSv, projectTotalBooking]),
     };
     const projectSourceRows = sourceNames.map(source=>{
       const values = [];
       projectNames.forEach(project=>{
         values.push(leadsInRange.filter(lead=>(lead.source || "Unknown")===source && (lead.project || "Unknown")===project).length);
+        values.push(uniqueLogCount(logsInRange, log=>(log.source || "Unknown")===source && (log.project || "Unknown")===project && log.siteVisitDone));
         values.push(uniqueLogCount(logsInRange, log=>(log.source || "Unknown")===source && (log.project || "Unknown")===project && log.booking));
       });
-      const totalEnq = values.filter((_,i)=>i%2===0).reduce((sum,value)=>sum+value,0);
-      const totalBooking = values.filter((_,i)=>i%2===1).reduce((sum,value)=>sum+value,0);
-      return fmtCells([sourceLabel(source), ...values, totalEnq, totalBooking]);
+      const totalEnq = values.filter((_,i)=>i%3===0).reduce((sum,value)=>sum+value,0);
+      const totalSv = values.filter((_,i)=>i%3===1).reduce((sum,value)=>sum+value,0);
+      const totalBooking = values.filter((_,i)=>i%3===2).reduce((sum,value)=>sum+value,0);
+      return fmtCells([sourceLabel(source), ...values, totalEnq, totalSv, totalBooking]);
     });
     const projectSourceTotals = [];
     projectNames.forEach(project=>{
       projectSourceTotals.push(leadsInRange.filter(lead=>(lead.project || "Unknown")===project).length);
+      projectSourceTotals.push(uniqueLogCount(logsInRange, log=>(log.project || "Unknown")===project && log.siteVisitDone));
       projectSourceTotals.push(uniqueLogCount(logsInRange, log=>(log.project || "Unknown")===project && log.booking));
     });
-    const projectSourceTotalEnq = projectSourceTotals.filter((_,i)=>i%2===0).reduce((sum,value)=>sum+value,0);
-    const projectSourceTotalBooking = projectSourceTotals.filter((_,i)=>i%2===1).reduce((sum,value)=>sum+value,0);
+    const projectSourceTotalEnq = projectSourceTotals.filter((_,i)=>i%3===0).reduce((sum,value)=>sum+value,0);
+    const projectSourceTotalSv = projectSourceTotals.filter((_,i)=>i%3===1).reduce((sum,value)=>sum+value,0);
+    const projectSourceTotalBooking = projectSourceTotals.filter((_,i)=>i%3===2).reduce((sum,value)=>sum+value,0);
     const projectSourceEnqBookingSection = {
       id:"ProjectSourceEnqBooking",
-      title:"PROJECTWISE - SOURCEWISE ENQUIRY Vs BOOKING",
+      title:"PROJECTWISE - SOURCEWISE",
+      subtitle:"Enq - SV - Booking",
       headers:["", ...projectHeaderBottom.slice(1)],
       headerRows:[["Source", ...projectHeaderTop.slice(1)],["", ...projectHeaderBottom.slice(1)]],
       headerColSpans:[projectHeaderSpansTop,projectHeaderSpansBottom],
       rows:projectSourceRows,
-      totals:fmtCells(["TOTAL", ...projectSourceTotals, projectSourceTotalEnq, projectSourceTotalBooking]),
+      totals:fmtCells(["TOTAL", ...projectSourceTotals, projectSourceTotalEnq, projectSourceTotalSv, projectSourceTotalBooking]),
     };
     const dashboardTrendMap = {};
     leadsInRange.forEach(lead=>{
@@ -2589,7 +2599,7 @@ export default function App() {
     const sumRows = (rows, fields) => fields.reduce((acc, field)=>{acc[field]=rows.reduce((s,r)=>s+(Number(r[field])||0),0);return acc;},{});
     const fmtRow = (row) => row.map(formatReportValue);
     if(selectedMatrixReport==="ManagementSummary")return managementSummaryReport;
-    if(selectedMatrixReport==="ProjectSourceEnqBooking")return {title:"Projectwise-Sourcewise Enquiry Vs Booking",sections:managementSummaryReport.sections.filter(section=>section.id==="ProjectSourceEnqBooking")};
+    if(selectedMatrixReport==="ProjectSourceEnqBooking")return {title:"Projectwise-Sourcewise Enq - SV - Booking",sections:managementSummaryReport.sections.filter(section=>section.id==="ProjectSourceEnqBooking")};
     if(selectedMatrixReport==="PerformanceSummary")return performanceSummaryReport;
     if(selectedMatrixReport==="Projectwise"){
       const totals=sumRows(rangeProjectReport,["enquiry","siteVisitPlanned","siteVisitDone","booking","conversion","cancellation"]);
@@ -2637,6 +2647,7 @@ export default function App() {
       activeRangeReport.sections.forEach((section, idx)=>{
         if(idx)rowCursor += 1;
         rowCursor += 1;
+        if(section.subtitle)rowCursor += 1;
         (section.headerColSpans || []).forEach((spans, headerRowIdx)=>{
           spans.forEach((span, colIdx)=>{
             if(span > 1)merges.push({s:{r:rowCursor+headerRowIdx,c:colIdx},e:{r:rowCursor+headerRowIdx,c:colIdx+span-1}});
@@ -2651,6 +2662,7 @@ export default function App() {
       return [
         ...(idx ? [[]] : []),
         [section.title],
+        ...(section.subtitle ? [[section.subtitle]] : []),
         ...sectionHeaderRows,
         ...section.rows,
         ...(section.totals ? [section.totals] : []),
@@ -2690,6 +2702,14 @@ export default function App() {
       const parts = String(value).split("-");
       return parts.length === 3 ? `${parts[2]}/${parts[1]}` : String(value);
     };
+    const pdfLongDateLabel = (value) => {
+      if(!value || value === "Unknown") return "-";
+      const parts = String(value).split("-");
+      if(parts.length !== 3)return String(value);
+      const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      return `${Number(parts[2])}, ${monthNames[Number(parts[1])-1] || parts[1]} ${parts[0]}`;
+    };
+    const pdfRangeLongLabel = `${pdfLongDateLabel(reportStartDate)} to ${pdfLongDateLabel(reportEndDate)}`;
     const renderPdfKpiSection = (title, subtitle, totals) => `<div class="metric-section"><h3>${esc(title)}</h3><p>${esc(subtitle)}</p><div class="kpis"><div class="box">Enquiry<b>${formatReportValue(totals.enquiry)}</b></div><div class="box">Calls<b>${formatReportValue(totals.calls)}</b></div><div class="box">Followup<b>${formatReportValue(totals.followup)}</b></div><div class="box">SV Plan<b>${formatReportValue(totals.svPlan)}</b></div><div class="box">SV Done<b>${formatReportValue(totals.svDone)}</b></div><div class="box">Booking<b>${formatReportValue(totals.booking)}</b></div><div class="box">Conversion<b>${formatReportValue(totals.conversion)}</b></div><div class="box">Productivity<b>${formatReportValue(totals.callProductivity)}</b></div></div></div>`;
     const renderPdfLineChart = (items) => {
       const width = 360, height = 160, padX = 28, padY = 20;
@@ -2722,7 +2742,7 @@ export default function App() {
       const trendItems = dashboard.trend.slice(-10);
       const maxTrendEnquiry = Math.max(...trendItems.map(item=>item.enquiry),1);
       const trend = trendItems.map(item=>`<div class="trend-col"><strong>${formatReportValue(item.enquiry)}</strong><span style="height:${Math.max((item.enquiry/maxTrendEnquiry)*130,8)}px;background:#38bdf8"></span><em>${esc(pdfDateLabel(item.date))}</em></div>`).join("");
-      return `<section class="report-cover"><div class="cover-head"><div><h1>${esc(activeRangeReport.title)}</h1><p>${esc(pdfDateLabel(reportStartDate))} to ${esc(pdfDateLabel(reportEndDate))}</p></div><img src="${DESAM_LOGO_ASSET}" alt="Logo"/></div><div class="metric-grid">${renderPdfKpiSection("Given Period", `${pdfDateLabel(reportStartDate)} to ${pdfDateLabel(reportEndDate)}`, dashboard.totals)}${renderPdfKpiSection("Today", pdfDateLabel(TODAY_STR), dashboard.todayTotals || dashboard.totals)}</div><div class="dash-grid"><div class="dash-card"><h3>Enquiry Trend</h3><div class="trend">${trend}</div></div><div class="dash-card"><h3>Enquiry, Calls & Booking Line</h3>${renderPdfLineChart(trendItems)}</div><div class="dash-card"><h3>Source Enquiry Share</h3>${sourceBars}</div><div class="dash-card"><h3>Project Enquiry Share</h3>${projectBars}</div></div></section>`;
+      return `<section class="report-cover"><div class="cover-head"><div><h1>${esc(activeRangeReport.title)}</h1><p>${esc(pdfRangeLongLabel)}</p></div><img src="${DESAM_LOGO_ASSET}" alt="Logo"/></div><div class="metric-grid">${renderPdfKpiSection("Given Period", `${pdfDateLabel(reportStartDate)} to ${pdfDateLabel(reportEndDate)}`, dashboard.totals)}${renderPdfKpiSection("Today", pdfDateLabel(TODAY_STR), dashboard.todayTotals || dashboard.totals)}</div><div class="dash-grid"><div class="dash-card"><h3>Enquiry Trend</h3><div class="trend">${trend}</div></div><div class="dash-card"><h3>Enquiry, Calls & Booking Line</h3>${renderPdfLineChart(trendItems)}</div><div class="dash-card"><h3>Source Enquiry Share</h3>${sourceBars}</div><div class="dash-card"><h3>Project Enquiry Share</h3>${projectBars}</div></div></section>`;
     })() : "";
     const reportTables = hasSections
       ? activeRangeReport.sections.map(section=>{
@@ -2734,12 +2754,12 @@ export default function App() {
           }).join("")}</tr>`).join("");
           const bodyRows = section.rows.map(r=>`<tr${r[0]==="TOTAL"?` style="font-weight:700;background:#f8fafc"`:""}>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("");
           const totalRow = section.totals ? `<tr style="font-weight:700;background:#f8fafc">${section.totals.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>` : "";
-          return `<h2>${esc(section.title)}</h2><table><thead>${headerRows}</thead><tbody>${bodyRows}${totalRow}</tbody></table>`;
+          return `<h2>${esc(section.title)}${section.subtitle?`<span>${esc(section.subtitle)}</span>`:""}</h2><p class="report-date">${esc(pdfRangeLongLabel)}</p><table><thead>${headerRows}</thead><tbody>${bodyRows}${totalRow}</tbody></table>`;
         }).join("")
       : `<h2>${esc(activeRangeReport.title)}</h2><table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${activeRangeReport.rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("")}<tr style="font-weight:700;background:#f8fafc">${activeRangeReport.totals.map(c=>`<td>${esc(c)}</td>`).join("")}</tr></tbody></table>`;
     const win = window.open("", "_blank");
     if(!win){ triggerToastAlert("Allow popup to export PDF."); return; }
-    win.document.write(`<html><head><title>${esc(fileStem)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px}h2{font-size:15px;margin-top:24px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px;table-layout:fixed}th,td{border:1px solid #111;padding:5px;text-align:center;vertical-align:middle;width:90px}th{background:#f1f5f9;font-weight:700}.cover-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:10px}.cover-head img{height:38px;object-fit:contain}.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}.metric-section{border:1px solid #cbd5e1;padding:10px;background:#f8fafc}.metric-section h3{margin:0;text-align:center;font-size:13px}.metric-section p{margin:3px 0 8px;text-align:center;font-size:10px;color:#475569}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.box{border:1px solid #ddd;padding:7px;text-align:center;background:#fff;font-size:9px}.box b{display:block;font-size:15px}.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.dash-card{border:1px solid #ddd;padding:10px;min-height:180px}.dash-card h3{text-align:center;margin:0 0 10px;font-size:13px}.bar-row{display:grid;grid-template-columns:105px 1fr;gap:8px;align-items:center;margin:7px 0;font-size:10px}.bar-row b{display:block;color:#fff;text-align:right;padding:4px;border-radius:3px;min-width:22px}.trend{height:160px;display:flex;align-items:flex-end;gap:6px;border-left:1px solid #ddd;border-bottom:1px solid #ddd;padding:8px}.trend-col{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}.trend-col strong{font-size:9px;font-weight:700}.trend-col span{width:100%;display:block;border-radius:3px 3px 0 0}.trend-col em{font-size:8px;font-style:normal}.line-wrap svg{width:100%;height:160px}.legend{display:flex;justify-content:center;gap:10px;font-size:9px}.legend span{display:inline-flex;align-items:center;gap:4px}.legend i{width:9px;height:9px;display:inline-block;border-radius:99px}.report-cover{page-break-after:always}.table-head{display:flex;justify-content:flex-end;margin-top:12px}.table-head img{height:30px}@media print{body{padding:12px}table{page-break-inside:auto}tr{page-break-inside:avoid}.report-cover{min-height:96vh}}</style></head><body>${dashboardHtml || `<div class="table-head"><img src="${DESAM_LOGO_ASSET}" alt="Logo"/></div><h1>${esc(activeRangeReport.title)}</h1><p style="text-align:center">${esc(pdfDateLabel(reportStartDate))} to ${esc(pdfDateLabel(reportEndDate))}</p><div class="kpis"><div class="box">Enquiry<b>${formatReportValue(selectedRangeReportTotals.source.enquiry)}</b></div><div class="box">Calls<b>${formatReportValue(selectedRangeReportTotals.people.calls)}</b></div><div class="box">Followup<b>${formatReportValue(selectedRangeReportTotals.people.followup)}</b></div><div class="box">SV Planned<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitPlanned)}</b></div><div class="box">SV Done<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitDone)}</b></div><div class="box">Booking<b>${formatReportValue(selectedRangeReportTotals.people.booking)}</b></div><div class="box">Conversion %<b>${formatReportValue(`${selectedRangeReportTotals.source.percentage}%`)}</b></div><div class="box">Cancellation<b>${formatReportValue(selectedRangeReportTotals.people.cancellation)}</b></div></div>`}${reportTables}<script>window.onload=()=>{window.print();}</script></body></html>`);
+    win.document.write(`<html><head><title>${esc(fileStem)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px}h2{font-size:15px;margin:24px 0 2px;text-align:center}h2 span{display:block;font-size:12px;margin-top:3px}.report-date{text-align:center;font-size:11px;margin:0 0 8px;color:#475569}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px;table-layout:fixed}th,td{border:1px solid #111;padding:5px;text-align:center;vertical-align:middle;width:90px}th{background:#f1f5f9;font-weight:700}.cover-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:10px}.cover-head img{height:38px;object-fit:contain}.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}.metric-section{border:1px solid #cbd5e1;padding:10px;background:#f8fafc}.metric-section h3{margin:0;text-align:center;font-size:13px}.metric-section p{margin:3px 0 8px;text-align:center;font-size:10px;color:#475569}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.box{border:1px solid #ddd;padding:7px;text-align:center;background:#fff;font-size:9px}.box b{display:block;font-size:15px}.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.dash-card{border:1px solid #ddd;padding:10px;min-height:180px}.dash-card h3{text-align:center;margin:0 0 10px;font-size:13px}.bar-row{display:grid;grid-template-columns:105px 1fr;gap:8px;align-items:center;margin:7px 0;font-size:10px}.bar-row b{display:block;color:#fff;text-align:right;padding:4px;border-radius:3px;min-width:22px}.trend{height:160px;display:flex;align-items:flex-end;gap:6px;border-left:1px solid #ddd;border-bottom:1px solid #ddd;padding:8px}.trend-col{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}.trend-col strong{font-size:9px;font-weight:700}.trend-col span{width:100%;display:block;border-radius:3px 3px 0 0}.trend-col em{font-size:8px;font-style:normal}.line-wrap svg{width:100%;height:160px}.legend{display:flex;justify-content:center;gap:10px;font-size:9px}.legend span{display:inline-flex;align-items:center;gap:4px}.legend i{width:9px;height:9px;display:inline-block;border-radius:99px}.report-cover{page-break-after:always}.table-head{display:flex;justify-content:flex-end;margin-top:12px}.table-head img{height:30px}@media print{body{padding:12px}table{page-break-inside:auto}tr{page-break-inside:avoid}.report-cover{min-height:96vh}}</style></head><body>${dashboardHtml || `<div class="table-head"><img src="${DESAM_LOGO_ASSET}" alt="Logo"/></div><h1>${esc(activeRangeReport.title)}</h1><p style="text-align:center">${esc(pdfRangeLongLabel)}</p><div class="kpis"><div class="box">Enquiry<b>${formatReportValue(selectedRangeReportTotals.source.enquiry)}</b></div><div class="box">Calls<b>${formatReportValue(selectedRangeReportTotals.people.calls)}</b></div><div class="box">Followup<b>${formatReportValue(selectedRangeReportTotals.people.followup)}</b></div><div class="box">SV Planned<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitPlanned)}</b></div><div class="box">SV Done<b>${formatReportValue(selectedRangeReportTotals.people.siteVisitDone)}</b></div><div class="box">Booking<b>${formatReportValue(selectedRangeReportTotals.people.booking)}</b></div><div class="box">Conversion %<b>${formatReportValue(`${selectedRangeReportTotals.source.percentage}%`)}</b></div><div class="box">Cancellation<b>${formatReportValue(selectedRangeReportTotals.people.cancellation)}</b></div></div>`}${reportTables}<script>window.onload=()=>{window.print();}</script></body></html>`);
     win.document.close();
     triggerToastAlert("PDF report opened.");
   };
@@ -2829,7 +2849,7 @@ export default function App() {
               const sectionRowsForWidth = [...(section.headerRows || [section.headers]), ...section.rows, ...(section.totals ? [section.totals] : [])];
               return (
               <div key={section.title} className="overflow-x-auto border border-slate-800 rounded-xl bg-slate-950">
-                <div className="px-3 py-2 bg-slate-900 border-b border-slate-800 text-center text-[11px] font-black text-orange-300 uppercase tracking-wider">{section.title}</div>
+                <div className="px-3 py-2 bg-slate-900 border-b border-slate-800 text-center text-[11px] font-black text-orange-300 uppercase tracking-wider">{section.title}{section.subtitle&&<span className="block text-[10px] text-slate-400 mt-1">{section.subtitle}</span>}</div>
                 <table className="w-full table-fixed text-left text-[10px] whitespace-nowrap border-collapse">
                   <colgroup>{section.headers.map((_,i)=><col key={`${section.title}-col-${i}`} style={columnStyle(sectionRowsForWidth,i)}/>)}</colgroup>
                   <thead className="bg-slate-900 text-slate-300 uppercase font-black">
@@ -3295,7 +3315,7 @@ export default function App() {
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {[{id:"ManagementSummary",label:"Management Summary"},{id:"ProjectSourceEnqBooking",label:"Projectwise-Sourcewise Enq Vs Booking"},{id:"PerformanceSummary",label:"Performance Summary"},{id:"ExecutiveWise",label:"Executivewise Report"},{id:"ExecutiveProjectwise",label:"Executivewise-Projectwise"},{id:"ExecutiveSourcewise",label:"Executivewise-Sourcewise"},{id:"Projectwise",label:"Projectwise Report"},{id:"Sourcewise",label:"Sourcewise Report"},{id:"SourceProjectwise",label:"Sourcewise-Projectwise"}].map(item=><button key={item.id} onClick={()=>setSelectedMatrixReport(item.id)} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-colors ${selectedMatrixReport===item.id?"bg-blue-600 border-blue-500 text-white":"bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-blue-500/40"}`}>{item.label}</button>)}
+                  {[{id:"ManagementSummary",label:"Management Summary"},{id:"ProjectSourceEnqBooking",label:"Projectwise-Sourcewise Enq SV Booking"},{id:"PerformanceSummary",label:"Performance Summary"},{id:"ExecutiveWise",label:"Executivewise Report"},{id:"ExecutiveProjectwise",label:"Executivewise-Projectwise"},{id:"ExecutiveSourcewise",label:"Executivewise-Sourcewise"},{id:"Projectwise",label:"Projectwise Report"},{id:"Sourcewise",label:"Sourcewise Report"},{id:"SourceProjectwise",label:"Sourcewise-Projectwise"}].map(item=><button key={item.id} onClick={()=>setSelectedMatrixReport(item.id)} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-colors ${selectedMatrixReport===item.id?"bg-blue-600 border-blue-500 text-white":"bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-blue-500/40"}`}>{item.label}</button>)}
                 </div>
               </div>
               <div className="space-y-5">

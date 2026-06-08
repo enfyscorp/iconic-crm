@@ -8,7 +8,7 @@ import {
   Mail, CheckCircle2, UserPlus, Trash2, Edit2, X, Bell,
   AlertTriangle, Download, Upload, Info, FileSpreadsheet, Check,
   Menu, ArrowRight, Home, FileText, ArrowLeft, ClipboardList,
-  Phone, UserCheck, BookOpen, Banknote, XCircle, Activity,
+  Phone, UserCheck, BookOpen, XCircle, Activity,
   Table2, Eye, RefreshCw, AlertCircle, HelpCircle, KeyRound,
   ShieldCheck, RotateCcw, Send, PhoneOff, Star, MessageSquare
 } from "lucide-react";
@@ -1673,6 +1673,56 @@ export default function App() {
     }).sort((a,b)=>a.source.localeCompare(b.source)||b.enquiry-a.enquiry);
   },[reportScopedLeads,reportScopedActivityLogs,isDateInRange,reportStartDate,reportEndDate]);
 
+  const rangeExecutiveProjectReport = useMemo(()=>{
+    const map = {};
+    const ensure = (executive, project) => {
+      const key = `${executive || "Unassigned"}|${project || "Unknown"}`;
+      if(!map[key])map[key]={executive:executive||"Unassigned",project:project||"Unknown",enquirySet:new Set(),calls:0,followup:0,siteVisitPlanned:0,siteVisitDone:0,booking:0,registration:0,cancellation:0,productivity:0};
+      return map[key];
+    };
+    reportScopedLeads.forEach(lead=>{
+      if(!isDateInRange(lead.dateCreated,reportStartDate,reportEndDate))return;
+      ensure(lead.assignedTo||"Unassigned", lead.project).enquirySet.add(lead.id);
+    });
+    reportScopedActivityLogs.forEach(log=>{
+      if(!isDateInRange(log.date,reportStartDate,reportEndDate))return;
+      const row=ensure(log.executive, log.project);
+      row.calls += log.callsMade || 0;
+      row.followup += log.followup || 0;
+      row.siteVisitPlanned += log.siteVisitPlanned || 0;
+      row.siteVisitDone += log.siteVisitDone || 0;
+      row.booking += log.booking || 0;
+      row.registration += log.registration || 0;
+      row.cancellation += log.cancellation || 0;
+    });
+    return Object.values(map).map(row=>({...row,enquiry:row.enquirySet.size,productivity:(row.calls||0)+(row.followup||0)+(row.siteVisitPlanned||0)+(row.siteVisitDone||0)+(row.booking||0)+(row.registration||0)})).sort((a,b)=>a.executive.localeCompare(b.executive)||a.project.localeCompare(b.project));
+  },[reportScopedLeads,reportScopedActivityLogs,isDateInRange,reportStartDate,reportEndDate]);
+
+  const rangeExecutiveSourceReport = useMemo(()=>{
+    const map = {};
+    const ensure = (executive, source) => {
+      const key = `${executive || "Unassigned"}|${source || "Unknown"}`;
+      if(!map[key])map[key]={executive:executive||"Unassigned",source:source||"Unknown",enquirySet:new Set(),calls:0,followup:0,siteVisitPlanned:0,siteVisitDone:0,booking:0,registration:0,cancellation:0,productivity:0};
+      return map[key];
+    };
+    reportScopedLeads.forEach(lead=>{
+      if(!isDateInRange(lead.dateCreated,reportStartDate,reportEndDate))return;
+      ensure(lead.assignedTo||"Unassigned", lead.source).enquirySet.add(lead.id);
+    });
+    reportScopedActivityLogs.forEach(log=>{
+      if(!isDateInRange(log.date,reportStartDate,reportEndDate))return;
+      const row=ensure(log.executive, log.source);
+      row.calls += log.callsMade || 0;
+      row.followup += log.followup || 0;
+      row.siteVisitPlanned += log.siteVisitPlanned || 0;
+      row.siteVisitDone += log.siteVisitDone || 0;
+      row.booking += log.booking || 0;
+      row.registration += log.registration || 0;
+      row.cancellation += log.cancellation || 0;
+    });
+    return Object.values(map).map(row=>({...row,enquiry:row.enquirySet.size,productivity:(row.calls||0)+(row.followup||0)+(row.siteVisitPlanned||0)+(row.siteVisitDone||0)+(row.booking||0)+(row.registration||0)})).sort((a,b)=>a.executive.localeCompare(b.executive)||a.source.localeCompare(b.source));
+  },[reportScopedLeads,reportScopedActivityLogs,isDateInRange,reportStartDate,reportEndDate]);
+
   const dashboardActivityLogs = useMemo(()=>{
     let logs=systemActivityLogs;
     if(currentUser&&!["Admin","Manager"].includes(currentUser.role))logs=logs.filter(l=>l.executive===currentUser.name);
@@ -2273,9 +2323,17 @@ export default function App() {
       totals.percentage=totals.enquiry?((totals.conversion/totals.enquiry)*100).toFixed(1):"0.0";
       return {title:"Sourcewise-Projectwise Report",headers:["Source","Project","Enquiry","SV Planned","SV Done","Booking","Conversion","Cancellation","Percentage"],rows:rangeSourceProjectReport.map(r=>fmtRow([r.source,r.project,r.enquiry,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.conversion,r.cancellation,`${r.percentage}%`])),totals:fmtRow(["TOTAL","",totals.enquiry,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.conversion,totals.cancellation,`${totals.percentage}%`])};
     }
+    if(selectedMatrixReport==="ExecutiveProjectwise"){
+      const totals=sumRows(rangeExecutiveProjectReport,["enquiry","calls","followup","siteVisitPlanned","siteVisitDone","booking","registration","cancellation","productivity"]);
+      return {title:"Executivewise-Projectwise Report",headers:["Executive","Project","Enquiry","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity"],rows:rangeExecutiveProjectReport.map(r=>fmtRow([r.executive,r.project,r.enquiry,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),totals:fmtRow(["TOTAL","",totals.enquiry,totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
+    }
+    if(selectedMatrixReport==="ExecutiveSourcewise"){
+      const totals=sumRows(rangeExecutiveSourceReport,["enquiry","calls","followup","siteVisitPlanned","siteVisitDone","booking","registration","cancellation","productivity"]);
+      return {title:"Executivewise-Sourcewise Report",headers:["Executive","Source","Enquiry","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity"],rows:rangeExecutiveSourceReport.map(r=>fmtRow([r.executive,r.source,r.enquiry,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),totals:fmtRow(["TOTAL","",totals.enquiry,totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
+    }
     const totals=sumRows(rangePeopleActivitySummary,["calls","followup","siteVisitPlanned","siteVisitDone","booking","registration","cancellation","productivity"]);
     return {title:"Executivewise Report",headers:["Name","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity"],rows:rangePeopleActivitySummary.map(r=>fmtRow([r.name,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),totals:fmtRow(["TOTAL",totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
-  },[selectedMatrixReport,rangePeopleActivitySummary,rangeSourceReport,rangeProjectReport,rangeSourceProjectReport]);
+  },[selectedMatrixReport,rangePeopleActivitySummary,rangeSourceReport,rangeProjectReport,rangeSourceProjectReport,rangeExecutiveProjectReport,rangeExecutiveSourceReport]);
 
   const exportSelectedRangeReport = (formatType) => {
     const headers = activeRangeReport.headers;
@@ -2519,23 +2577,15 @@ export default function App() {
                   </div>
                 </div>
               )}
-              {(dueFollowUpLeads.length>0||appointmentReminderLeads.length>0)&&(
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                  <div className="bg-slate-950 border border-blue-500/30 rounded-2xl p-5 shadow-xl">
-                    <h2 className="text-xs font-black text-blue-400 flex items-center gap-2 uppercase tracking-wider mb-4"><Clock className="h-4 w-4"/> Follow-Up Reminders</h2>
-                    <div className="space-y-2">
-                      {dueFollowUpLeads.length===0?<p className="text-xs text-slate-500 font-bold py-3">No follow-ups scheduled for today.</p>:dueFollowUpLeads.slice(0,5).map(l=><button key={l.id} onClick={()=>setSelectedLead(l)} className="w-full text-left bg-slate-900/70 hover:bg-slate-900 border border-slate-800 hover:border-blue-500/40 rounded-xl p-3 transition-colors"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs font-black text-white truncate">{l.name}</p><p className="text-[10px] text-slate-500 font-mono mt-0.5">{l.phone}</p>{currentUser.role==="Admin"&&<p className="text-[10px] text-blue-300 font-black mt-1 truncate">Owner: {l.assignedTo||"Unassigned"}</p>}</div><span className="text-[10px] font-black font-mono text-amber-400">{l.nextFollowUp}</span></div></button>)}
-                    </div>
-                  </div>
-                  <div className="bg-slate-950 border border-amber-500/30 rounded-2xl p-5 shadow-xl">
-                    <h2 className="text-xs font-black text-amber-400 flex items-center gap-2 uppercase tracking-wider mb-4"><Calendar className="h-4 w-4"/> Appointment Reminders</h2>
-                    <div className="space-y-2">
-                      {appointmentReminderLeads.length===0?<p className="text-xs text-slate-500 font-bold py-3">No appointments scheduled for today.</p>:appointmentReminderLeads.slice(0,5).map(l=><button key={l.id} onClick={()=>setSelectedLead(l)} className="w-full text-left bg-slate-900/70 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/40 rounded-xl p-3 transition-colors"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs font-black text-white truncate">{l.name}</p><p className="text-[10px] text-slate-500 mt-0.5 truncate">{l.project}</p></div><span className="text-[10px] font-black font-mono text-amber-400">{l.siteVisitTentativeDate}</span></div></button>)}
-                    </div>
+              {dueFollowUpLeads.length>0&&(
+                <div className="bg-blue-950/30 border border-blue-500/30 p-4 lg:p-5 rounded-2xl shadow-xl">
+                  <div className="flex items-center justify-between gap-3 mb-3"><h3 className="text-blue-300 font-black text-xs uppercase tracking-wider flex items-center gap-2"><Clock className="h-4 w-4"/> Follow-Up Reminders</h3><span className="text-[10px] text-blue-200/70 font-black uppercase tracking-wider">{dueFollowUpLeads.length} due today</span></div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    {dueFollowUpLeads.slice(0,6).map(l=><button key={l.id} onClick={()=>setSelectedLead(l)} className="text-left bg-slate-950/80 hover:bg-slate-950 border border-blue-500/20 hover:border-blue-500/50 rounded-xl p-3 transition-colors"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-xs font-black text-white truncate">{l.name}</p><p className="text-[10px] text-slate-500 font-mono mt-0.5">{l.phone}</p></div><span className="shrink-0 bg-blue-500 text-white text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider">DUE</span></div><div className="mt-2 grid grid-cols-2 gap-2 text-[10px]"><p className="text-blue-400 font-bold truncate">{l.project}</p><p className="text-slate-400 font-mono text-right">{l.nextFollowUp}</p></div>{currentUser.role==="Admin"&&<p className="text-[10px] text-blue-300 font-black mt-1 truncate">Owner: {l.assignedTo||"Unassigned"}</p>}</button>)}
                   </div>
                 </div>
               )}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
                 <KpiTile label="Total Calls" value={activityKPIs.totalCalls.toLocaleString()} icon={<Phone/>} color="#ea580c"/>
                 <KpiTile label="Followups" value={activityKPIs.totalFollowups.toLocaleString()} icon={<PhoneCall/>} color="#3b82f6"/>
                 <KpiTile label="SV Planned" value={activityKPIs.totalSiteVisitPlanned} icon={<Calendar/>} color="#8b5cf6"/>
@@ -2543,14 +2593,13 @@ export default function App() {
                 <KpiTile label="Bookings" value={activityKPIs.totalBookings} icon={<BookOpen/>} color="#8b5cf6"/>
                 <KpiTile label="Registration" value={activityKPIs.totalRegistrations} icon={<UserCheck/>} color="#f59e0b"/>
                 <KpiTile label="Cancellation" value={activityKPIs.totalCancellations} icon={<XCircle/>} color="#ef4444"/>
-                <KpiTile label="Collection" value={`₹${activityKPIs.totalCollection}L`} icon={<Banknote/>} color="#06b6d4"/>
                 <KpiTile label="Conversion %" value={`${activityKPIs.convRate}%`} icon={<TrendingUp/>} color="#a3e635"/>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Scoped Leads <Briefcase className="h-4 w-4 text-orange-400"/></p><p className="text-3xl font-black text-white mt-1">{processedLeads.length}</p></div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">New Today <Star className="h-4 w-4 text-orange-400"/></p><p className="text-3xl font-black text-orange-400 mt-1">{newLeadDashboardItems.length}</p></div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Active Leads <Activity className="h-4 w-4 text-blue-400"/></p><p className="text-3xl font-black text-blue-400 mt-1">{processedLeads.filter(l=>["Assigned","Contacted","Follow-Up","Negotiation"].includes(l.status)).length}</p></div>
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Invalid / Cold <XCircle className="h-4 w-4 text-rose-400"/></p><p className="text-3xl font-black text-rose-400 mt-1">{processedLeads.filter(l=>["Not Interested","RNR","Switched Off","Wrong Number"].includes(l.status)).length}</p></div>
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Inactive / Unreachable <XCircle className="h-4 w-4 text-rose-400"/></p><p className="text-3xl font-black text-rose-400 mt-1">{processedLeads.filter(l=>["Not Interested","RNR","Switched Off","Wrong Number"].includes(l.status)).length}</p></div>
               </div>
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 space-y-4">
                 <h2 className="text-xs font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider"><Activity className="h-4 w-4"/> Action Queue</h2>
@@ -2766,7 +2815,7 @@ export default function App() {
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {[{id:"ExecutiveWise",label:"Executivewise Report"},{id:"Projectwise",label:"Projectwise Report"},{id:"Sourcewise",label:"Sourcewise Report"},{id:"SourceProjectwise",label:"Sourcewise-Projectwise"}].map(item=><button key={item.id} onClick={()=>setSelectedMatrixReport(item.id)} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-colors ${selectedMatrixReport===item.id?"bg-blue-600 border-blue-500 text-white":"bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-blue-500/40"}`}>{item.label}</button>)}
+                  {[{id:"ExecutiveWise",label:"Executivewise Report"},{id:"ExecutiveProjectwise",label:"Executivewise-Projectwise"},{id:"ExecutiveSourcewise",label:"Executivewise-Sourcewise"},{id:"Projectwise",label:"Projectwise Report"},{id:"Sourcewise",label:"Sourcewise Report"},{id:"SourceProjectwise",label:"Sourcewise-Projectwise"}].map(item=><button key={item.id} onClick={()=>setSelectedMatrixReport(item.id)} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-colors ${selectedMatrixReport===item.id?"bg-blue-600 border-blue-500 text-white":"bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-blue-500/40"}`}>{item.label}</button>)}
                 </div>
               </div>
               <div className="space-y-5">

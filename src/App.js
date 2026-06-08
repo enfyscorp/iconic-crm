@@ -995,6 +995,7 @@ export default function App() {
   const [reportStartDate, setReportStartDate] = useState(`${TODAY_STR.slice(0,7)}-01`);
   const [reportEndDate, setReportEndDate] = useState(TODAY_STR);
   const [selectedMatrixReport, setSelectedMatrixReport] = useState("ExecutiveWise");
+  const [expandedRangeReportKey, setExpandedRangeReportKey] = useState("");
 
   const [leads, setLeadsState] = useState([]);
   const [adminUsers, setAdminUsersState] = useState([]);
@@ -1725,6 +1726,49 @@ export default function App() {
     return Object.values(map).map(row=>({...row,enquiry:row.enquirySet.size,productivity:(row.calls||0)+(row.followup||0)+(row.siteVisitPlanned||0)+(row.siteVisitDone||0)+(row.booking||0)+(row.registration||0)})).sort((a,b)=>a.executive.localeCompare(b.executive)||a.source.localeCompare(b.source));
   },[reportScopedLeads,reportScopedActivityLogs,isDateInRange,reportStartDate,reportEndDate]);
 
+  const buildReportCustomerDetails = useCallback((leadMatcher, logMatcher) => {
+    const detailMap = new Map();
+    const addLead = (lead) => {
+      if (!lead) return;
+      detailMap.set(`lead-${lead.id}`, { lead, logs: [] });
+    };
+    reportScopedLeads.forEach(lead => {
+      if (isDateInRange(lead.dateCreated, reportStartDate, reportEndDate) && leadMatcher(lead)) addLead(lead);
+    });
+    reportScopedActivityLogs.forEach(log => {
+      if (!isDateInRange(log.date, reportStartDate, reportEndDate) || !logMatcher(log)) return;
+      const matchedLead = reportScopedLeads.find(lead => lead.id === log.leadId) || reportScopedLeads.find(lead => stripPhone(lead.phone) === stripPhone(log.phone));
+      if (matchedLead) {
+        const key = `lead-${matchedLead.id}`;
+        if (!detailMap.has(key)) detailMap.set(key, { lead: matchedLead, logs: [] });
+        detailMap.get(key).logs.push(log);
+      } else {
+        const key = `log-${log.leadId || log.phone || log.id}`;
+        const fallbackLead = { id:key, name:log.leadName || "Customer", phone:log.phone || "", project:log.project || "", source:log.source || "", assignedTo:log.executive || "Unassigned", status:log.callStatus || "Activity", dateCreated:log.date, dateCreatedTime:log.time, nextFollowUp:"" };
+        if (!detailMap.has(key)) detailMap.set(key, { lead:fallbackLead, logs: [] });
+        detailMap.get(key).logs.push(log);
+      }
+    });
+    return Array.from(detailMap.values()).map(({ lead, logs }) => {
+      const sortedLogs = [...logs].sort((a,b)=>(`${b.date||""} ${b.time||""}`).localeCompare(`${a.date||""} ${a.time||""}`));
+      const lastLog = sortedLogs[0];
+      return {
+        id: lead.id,
+        hasLeadRecord: !String(lead.id).startsWith("log-"),
+        name: lead.name || "Customer",
+        phone: lead.phone || "",
+        project: lead.project || "",
+        source: lead.source || "",
+        owner: lead.assignedTo || "Unassigned",
+        status: lead.status || "Activity",
+        enquiryDate: formatDateTimeLabel(lead) || "-",
+        followUp: lead.nextFollowUp && lead.nextFollowUp !== "None" ? lead.nextFollowUp : "-",
+        lastActivity: lastLog ? formatDateTimeLabel({date:lastLog.date,time:lastLog.time}) : "-",
+        remark: lastLog?.remark || lead.notes || "-",
+      };
+    }).sort((a,b)=>a.name.localeCompare(b.name));
+  }, [reportScopedLeads, reportScopedActivityLogs, isDateInRange, reportStartDate, reportEndDate]);
+
   const dashboardActivityLogs = useMemo(()=>{
     let logs=systemActivityLogs;
     if(currentUser&&!["Admin","Manager"].includes(currentUser.role))logs=logs.filter(l=>l.executive===currentUser.name);
@@ -2313,29 +2357,33 @@ export default function App() {
     if(selectedMatrixReport==="Projectwise"){
       const totals=sumRows(rangeProjectReport,["enquiry","siteVisitPlanned","siteVisitDone","booking","conversion","cancellation"]);
       totals.percentage=totals.enquiry?((totals.conversion/totals.enquiry)*100).toFixed(1):"0.0";
-      return {title:"Projectwise Report",headers:["Project","Enquiry","SV Planned","SV Done","Booking","Conversion","Cancellation","Percentage"],rows:rangeProjectReport.map(r=>fmtRow([r.project,r.enquiry,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.conversion,r.cancellation,`${r.percentage}%`])),totals:fmtRow(["TOTAL",totals.enquiry,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.conversion,totals.cancellation,`${totals.percentage}%`])};
+      return {title:"Projectwise Report",headers:["Project","Enquiry","SV Planned","SV Done","Booking","Conversion","Cancellation","Percentage"],rows:rangeProjectReport.map(r=>fmtRow([r.project,r.enquiry,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.conversion,r.cancellation,`${r.percentage}%`])),rowKeys:rangeProjectReport.map(r=>`project:${r.project}`),details:rangeProjectReport.map(r=>buildReportCustomerDetails(lead=>lead.project===r.project,log=>log.project===r.project)),totals:fmtRow(["TOTAL",totals.enquiry,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.conversion,totals.cancellation,`${totals.percentage}%`])};
     }
     if(selectedMatrixReport==="Sourcewise"){
       const totals=sumRows(rangeSourceReport,["enquiry","siteVisitPlanned","siteVisitDone","booking","conversion","cancellation"]);
       totals.percentage=totals.enquiry?((totals.conversion/totals.enquiry)*100).toFixed(1):"0.0";
-      return {title:"Sourcewise Report",headers:["Source","Enquiry","SV Planned","SV Done","Booking","Conversion","Cancellation","Percentage"],rows:rangeSourceReport.map(r=>fmtRow([r.source,r.enquiry,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.conversion,r.cancellation,`${r.percentage}%`])),totals:fmtRow(["TOTAL",totals.enquiry,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.conversion,totals.cancellation,`${totals.percentage}%`])};
+      return {title:"Sourcewise Report",headers:["Source","Enquiry","SV Planned","SV Done","Booking","Conversion","Cancellation","Percentage"],rows:rangeSourceReport.map(r=>fmtRow([r.source,r.enquiry,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.conversion,r.cancellation,`${r.percentage}%`])),rowKeys:rangeSourceReport.map(r=>`source:${r.source}`),details:rangeSourceReport.map(r=>buildReportCustomerDetails(lead=>lead.source===r.source,log=>log.source===r.source)),totals:fmtRow(["TOTAL",totals.enquiry,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.conversion,totals.cancellation,`${totals.percentage}%`])};
     }
     if(selectedMatrixReport==="SourceProjectwise"){
       const totals=sumRows(rangeSourceProjectReport,["enquiry","siteVisitPlanned","siteVisitDone","booking","conversion","cancellation"]);
       totals.percentage=totals.enquiry?((totals.conversion/totals.enquiry)*100).toFixed(1):"0.0";
-      return {title:"Sourcewise-Projectwise Report",headers:["Source","Project","Enquiry","SV Planned","SV Done","Booking","Conversion","Cancellation","Percentage"],rows:rangeSourceProjectReport.map(r=>fmtRow([r.source,r.project,r.enquiry,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.conversion,r.cancellation,`${r.percentage}%`])),totals:fmtRow(["TOTAL","",totals.enquiry,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.conversion,totals.cancellation,`${totals.percentage}%`])};
+      return {title:"Sourcewise-Projectwise Report",headers:["Source","Project","Enquiry","SV Planned","SV Done","Booking","Conversion","Cancellation","Percentage"],rows:rangeSourceProjectReport.map(r=>fmtRow([r.source,r.project,r.enquiry,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.conversion,r.cancellation,`${r.percentage}%`])),rowKeys:rangeSourceProjectReport.map(r=>`source-project:${r.source}:${r.project}`),details:rangeSourceProjectReport.map(r=>buildReportCustomerDetails(lead=>lead.source===r.source&&lead.project===r.project,log=>log.source===r.source&&log.project===r.project)),totals:fmtRow(["TOTAL","",totals.enquiry,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.conversion,totals.cancellation,`${totals.percentage}%`])};
     }
     if(selectedMatrixReport==="ExecutiveProjectwise"){
       const totals=sumRows(rangeExecutiveProjectReport,["enquiry","calls","followup","siteVisitPlanned","siteVisitDone","booking","registration","cancellation","productivity"]);
-      return {title:"Executivewise-Projectwise Report",headers:["Executive","Project","Enquiry","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity"],rows:rangeExecutiveProjectReport.map(r=>fmtRow([r.executive,r.project,r.enquiry,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),totals:fmtRow(["TOTAL","",totals.enquiry,totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
+      return {title:"Executivewise-Projectwise Report",headers:["Executive","Project","Enquiry","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity"],rows:rangeExecutiveProjectReport.map(r=>fmtRow([r.executive,r.project,r.enquiry,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),rowKeys:rangeExecutiveProjectReport.map(r=>`executive-project:${r.executive}:${r.project}`),details:rangeExecutiveProjectReport.map(r=>buildReportCustomerDetails(lead=>(lead.assignedTo||"Unassigned")===r.executive&&lead.project===r.project,log=>(log.executive||"Unassigned")===r.executive&&log.project===r.project)),totals:fmtRow(["TOTAL","",totals.enquiry,totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
     }
     if(selectedMatrixReport==="ExecutiveSourcewise"){
       const totals=sumRows(rangeExecutiveSourceReport,["enquiry","calls","followup","siteVisitPlanned","siteVisitDone","booking","registration","cancellation","productivity"]);
-      return {title:"Executivewise-Sourcewise Report",headers:["Executive","Source","Enquiry","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity"],rows:rangeExecutiveSourceReport.map(r=>fmtRow([r.executive,r.source,r.enquiry,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),totals:fmtRow(["TOTAL","",totals.enquiry,totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
+      return {title:"Executivewise-Sourcewise Report",headers:["Executive","Source","Enquiry","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity"],rows:rangeExecutiveSourceReport.map(r=>fmtRow([r.executive,r.source,r.enquiry,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),rowKeys:rangeExecutiveSourceReport.map(r=>`executive-source:${r.executive}:${r.source}`),details:rangeExecutiveSourceReport.map(r=>buildReportCustomerDetails(lead=>(lead.assignedTo||"Unassigned")===r.executive&&lead.source===r.source,log=>(log.executive||"Unassigned")===r.executive&&log.source===r.source)),totals:fmtRow(["TOTAL","",totals.enquiry,totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
     }
     const totals=sumRows(rangePeopleActivitySummary,["calls","followup","siteVisitPlanned","siteVisitDone","booking","registration","cancellation","productivity"]);
-    return {title:"Executivewise Report",headers:["Name","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity"],rows:rangePeopleActivitySummary.map(r=>fmtRow([r.name,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),totals:fmtRow(["TOTAL",totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
-  },[selectedMatrixReport,rangePeopleActivitySummary,rangeSourceReport,rangeProjectReport,rangeSourceProjectReport,rangeExecutiveProjectReport,rangeExecutiveSourceReport]);
+    return {title:"Executivewise Report",headers:["Name","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity"],rows:rangePeopleActivitySummary.map(r=>fmtRow([r.name,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),rowKeys:rangePeopleActivitySummary.map(r=>`executive:${r.name}`),details:rangePeopleActivitySummary.map(r=>buildReportCustomerDetails(lead=>(lead.assignedTo||"Unassigned")===r.name,log=>(log.executive||"Unassigned")===r.name)),totals:fmtRow(["TOTAL",totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
+  },[selectedMatrixReport,rangePeopleActivitySummary,rangeSourceReport,rangeProjectReport,rangeSourceProjectReport,rangeExecutiveProjectReport,rangeExecutiveSourceReport,buildReportCustomerDetails]);
+
+  useEffect(() => {
+    setExpandedRangeReportKey("");
+  }, [selectedMatrixReport, reportStartDate, reportEndDate]);
 
   const exportSelectedRangeReport = (formatType) => {
     const headers = activeRangeReport.headers;
@@ -2418,7 +2466,34 @@ export default function App() {
         <table className="w-full text-left text-[10px] whitespace-nowrap">
           <thead className="border-b border-slate-800 text-slate-500 uppercase font-bold"><tr>{activeRangeReport.headers.map(h=><th key={h} className="p-3">{h}</th>)}</tr></thead>
           <tbody className="divide-y divide-slate-800">
-            {activeRangeReport.rows.length===0?<tr><td colSpan={activeRangeReport.headers.length} className="p-5 text-center text-slate-500 font-bold uppercase tracking-wider">No report data</td></tr>:activeRangeReport.rows.map((row,idx)=><tr key={idx} className="hover:bg-slate-900/50">{row.map((cell,i)=><td key={`${idx}-${i}`} className={`p-3 ${i===0?"font-black text-white":"font-mono text-slate-300"}`}>{cell}</td>)}</tr>)}
+            {activeRangeReport.rows.length===0?<tr><td colSpan={activeRangeReport.headers.length} className="p-5 text-center text-slate-500 font-bold uppercase tracking-wider">No report data</td></tr>:activeRangeReport.rows.map((row,idx)=>{
+              const rowKey = activeRangeReport.rowKeys?.[idx] || `${activeRangeReport.title}-${idx}`;
+              const detailRows = activeRangeReport.details?.[idx] || [];
+              const isExpanded = expandedRangeReportKey === rowKey;
+              return (
+                <React.Fragment key={rowKey}>
+                  <tr className="hover:bg-slate-900/50">
+                    {row.map((cell,i)=><td key={`${idx}-${i}`} className={`p-3 ${i===0?"font-black text-white":"font-mono text-slate-300"}`}>{i===0?<button type="button" onClick={()=>setExpandedRangeReportKey(isExpanded?"":rowKey)} className="flex items-center gap-2 text-left text-white hover:text-blue-300 transition-colors"><span className="inline-flex h-5 w-5 items-center justify-center rounded bg-slate-900 border border-slate-700 text-[10px]">{isExpanded?"-":"+"}</span><span>{cell}</span><span className="text-[9px] text-slate-500 font-mono">({detailRows.length})</span></button>:cell}</td>)}
+                  </tr>
+                  {isExpanded&&(
+                    <tr className="bg-slate-950/80">
+                      <td colSpan={activeRangeReport.headers.length} className="p-0">
+                        <div className="p-3 border-t border-blue-500/20 bg-blue-950/10">
+                          <div className="overflow-x-auto rounded-xl border border-slate-800">
+                            <table className="w-full text-left text-[10px] whitespace-nowrap">
+                              <thead className="bg-slate-900/80 text-slate-500 uppercase font-black"><tr><th className="p-2.5">Customer</th><th className="p-2.5">Phone</th><th className="p-2.5">Project</th><th className="p-2.5">Source</th><th className="p-2.5">Owner</th><th className="p-2.5">Status</th><th className="p-2.5">Enquiry</th><th className="p-2.5">Follow-up</th><th className="p-2.5">Last Activity</th><th className="p-2.5">Remark</th></tr></thead>
+                              <tbody className="divide-y divide-slate-800">
+                                {detailRows.length===0?<tr><td colSpan="10" className="p-4 text-center text-slate-500 font-bold uppercase tracking-wider">No customers found for this row</td></tr>:detailRows.map(detail=><tr key={`${rowKey}-${detail.id}`} className="hover:bg-slate-900/50"><td className="p-2.5 font-black text-white">{detail.hasLeadRecord?<button onClick={()=>{const lead=leads.find(l=>l.id===detail.id); if(lead)setSelectedLead(lead);}} className="hover:text-orange-400 underline-offset-4 hover:underline">{detail.name}</button>:detail.name}</td><td className="p-2.5 font-mono text-slate-400">{detail.phone||"-"}</td><td className="p-2.5 text-orange-400 font-bold">{detail.project||"-"}</td><td className="p-2.5 text-slate-300">{detail.source||"-"}</td><td className="p-2.5 text-blue-300 font-bold">{detail.owner||"-"}</td><td className="p-2.5"><span className="px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider" style={{backgroundColor:SC[detail.status]?.bg||"rgba(148,163,184,0.12)",color:SC[detail.status]?.text||"#cbd5e1",border:`1px solid ${SC[detail.status]?.border||"rgba(148,163,184,0.2)"}`}}>{detail.status||"-"}</span></td><td className="p-2.5 font-mono text-slate-400">{detail.enquiryDate}</td><td className="p-2.5 font-mono text-blue-300">{detail.followUp}</td><td className="p-2.5 font-mono text-slate-400">{detail.lastActivity}</td><td className="p-2.5 text-slate-400 max-w-[260px] truncate" title={detail.remark}>{detail.remark}</td></tr>)}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
           </tbody>
           {activeRangeReport.rows.length>0&&<tfoot className="border-t border-slate-700 bg-slate-900/80 text-white font-black"><tr>{activeRangeReport.totals.map((cell,i)=><td key={`total-${i}`} className={`p-3 ${i===0?"":"font-mono text-orange-400"}`}>{cell}</td>)}</tr></tfoot>}
         </table>

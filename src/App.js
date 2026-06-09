@@ -1331,6 +1331,7 @@ export default function App() {
   const allowBrowserExitRef = useRef(false);
   const notifiedAlertsRef = useRef(new Set());
   const coldLeadMigrationDoneRef = useRef(false);
+  const saamratLeadMigrationDoneRef = useRef(false);
 
   useEffect(() => {
     if (!selectedLead) return;
@@ -1351,6 +1352,39 @@ export default function App() {
       if (!saved) coldLeadMigrationDoneRef.current = false;
     });
   }, [storageReady, currentUser?.role, leads, setLeads]);
+
+  useEffect(() => {
+    if (!storageReady || currentUser?.role !== "Admin" || saamratLeadMigrationDoneRef.current || !leads.length) return;
+    const saamratUser = users.find(user => String(user.name || "").trim().toLowerCase() === "saamrat");
+    const adminTarget = users.find(user => user.role === "Admin" && String(user.name || "").trim().toLowerCase() === "admin");
+    const shouldMoveLead = (lead) => {
+      const assignedName = String(lead.assignedTo || "").trim().toLowerCase();
+      return assignedName === "saamrat" || (saamratUser?.id && lead.assignedToId === saamratUser.id);
+    };
+    const matchingCount = leads.filter(shouldMoveLead).length;
+    if (!matchingCount) {
+      saamratLeadMigrationDoneRef.current = true;
+      return;
+    }
+    saamratLeadMigrationDoneRef.current = true;
+    const now = new Date();
+    const log = makeHistoryLog(currentUser.name, `Transferred from Saamrat to Admin.`, now);
+    const updated = leads.map(lead => shouldMoveLead(lead) ? {
+      ...lead,
+      assignedTo: "Admin",
+      assignedToId: adminTarget?.id || null,
+      assignedAt: Date.now(),
+      assignedByRole: "Admin",
+      history: [log, ...(lead.history || [])],
+    } : lead);
+    setLeads(updated).then(saved => {
+      if (!saved) {
+        saamratLeadMigrationDoneRef.current = false;
+        return;
+      }
+      triggerToastAlert(`Transferred ${matchingCount} Saamrat lead${matchingCount === 1 ? "" : "s"} to Admin.`);
+    });
+  }, [storageReady, currentUser, leads, users, setLeads]);
 
   useEffect(() => {
     if (!selectedLead) {

@@ -165,6 +165,43 @@ function isFreshLead(lead) {
   return lead?.status === "Assigned" && lead?.assignedTo && lead.assignedTo !== "Unassigned" && isTimestampToday(lead.assignedAt);
 }
 
+function CalendarDateInput({ value, onChange, min, max, required = false, className = "", iconClassName = "text-orange-400" }) {
+  const inputRef = useRef(null);
+  const openPicker = () => {
+    const input = inputRef.current;
+    if (!input) return;
+    if (typeof input.showPicker === "function") input.showPicker();
+    else input.focus();
+  };
+  const handleChange = (e) => {
+    const next = e.target.value;
+    if (min && next && next < min) { onChange(min); return; }
+    if (max && next && next > max) { onChange(max); return; }
+    onChange(next);
+  };
+  return (
+    <div className="relative w-full">
+      <input
+        ref={inputRef}
+        type="date"
+        value={value || ""}
+        min={min}
+        max={max}
+        required={required}
+        onChange={handleChange}
+        onClick={openPicker}
+        onKeyDown={e => e.preventDefault()}
+        onPaste={e => e.preventDefault()}
+        onDrop={e => e.preventDefault()}
+        className={`w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500 font-mono pr-10 [color-scheme:dark] cursor-pointer ${className}`}
+      />
+      <button type="button" onClick={openPicker} className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-slate-800 transition-colors" aria-label="Open calendar">
+        <Calendar className={`h-4 w-4 ${iconClassName}`} />
+      </button>
+    </div>
+  );
+}
+
 const STATUS_EVENT_CONFIG = {
   Contacted: { dateLabel: "Next Follow-up Date", eventLabel: "Contact Notes / Remark", defaultEvent: "" },
   "Follow-Up": { dateLabel: "Next Follow-up Date", eventLabel: "Follow-up Event / Remark", defaultEvent: "Follow-up scheduled" },
@@ -303,6 +340,8 @@ function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY
   const [callState, setCallState] = useState("idle");
   const [callDuration, setCallDuration] = useState(0);
   const [feedback, setFeedback] = useState({ rating: 0, notes: "", outcome: "Contacted", followUpDate: "" });
+  const deadCallOutcomes = ["Not Interested", "Wrong Number"];
+  const needsFollowUpDate = !deadCallOutcomes.includes(feedback.outcome);
   const timerRef = useRef(null);
   const callStateRef = useRef("idle");
   const callStartedAtRef = useRef(0);
@@ -335,7 +374,7 @@ function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY
 
   const saveFeedback = () => {
     if (onFeedbackSaved) {
-      onFeedbackSaved({ ...feedback, callDuration, calledAt: new Date().toISOString(), phone, leadName });
+      onFeedbackSaved({ ...feedback, followUpDate: needsFollowUpDate ? feedback.followUpDate : "", callDuration, calledAt: new Date().toISOString(), phone, leadName });
     }
     setCallState("idle");
     setFeedback({ rating: 0, notes: "", outcome: "Contacted", followUpDate: "" });
@@ -429,14 +468,14 @@ function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Call Outcome</label>
-                <select value={feedback.outcome} onChange={e => setFeedback(f => ({ ...f, outcome: e.target.value }))} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                <select value={feedback.outcome} onChange={e => setFeedback(f => ({ ...f, outcome: e.target.value, followUpDate: deadCallOutcomes.includes(e.target.value) ? "" : f.followUpDate }))} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
                   {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
-              <div className="space-y-1.5">
+              {needsFollowUpDate&&<div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Next Follow-up Date</label>
-                <input type="date" value={feedback.followUpDate} min={TODAY_STR} onChange={e => setFeedback(f => ({ ...f, followUpDate: e.target.value }))} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono" />
-              </div>
+                <CalendarDateInput value={feedback.followUpDate} min={TODAY_STR} onChange={date => setFeedback(f => ({ ...f, followUpDate: date }))} className="text-xs focus:border-emerald-500" iconClassName="text-emerald-400" />
+              </div>}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Notes</label>
                 <textarea rows={2} value={feedback.notes} onChange={e => setFeedback(f => ({ ...f, notes: e.target.value }))} placeholder="What was discussed? Any next steps?" className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 resize-none" />
@@ -2013,6 +2052,10 @@ export default function App() {
       triggerToastAlert("Please select the event date.");
       return;
     }
+    if (config && needsDate && leadStatusEventPopup.date < TODAY_STR) {
+      triggerToastAlert("Please select today or a future date.");
+      return;
+    }
     if (config && !leadStatusEventPopup.event.trim()) {
       triggerToastAlert("Please enter notes or remarks.");
       return;
@@ -2061,6 +2104,10 @@ export default function App() {
         event: leadEditDraft.statusEventRemark || statusEventConfig.defaultEvent || "",
       });
       triggerToastAlert(statusEventNeedsDate && !leadEditDraft.statusEventDate ? "Please add the event date before saving." : "Please add notes or remarks before saving.");
+      return;
+    }
+    if (statusChanged && statusEventConfig && statusEventNeedsDate && leadEditDraft.statusEventDate < TODAY_STR) {
+      triggerToastAlert("Please select today or a future date.");
       return;
     }
     const logs = [];
@@ -2154,6 +2201,8 @@ export default function App() {
   };
 
   const handleDeleteWhatsappTemplate = async (templateId) => {
+    if(currentUser?.role !== "Admin"){ triggerToastAlert("Only Admin can delete WhatsApp templates."); return; }
+    if(!window.confirm("Delete this WhatsApp template?")) return;
     const saved = await setWhatsappTemplates(whatsappTemplates.filter(t => t.id !== templateId));
     if(!saved){ triggerToastAlert("Could not delete WhatsApp template."); return; }
     triggerToastAlert("Template deleted.");
@@ -2225,10 +2274,14 @@ export default function App() {
       return;
     }
     if (emailOrUsername.endsWith("@desam")) {
-      setLoginError("Staff login not found in Supabase. Login as Admin, open System Control Hub, edit this staff user, set a new password, and Save Changes.");
+      setLoginError("Staff login not found. Staff must use user@desam. Admin must use @desamdevelopers.com.");
       return;
     }
     if (emailOrUsername.includes("@")) {
+      if (!emailOrUsername.endsWith("@desamdevelopers.com")) {
+        setLoginError("Admin login must use @desamdevelopers.com. Staff login must use user@desam.");
+        return;
+      }
       const { data, error } = await supabase.auth.signInWithPassword({
         email: emailOrUsername,
         password: loginPassword,
@@ -3137,7 +3190,7 @@ export default function App() {
                 <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 flex-1 min-w-[140px]"><option value="All">All Statuses</option>{STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select>
                 <select value={filterProject} onChange={e=>setFilterProject(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 flex-1 min-w-[140px]"><option value="All">All Projects</option>{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select>
                 {["Admin","Manager"].includes(currentUser.role)&&<select value={filterExecutive} onChange={e=>setFilterExecutive(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-orange-500 flex-1 min-w-[140px]"><option value="All">All Assignees</option><option value="Unassigned">Unassigned</option>{assignableUsers.map(u=><option key={u.id} value={u.name}>{u.name}</option>)}</select>}
-                <div className="flex items-center gap-2 flex-1 min-w-[230px]"><div className="relative w-full"><Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500"/><input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-2 py-2 text-slate-300 focus:outline-none focus:border-orange-500 font-mono text-[10px]"/></div><span className="text-slate-600">-</span><div className="relative w-full"><Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500"/><input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-2 py-2 text-slate-300 focus:outline-none focus:border-orange-500 font-mono text-[10px]"/></div></div>
+                <div className="flex items-center gap-2 flex-1 min-w-[230px]"><CalendarDateInput value={startDate} onChange={setStartDate} className="rounded-lg py-2 text-slate-300 text-[10px]"/><span className="text-slate-600">-</span><CalendarDateInput value={endDate} onChange={setEndDate} className="rounded-lg py-2 text-slate-300 text-[10px]"/></div>
                 {(globalSearch||filterSource!=="All"||filterStatus!=="All"||filterProject!=="All"||filterExecutive!=="All"||startDate||endDate)&&<button onClick={()=>{setGlobalSearch("");setFilterSource("All");setFilterStatus("All");setFilterProject("All");setFilterExecutive("All");setStartDate("");setEndDate("");}} className="text-orange-400 hover:text-orange-300 font-bold px-3 py-2 border border-orange-500/30 rounded-lg flex items-center gap-1 bg-orange-500/10"><X className="h-3.5 w-3.5"/> Clear</button>}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
@@ -3182,7 +3235,7 @@ export default function App() {
                    {["Admin","Manager"].includes(currentUser.role)&&<select value={actFilterExec} onChange={e=>setActFilterExec(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 flex-1 min-w-[120px]"><option value="All">All Executives</option>{visibleUsers.map(u=><option key={u.id} value={u.name}>{u.name}</option>)}</select>}
                    <select value={actFilterProject} onChange={e=>setActFilterProject(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 flex-1 min-w-[120px]"><option value="All">All Projects</option>{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select>
                    <select value={actFilterSource} onChange={e=>setActFilterSource(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 flex-1 min-w-[120px]"><option value="All">All Sources</option>{SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select>
-                   <div className="flex items-center gap-2 flex-1 min-w-[230px]"><div className="relative w-full"><Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500"/><input type="date" value={actStartDate} onChange={e=>setActStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-2 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 font-mono"/></div><span className="text-slate-600">-</span><div className="relative w-full"><Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500"/><input type="date" value={actEndDate} onChange={e=>setActEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-2 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 font-mono"/></div></div>
+                   <div className="flex items-center gap-2 flex-1 min-w-[230px]"><CalendarDateInput value={actStartDate} onChange={setActStartDate} className="rounded-lg py-2 text-slate-300 focus:border-emerald-500" iconClassName="text-emerald-400"/><span className="text-slate-600">-</span><CalendarDateInput value={actEndDate} onChange={setActEndDate} className="rounded-lg py-2 text-slate-300 focus:border-emerald-500" iconClassName="text-emerald-400"/></div>
                    {(activitySearch||actFilterExec!=="All"||actFilterProject!=="All"||actFilterSource!=="All"||actFilterStatus!=="All"||actStartDate!==TODAY_STR||actEndDate!==TODAY_STR)&&<button onClick={()=>{setActivitySearch("");setActFilterExec("All");setActFilterProject("All");setActFilterSource("All");setActFilterStatus("All");setActStartDate(TODAY_STR);setActEndDate(TODAY_STR);}} className="text-emerald-400 hover:text-emerald-300 font-bold px-3 py-2 border border-emerald-500/30 rounded-lg flex items-center gap-1 bg-emerald-500/10"><X className="h-3.5 w-3.5"/> Clear</button>}
                  </div>
                  <div className="overflow-x-auto border border-slate-800 rounded-xl bg-slate-900/40">
@@ -3290,7 +3343,7 @@ export default function App() {
                     <div key={t.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl hover:border-emerald-500/40 transition-colors">
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div><h3 className="text-sm font-black text-white">{t.title}</h3><p className="text-[10px] text-emerald-400 font-bold mt-1">{t.project}</p></div>
-                        {["Admin","Manager"].includes(currentUser.role)&&<button onClick={()=>handleDeleteWhatsappTemplate(t.id)} className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-500 hover:text-rose-400"><Trash2 className="h-3.5 w-3.5"/></button>}
+                        {currentUser.role==="Admin"&&<button onClick={()=>handleDeleteWhatsappTemplate(t.id)} className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-500 hover:text-rose-400"><Trash2 className="h-3.5 w-3.5"/></button>}
                       </div>
                       {(t.imageDataUrl||t.imageUrl)&&<div className="mb-3 overflow-hidden rounded-xl border border-slate-800 bg-slate-900"><img src={t.imageDataUrl||t.imageUrl} alt={t.title} className="w-full h-32 object-cover" onError={e=>{e.currentTarget.style.display='none';}}/></div>}
                       <p className="text-xs text-slate-400 leading-relaxed whitespace-pre-wrap">{t.message}</p>
@@ -3312,9 +3365,9 @@ export default function App() {
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div><h2 className="text-sm font-black text-white uppercase tracking-wider">Selected Range Reports</h2><p className="text-[10px] text-slate-500 mt-1">Daily, monthly, and selected range summaries are calculated from saved lead activity.</p></div>
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 text-xs">
-                    <div className="relative"><Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500"/><input type="date" value={reportStartDate} onChange={e=>setReportStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-3 py-2 text-slate-300 focus:outline-none focus:border-blue-500 font-mono"/></div>
+                    <CalendarDateInput value={reportStartDate} onChange={setReportStartDate} className="rounded-lg py-2 text-slate-300 focus:border-blue-500" iconClassName="text-blue-400"/>
                     <span className="hidden sm:block text-slate-600">-</span>
-                    <div className="relative"><Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500"/><input type="date" value={reportEndDate} onChange={e=>setReportEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-3 py-2 text-slate-300 focus:outline-none focus:border-blue-500 font-mono"/></div>
+                    <CalendarDateInput value={reportEndDate} onChange={setReportEndDate} className="rounded-lg py-2 text-slate-300 focus:border-blue-500" iconClassName="text-blue-400"/>
                     {currentUser.role==="Admin"&&<button onClick={()=>exportSelectedRangeReport("excel")} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><FileSpreadsheet className="h-3.5 w-3.5"/> Excel</button>}
                     {currentUser.role==="Admin"&&<button onClick={()=>exportSelectedRangeReport("csv")} className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><Table2 className="h-3.5 w-3.5"/> CSV</button>}
                     {currentUser.role==="Admin"&&<button onClick={()=>exportSelectedRangeReport("pdf")} className="bg-rose-600 hover:bg-rose-700 text-white font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><FileText className="h-3.5 w-3.5"/> PDF</button>}
@@ -3478,7 +3531,7 @@ export default function App() {
               {getStatusEventConfig(leadStatusEventPopup.status)?.dateRequired!==false&&(
                 <div className="space-y-1.5">
                   <label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">{getStatusEventConfig(leadStatusEventPopup.status)?.dateLabel || "Event Date"}</label>
-                  <input type="date" required value={leadStatusEventPopup.date} onChange={e=>setLeadStatusEventPopup(prev=>({...prev,date:e.target.value}))} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono"/>
+                  <CalendarDateInput required value={leadStatusEventPopup.date} min={TODAY_STR} onChange={date=>setLeadStatusEventPopup(prev=>({...prev,date}))} className="py-2.5" />
                 </div>
               )}
               <div className="space-y-1.5">
@@ -3530,7 +3583,7 @@ export default function App() {
             </div>
             <form onSubmit={handleCreateActivityLog} className="flex-1 overflow-y-auto p-6 space-y-5 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Log Date</label><input type="date" required value={newActivityForm.date} max={TODAY_STR} onChange={e=>setNewActivityForm({...newActivityForm,date:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"/></div>
+                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Log Date</label><CalendarDateInput required value={newActivityForm.date} max={TODAY_STR} onChange={date=>setNewActivityForm({...newActivityForm,date})} className="focus:border-emerald-500" iconClassName="text-emerald-400"/></div>
                 {["Admin","Manager"].includes(currentUser.role)?<div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Executive</label><select required value={newActivityForm.executive} onChange={e=>setNewActivityForm({...newActivityForm,executive:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500"><option value="">Select Executive...</option>{visibleUsers.map(u=><option key={u.id} value={u.name}>{u.name}</option>)}</select></div>:<div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Executive</label><input type="text" readOnly value={currentUser.name} className="w-full bg-slate-900/50 border border-slate-800 rounded-xl px-3 py-2 text-slate-400 cursor-not-allowed"/></div>}
                 <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Project Base</label><select required value={newActivityForm.project} onChange={e=>setNewActivityForm({...newActivityForm,project:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500">{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
                 <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Primary Source</label><select required value={newActivityForm.source} onChange={e=>setNewActivityForm({...newActivityForm,source:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500">{SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>

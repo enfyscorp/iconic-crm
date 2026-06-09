@@ -1264,7 +1264,7 @@ export default function App() {
   const [selectedWhatsappTemplateId, setSelectedWhatsappTemplateId] = useState("");
   const [isLeadEditMode, setIsLeadEditMode] = useState(false);
   const [isLeadUpdateSaving, setIsLeadUpdateSaving] = useState(false);
-  const [leadEditDraft, setLeadEditDraft] = useState({ status:"", assignedTo:"Unassigned", project:"", phone:"", altPhone:"", statusEventDate:"", statusEventRemark:"" });
+  const [leadEditDraft, setLeadEditDraft] = useState({ status:"", assignedTo:"Unassigned", project:"", source:"", phone:"", altPhone:"", statusEventDate:"", statusEventRemark:"" });
   const [leadStatusEventPopup, setLeadStatusEventPopup] = useState({ isOpen:false, status:"", previousStatus:"", date:"", event:"" });
   const [newWhatsappTemplateForm, setNewWhatsappTemplateForm] = useState({ project:"All", title:"", message:"", imageUrl:"", imageDataUrl:"" });
   const allowBrowserExitRef = useRef(false);
@@ -1279,7 +1279,7 @@ export default function App() {
   useEffect(() => {
     if (!selectedLead) {
       setIsLeadEditMode(false);
-      setLeadEditDraft({ status:"", assignedTo:"Unassigned", project:"", statusEventDate:"", statusEventRemark:"" });
+      setLeadEditDraft({ status:"", assignedTo:"Unassigned", project:"", source:"", statusEventDate:"", statusEventRemark:"" });
       setLeadStatusEventPopup({ isOpen:false, status:"", previousStatus:"", date:"", event:"" });
       return;
     }
@@ -1288,6 +1288,7 @@ export default function App() {
       status: selectedLead.status || "New",
       assignedTo: selectedLead.assignedTo || "Unassigned",
       project: selectedLead.project || "",
+      source: selectedLead.source || "Website",
       statusEventDate: "",
       statusEventRemark: "",
     });
@@ -1944,6 +1945,7 @@ export default function App() {
       status: getEditableLeadStatus(selectedLead.status),
       assignedTo: selectedLead.assignedTo || "Unassigned",
       project: selectedLead.project || "",
+      source: selectedLead.source || "Website",
       phone: selectedLead.phone || "",
       altPhone: selectedLead.altPhone || "",
       statusEventDate: "",
@@ -1958,6 +1960,7 @@ export default function App() {
         status: getEditableLeadStatus(selectedLead.status),
         assignedTo: selectedLead.assignedTo || "Unassigned",
         project: selectedLead.project || "",
+        source: selectedLead.source || "Website",
         phone: selectedLead.phone || "",
         altPhone: selectedLead.altPhone || "",
         statusEventDate: "",
@@ -2029,11 +2032,13 @@ export default function App() {
     const targetStatus = leadEditDraft.status || currentLead.status || "New";
     const targetAssignedTo = ["Admin","Manager"].includes(currentUser.role) ? (leadEditDraft.assignedTo || "Unassigned") : (currentLead.assignedTo || "Unassigned");
     const targetProject = leadEditDraft.project || currentLead.project || "";
+    const targetSource = currentUser.role === "Admin" ? (leadEditDraft.source || currentLead.source || "Website") : (currentLead.source || "Website");
     const targetPhone = stripPhone(leadEditDraft.phone || currentLead.phone);
     const targetAltPhone = stripPhone(leadEditDraft.altPhone || "");
     const assignedUser = targetAssignedTo !== "Unassigned" ? users.find(u => u.name === targetAssignedTo) : null;
     const project = projects.find(p => p.name === targetProject);
     const statusChanged = (currentLead.status || "") !== targetStatus;
+    const sourceChanged = (currentLead.source || "") !== targetSource;
     const phoneChanged = stripPhone(currentLead.phone) !== targetPhone;
     const altPhoneChanged = stripPhone(currentLead.altPhone) !== targetAltPhone;
     if (!targetPhone) {
@@ -2076,6 +2081,7 @@ export default function App() {
     }
     if ((currentLead.assignedTo || "Unassigned") !== targetAssignedTo) logs.push(makeHistoryLog(currentUser.name, `Assigned to: ${targetAssignedTo}`));
     if ((currentLead.project || "") !== targetProject) logs.push(makeHistoryLog(currentUser.name, `Project changed from ${currentLead.project || "Not set"} to ${targetProject}.`));
+    if (sourceChanged) logs.push(makeHistoryLog(currentUser.name, `Source changed from ${currentLead.source || "Not set"} to ${targetSource}.`));
     if (phoneChanged) logs.push(makeHistoryLog(currentUser.name, `Primary phone changed from ${currentLead.phone || "Not set"} to ${targetPhone}.`));
     if (altPhoneChanged) logs.push(makeHistoryLog(currentUser.name, `Alternate phone changed from ${currentLead.altPhone || "Not set"} to ${targetAltPhone || "Not set"}.`));
     if (!logs.length) {
@@ -2103,6 +2109,7 @@ export default function App() {
         assignedAt: assignmentChanged && assignedUser ? Date.now() : l.assignedAt,
         assignedByRole: assignmentChanged ? currentUser.role : l.assignedByRole,
         project: targetProject,
+        source: targetSource,
         branch: assignedUser?.branch || project?.branch || l.branch,
         history: [...logs, ...(l.history || [])],
       };
@@ -3422,7 +3429,7 @@ export default function App() {
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Status</p>{isLeadEditMode?<select value={leadEditDraft.status} onChange={e=>handleLeadDraftStatusChange(e.target.value)} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500">{STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select>:<span className="block mt-1 font-black truncate" style={{color:SC[selectedLead.status]?.text}}>{selectedLead.status}</span>}</div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Assigned</p>{isLeadEditMode&&["Admin","Manager"].includes(currentUser.role)?<select value={leadEditDraft.assignedTo||"Unassigned"} onChange={e=>setLeadEditDraft({...leadEditDraft,assignedTo:e.target.value})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500"><option value="Unassigned">Unassigned</option>{assignableUsers.map(u=><option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}</select>:<p className="font-bold text-white truncate mt-1">{selectedLead.assignedTo||"Unassigned"}</p>}</div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Project / Budget</p>{isLeadEditMode?<select value={leadEditDraft.project||""} onChange={e=>setLeadEditDraft({...leadEditDraft,project:e.target.value})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-orange-400 focus:outline-none focus:border-orange-500">{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select>:<p className="font-bold text-orange-400 truncate mt-1">{selectedLead.project} <span className="text-slate-500 mx-1">•</span> <span className="font-mono text-emerald-400">₹{selectedLead.budget}L</span></p>}</div>
-               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Source</p><p className="font-bold text-slate-300 mt-1 truncate">{selectedLead.source}</p></div>
+               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Source</p>{isLeadEditMode&&currentUser.role==="Admin"?<select value={leadEditDraft.source||"Website"} onChange={e=>setLeadEditDraft({...leadEditDraft,source:e.target.value})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500">{SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select>:<p className="font-bold text-slate-300 mt-1 truncate">{selectedLead.source}</p>}</div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Primary Phone</p>{isLeadEditMode?<input type="tel" value={leadEditDraft.phone||""} onChange={e=>setLeadEditDraft({...leadEditDraft,phone:stripPhone(e.target.value)})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 font-mono focus:outline-none focus:border-orange-500"/>:<p className="font-bold text-slate-200 font-mono truncate mt-1">{selectedLead.phone||"Not set"}</p>}</div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Alt Phone</p>{isLeadEditMode?<input type="tel" value={leadEditDraft.altPhone||""} onChange={e=>setLeadEditDraft({...leadEditDraft,altPhone:stripPhone(e.target.value)})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 font-mono focus:outline-none focus:border-orange-500"/>:<p className="font-bold text-slate-300 font-mono truncate mt-1">{selectedLead.altPhone||"Not set"}</p>}</div>
                {isLeadEditMode&&leadEditDraft.statusEventDate&&<div className="col-span-2 bg-orange-950/20 border border-orange-500/20 p-3 rounded-xl"><p className="text-[9px] font-bold text-orange-300 uppercase tracking-wider">Event Details</p><p className="text-[10px] text-slate-300 mt-1"><span className="font-mono text-orange-200">{leadEditDraft.statusEventDate}</span>{leadEditDraft.statusEventRemark?` - ${leadEditDraft.statusEventRemark}`:""}</p></div>}

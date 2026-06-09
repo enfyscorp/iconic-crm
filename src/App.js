@@ -1690,6 +1690,11 @@ export default function App() {
     return leads.filter(isAssignedToCurrentUser);
   },[leads,currentUser,isAssignedToCurrentUser,isLeadInCurrentManagerScope]);
 
+  const findReportLeadForLog = useCallback((log) => {
+    if (!log) return null;
+    return reportScopedLeads.find(lead => lead.id === log.leadId) || reportScopedLeads.find(lead => stripPhone(lead.phone) === stripPhone(log.phone));
+  }, [reportScopedLeads]);
+
   const reportPeopleUsers = useMemo(()=>{
     if(!currentUser)return[];
     if(currentUser.role==="Admin")return visibleUsers;
@@ -1734,12 +1739,15 @@ export default function App() {
     });
     reportScopedActivityLogs.forEach(log=>{
       if(!isDateInRange(log.date,start,end))return;
-      const row = ensure(log.source);
-      if(log.siteVisitPlanned)row.siteVisitPlannedSet.add(log.leadId || `${log.phone}-${log.leadName}`);
-      if(log.siteVisitDone)row.siteVisitDoneSet.add(log.leadId || `${log.phone}-${log.leadName}`);
-      if(log.booking)row.bookingSet.add(log.leadId || `${log.phone}-${log.leadName}`);
-      if(log.booking || log.registration)row.conversionSet.add(log.leadId || `${log.phone}-${log.leadName}`);
-      if(log.cancellation)row.cancellationSet.add(log.leadId || `${log.phone}-${log.leadName}`);
+      const matchedLead = findReportLeadForLog(log);
+      if(!matchedLead || !isDateInRange(matchedLead.dateCreated,start,end))return;
+      const row = ensure(matchedLead.source || log.source);
+      const id = matchedLead.id;
+      if(log.siteVisitPlanned)row.siteVisitPlannedSet.add(id);
+      if(log.siteVisitDone)row.siteVisitDoneSet.add(id);
+      if(log.booking)row.bookingSet.add(id);
+      if(log.booking || log.registration)row.conversionSet.add(id);
+      if(log.cancellation)row.cancellationSet.add(id);
     });
     return Object.values(map).map(row=>{
       const enquiry = row.enquirySet.size;
@@ -1749,8 +1757,8 @@ export default function App() {
       const conversion = row.conversionSet.size;
       const cancellation = row.cancellationSet.size;
       return { source:row.source, enquiry, siteVisitPlanned, siteVisitDone, siteVisit:siteVisitPlanned+siteVisitDone, booking, conversion, cancellation, percentage: enquiry ? ((conversion/enquiry)*100).toFixed(1) : "0.0" };
-    }).sort((a,b)=>b.enquiry-a.enquiry || b.conversion-a.conversion);
-  },[reportScopedLeads,reportScopedActivityLogs,isDateInRange]);
+    }).filter(row=>row.enquiry>0).sort((a,b)=>b.enquiry-a.enquiry || b.conversion-a.conversion);
+  },[reportScopedLeads,reportScopedActivityLogs,isDateInRange,findReportLeadForLog]);
 
   const todaySourceReport = useMemo(()=>summarizeSourceReport(TODAY_STR,TODAY_STR),[summarizeSourceReport,TODAY_STR]);
   const monthSourceReport = useMemo(()=>summarizeSourceReport(monthStartDate,TODAY_STR),[summarizeSourceReport,monthStartDate,TODAY_STR]);
@@ -1766,8 +1774,10 @@ export default function App() {
     reportScopedLeads.forEach(lead=>{ if(isDateInRange(lead.dateCreated,reportStartDate,reportEndDate))ensure(lead.project).enquirySet.add(lead.id); });
     reportScopedActivityLogs.forEach(log=>{
       if(!isDateInRange(log.date,reportStartDate,reportEndDate))return;
-      const row=ensure(log.project);
-      const id=log.leadId || `${log.phone}-${log.leadName}`;
+      const matchedLead = findReportLeadForLog(log);
+      if(!matchedLead || !isDateInRange(matchedLead.dateCreated,reportStartDate,reportEndDate))return;
+      const row=ensure(matchedLead.project || log.project);
+      const id=matchedLead.id;
       if(log.siteVisitPlanned)row.siteVisitPlannedSet.add(id);
       if(log.siteVisitDone)row.siteVisitDoneSet.add(id);
       if(log.booking)row.bookingSet.add(id);
@@ -1777,8 +1787,8 @@ export default function App() {
     return Object.values(map).map(row=>{
       const enquiry=row.enquirySet.size, siteVisitPlanned=row.siteVisitPlannedSet.size, siteVisitDone=row.siteVisitDoneSet.size, booking=row.bookingSet.size, conversion=row.conversionSet.size, cancellation=row.cancellationSet.size;
       return { project:row.project,enquiry,siteVisitPlanned,siteVisitDone,siteVisit:siteVisitPlanned+siteVisitDone,booking,conversion,cancellation,percentage:enquiry?((conversion/enquiry)*100).toFixed(1):"0.0" };
-    }).sort((a,b)=>b.enquiry-a.enquiry || b.conversion-a.conversion);
-  },[reportScopedLeads,reportScopedActivityLogs,isDateInRange,reportStartDate,reportEndDate]);
+    }).filter(row=>row.enquiry>0).sort((a,b)=>b.enquiry-a.enquiry || b.conversion-a.conversion);
+  },[reportScopedLeads,reportScopedActivityLogs,isDateInRange,reportStartDate,reportEndDate,findReportLeadForLog]);
 
   const rangeSourceProjectReport = useMemo(()=>{
     const map = {};
@@ -1790,9 +1800,11 @@ export default function App() {
     });
     reportScopedActivityLogs.forEach(log=>{
       if(!isDateInRange(log.date,reportStartDate,reportEndDate))return;
-      const key=`${log.source||"Unknown"}|${log.project||"Unknown"}`;
-      if(!map[key])map[key]={source:log.source||"Unknown",project:log.project||"Unknown",enquirySet:new Set(),siteVisitPlannedSet:new Set(),siteVisitDoneSet:new Set(),bookingSet:new Set(),conversionSet:new Set(),cancellationSet:new Set()};
-      const id=log.leadId || `${log.phone}-${log.leadName}`;
+      const matchedLead = findReportLeadForLog(log);
+      if(!matchedLead || !isDateInRange(matchedLead.dateCreated,reportStartDate,reportEndDate))return;
+      const key=`${matchedLead.source||log.source||"Unknown"}|${matchedLead.project||log.project||"Unknown"}`;
+      if(!map[key])map[key]={source:matchedLead.source||log.source||"Unknown",project:matchedLead.project||log.project||"Unknown",enquirySet:new Set(),siteVisitPlannedSet:new Set(),siteVisitDoneSet:new Set(),bookingSet:new Set(),conversionSet:new Set(),cancellationSet:new Set()};
+      const id=matchedLead.id;
       if(log.siteVisitPlanned)map[key].siteVisitPlannedSet.add(id);
       if(log.siteVisitDone)map[key].siteVisitDoneSet.add(id);
       if(log.booking)map[key].bookingSet.add(id);
@@ -1802,8 +1814,8 @@ export default function App() {
     return Object.values(map).map(row=>{
       const enquiry=row.enquirySet.size, siteVisitPlanned=row.siteVisitPlannedSet.size, siteVisitDone=row.siteVisitDoneSet.size, booking=row.bookingSet.size, conversion=row.conversionSet.size, cancellation=row.cancellationSet.size;
       return { source:row.source,project:row.project,enquiry,siteVisitPlanned,siteVisitDone,siteVisit:siteVisitPlanned+siteVisitDone,booking,conversion,cancellation,percentage:enquiry?((conversion/enquiry)*100).toFixed(1):"0.0" };
-    }).sort((a,b)=>a.source.localeCompare(b.source)||b.enquiry-a.enquiry);
-  },[reportScopedLeads,reportScopedActivityLogs,isDateInRange,reportStartDate,reportEndDate]);
+    }).filter(row=>row.enquiry>0).sort((a,b)=>a.source.localeCompare(b.source)||b.enquiry-a.enquiry);
+  },[reportScopedLeads,reportScopedActivityLogs,isDateInRange,reportStartDate,reportEndDate,findReportLeadForLog]);
 
   const rangeExecutiveProjectReport = useMemo(()=>{
     const map = {};
@@ -1818,7 +1830,9 @@ export default function App() {
     });
     reportScopedActivityLogs.forEach(log=>{
       if(!isDateInRange(log.date,reportStartDate,reportEndDate))return;
-      const row=ensure(log.executive, log.project);
+      const matchedLead = findReportLeadForLog(log);
+      if(!matchedLead || !isDateInRange(matchedLead.dateCreated,reportStartDate,reportEndDate))return;
+      const row=ensure(normalizeReportPersonName(matchedLead.assignedTo || log.executive || "Unassigned"), matchedLead.project || log.project);
       row.calls += log.callsMade || 0;
       row.followup += log.followup || 0;
       row.siteVisitPlanned += log.siteVisitPlanned || 0;
@@ -1828,7 +1842,7 @@ export default function App() {
       row.cancellation += log.cancellation || 0;
     });
     return Object.values(map).map(row=>({...row,enquiry:row.enquirySet.size,productivity:calculateBookingProductivity(row.booking,row.calls)})).sort((a,b)=>a.executive.localeCompare(b.executive)||a.project.localeCompare(b.project));
-  },[reportScopedLeads,reportScopedActivityLogs,isDateInRange,reportStartDate,reportEndDate]);
+  },[reportScopedLeads,reportScopedActivityLogs,isDateInRange,reportStartDate,reportEndDate,findReportLeadForLog]);
 
   const rangeExecutiveSourceReport = useMemo(()=>{
     const map = {};
@@ -1843,7 +1857,9 @@ export default function App() {
     });
     reportScopedActivityLogs.forEach(log=>{
       if(!isDateInRange(log.date,reportStartDate,reportEndDate))return;
-      const row=ensure(log.executive, log.source);
+      const matchedLead = findReportLeadForLog(log);
+      if(!matchedLead || !isDateInRange(matchedLead.dateCreated,reportStartDate,reportEndDate))return;
+      const row=ensure(normalizeReportPersonName(matchedLead.assignedTo || log.executive || "Unassigned"), matchedLead.source || log.source);
       row.calls += log.callsMade || 0;
       row.followup += log.followup || 0;
       row.siteVisitPlanned += log.siteVisitPlanned || 0;
@@ -1853,7 +1869,7 @@ export default function App() {
       row.cancellation += log.cancellation || 0;
     });
     return Object.values(map).map(row=>({...row,enquiry:row.enquirySet.size,productivity:calculateBookingProductivity(row.booking,row.calls)})).sort((a,b)=>a.executive.localeCompare(b.executive)||a.source.localeCompare(b.source));
-  },[reportScopedLeads,reportScopedActivityLogs,isDateInRange,reportStartDate,reportEndDate]);
+  },[reportScopedLeads,reportScopedActivityLogs,isDateInRange,reportStartDate,reportEndDate,findReportLeadForLog]);
 
   const buildReportCustomerDetails = useCallback((leadMatcher, logMatcher) => {
     const detailMap = new Map();
@@ -1866,17 +1882,10 @@ export default function App() {
     });
     reportScopedActivityLogs.forEach(log => {
       if (!isDateInRange(log.date, reportStartDate, reportEndDate) || !logMatcher(log)) return;
-      const matchedLead = reportScopedLeads.find(lead => lead.id === log.leadId) || reportScopedLeads.find(lead => stripPhone(lead.phone) === stripPhone(log.phone));
-      if (matchedLead) {
-        const key = `lead-${matchedLead.id}`;
-        if (!detailMap.has(key)) detailMap.set(key, { lead: matchedLead, logs: [] });
-        detailMap.get(key).logs.push(log);
-      } else {
-        const key = `log-${log.leadId || log.phone || log.id}`;
-        const fallbackLead = { id:key, name:log.leadName || "Customer", phone:log.phone || "", project:log.project || "", source:log.source || "", assignedTo:log.executive || "Unassigned", status:log.callStatus || "Activity", dateCreated:log.date, dateCreatedTime:log.time, nextFollowUp:"" };
-        if (!detailMap.has(key)) detailMap.set(key, { lead:fallbackLead, logs: [] });
-        detailMap.get(key).logs.push(log);
-      }
+      const matchedLead = findReportLeadForLog(log);
+      if (!matchedLead || !isDateInRange(matchedLead.dateCreated, reportStartDate, reportEndDate)) return;
+      const key = `lead-${matchedLead.id}`;
+      if (detailMap.has(key)) detailMap.get(key).logs.push(log);
     });
     return Array.from(detailMap.values()).map(({ lead, logs }) => {
       const sortedLogs = [...logs].sort((a,b)=>(`${b.date||""} ${b.time||""}`).localeCompare(`${a.date||""} ${a.time||""}`));
@@ -1896,7 +1905,7 @@ export default function App() {
         remark: lastLog?.remark || lead.notes || "-",
       };
     }).sort((a,b)=>a.name.localeCompare(b.name));
-  }, [reportScopedLeads, reportScopedActivityLogs, isDateInRange, reportStartDate, reportEndDate]);
+  }, [reportScopedLeads, reportScopedActivityLogs, isDateInRange, reportStartDate, reportEndDate, findReportLeadForLog]);
 
   const dashboardActivityLogs = useMemo(()=>{
     let logs=systemActivityLogs;
@@ -2573,6 +2582,11 @@ export default function App() {
   const managementSummaryReport = useMemo(()=>{
     const leadsInRange = reportScopedLeads.filter(lead=>isDateInRange(lead.dateCreated,reportStartDate,reportEndDate));
     const logsInRange = reportScopedActivityLogs.filter(log=>isDateInRange(log.date,reportStartDate,reportEndDate));
+    const isCohortLog = (log) => {
+      const matchedLead = findReportLeadForLog(log);
+      return matchedLead && isDateInRange(matchedLead.dateCreated,reportStartDate,reportEndDate);
+    };
+    const cohortLogsInRange = logsInRange.filter(isCohortLog);
     const personNames = [...new Set([
       ...(currentUser?.role==="Admin" ? [normalizeReportPersonName(currentUser.name)] : []),
       ...reportPeopleUsers.filter(u=>["Manager","Executive","Telecaller"].includes(u.role)).map(u=>normalizeReportPersonName(u.name)),
@@ -2594,7 +2608,10 @@ export default function App() {
     const uniqueLogCount = (logs, predicate) => new Set(logs.filter(predicate).map(leadKey)).size;
     const sourceMetricValue = (source, metric) => {
       const sourceLeads = leadsInRange.filter(lead=>(lead.source || "Unknown")===source);
-      const sourceLogs = logsInRange.filter(log=>(log.source || "Unknown")===source);
+      const sourceLogs = cohortLogsInRange.filter(log=>{
+        const matchedLead = findReportLeadForLog(log);
+        return (matchedLead?.source || log.source || "Unknown")===source;
+      });
       if(metric==="Enq")return sourceLeads.length;
       if(metric==="SV Plan")return uniqueLogCount(sourceLogs, log=>log.siteVisitPlanned);
       if(metric==="SV Done")return uniqueLogCount(sourceLogs, log=>log.siteVisitDone);
@@ -2673,8 +2690,8 @@ export default function App() {
       const values = [];
       projectNames.forEach(project=>{
         values.push(leadsInRange.filter(lead=>normalizeReportPersonName(lead.assignedTo || "Unassigned")===name && (lead.project || "Unknown")===project).length);
-        values.push(uniqueLogCount(logsInRange, log=>normalizeReportPersonName(log.executive || "System")===name && (log.project || "Unknown")===project && log.siteVisitDone));
-        values.push(uniqueLogCount(logsInRange, log=>normalizeReportPersonName(log.executive || "System")===name && (log.project || "Unknown")===project && log.booking));
+        values.push(uniqueLogCount(cohortLogsInRange, log=>normalizeReportPersonName((findReportLeadForLog(log)?.assignedTo) || log.executive || "System")===name && ((findReportLeadForLog(log)?.project) || log.project || "Unknown")===project && log.siteVisitDone));
+        values.push(uniqueLogCount(cohortLogsInRange, log=>normalizeReportPersonName((findReportLeadForLog(log)?.assignedTo) || log.executive || "System")===name && ((findReportLeadForLog(log)?.project) || log.project || "Unknown")===project && log.booking));
       });
       const totalEnq = values.filter((_,i)=>i%3===0).reduce((sum,value)=>sum+value,0);
       const totalSv = values.filter((_,i)=>i%3===1).reduce((sum,value)=>sum+value,0);
@@ -2684,8 +2701,8 @@ export default function App() {
     const projectTotals = [];
     projectNames.forEach(project=>{
       projectTotals.push(leadsInRange.filter(lead=>(lead.project || "Unknown")===project).length);
-      projectTotals.push(uniqueLogCount(logsInRange, log=>(log.project || "Unknown")===project && log.siteVisitDone));
-      projectTotals.push(uniqueLogCount(logsInRange, log=>(log.project || "Unknown")===project && log.booking));
+      projectTotals.push(uniqueLogCount(cohortLogsInRange, log=>((findReportLeadForLog(log)?.project) || log.project || "Unknown")===project && log.siteVisitDone));
+      projectTotals.push(uniqueLogCount(cohortLogsInRange, log=>((findReportLeadForLog(log)?.project) || log.project || "Unknown")===project && log.booking));
     });
     const projectTotalEnq = projectTotals.filter((_,i)=>i%3===0).reduce((sum,value)=>sum+value,0);
     const projectTotalSv = projectTotals.filter((_,i)=>i%3===1).reduce((sum,value)=>sum+value,0);
@@ -2703,8 +2720,8 @@ export default function App() {
       const values = [];
       projectNames.forEach(project=>{
         values.push(leadsInRange.filter(lead=>(lead.source || "Unknown")===source && (lead.project || "Unknown")===project).length);
-        values.push(uniqueLogCount(logsInRange, log=>(log.source || "Unknown")===source && (log.project || "Unknown")===project && log.siteVisitDone));
-        values.push(uniqueLogCount(logsInRange, log=>(log.source || "Unknown")===source && (log.project || "Unknown")===project && log.booking));
+        values.push(uniqueLogCount(cohortLogsInRange, log=>((findReportLeadForLog(log)?.source) || log.source || "Unknown")===source && ((findReportLeadForLog(log)?.project) || log.project || "Unknown")===project && log.siteVisitDone));
+        values.push(uniqueLogCount(cohortLogsInRange, log=>((findReportLeadForLog(log)?.source) || log.source || "Unknown")===source && ((findReportLeadForLog(log)?.project) || log.project || "Unknown")===project && log.booking));
       });
       const totalEnq = values.filter((_,i)=>i%3===0).reduce((sum,value)=>sum+value,0);
       const totalSv = values.filter((_,i)=>i%3===1).reduce((sum,value)=>sum+value,0);
@@ -2714,8 +2731,8 @@ export default function App() {
     const projectSourceTotals = [];
     projectNames.forEach(project=>{
       projectSourceTotals.push(leadsInRange.filter(lead=>(lead.project || "Unknown")===project).length);
-      projectSourceTotals.push(uniqueLogCount(logsInRange, log=>(log.project || "Unknown")===project && log.siteVisitDone));
-      projectSourceTotals.push(uniqueLogCount(logsInRange, log=>(log.project || "Unknown")===project && log.booking));
+      projectSourceTotals.push(uniqueLogCount(cohortLogsInRange, log=>((findReportLeadForLog(log)?.project) || log.project || "Unknown")===project && log.siteVisitDone));
+      projectSourceTotals.push(uniqueLogCount(cohortLogsInRange, log=>((findReportLeadForLog(log)?.project) || log.project || "Unknown")===project && log.booking));
     });
     const projectSourceTotalEnq = projectSourceTotals.filter((_,i)=>i%3===0).reduce((sum,value)=>sum+value,0);
     const projectSourceTotalSv = projectSourceTotals.filter((_,i)=>i%3===1).reduce((sum,value)=>sum+value,0);
@@ -2761,7 +2778,7 @@ export default function App() {
       todayTotals:buildDashboardTotals(todayLeads, todayLogs),
       trend:Object.values(dashboardTrendMap).sort((a,b)=>a.date.localeCompare(b.date)),
       sourceMix:sourceNames.map(source=>({name:sourceLabel(source),value:sourceMetricValue(source,"Enq"),booking:sourceMetricValue(source,"Booking")})).filter(item=>item.value>0),
-      projectMix:projectNames.map(project=>({name:project,value:leadsInRange.filter(lead=>(lead.project || "Unknown")===project).length,booking:uniqueLogCount(logsInRange, log=>(log.project || "Unknown")===project && log.booking)})).filter(item=>item.value>0),
+      projectMix:projectNames.map(project=>({name:project,value:leadsInRange.filter(lead=>(lead.project || "Unknown")===project).length,booking:uniqueLogCount(cohortLogsInRange, log=>((findReportLeadForLog(log)?.project) || log.project || "Unknown")===project && log.booking)})).filter(item=>item.value>0),
       executiveBars:personNames.map(name=>{
         const logs = logsInRange.filter(log=>normalizeReportPersonName(log.executive || "System")===name);
         const calls = logs.reduce((sum,log)=>sum+(log.callsMade||0),0);
@@ -2770,7 +2787,7 @@ export default function App() {
       }).filter(item=>item.calls||item.booking).sort((a,b)=>b.calls-a.calls).slice(0,10),
     };
     return { title:"Management Summary Sheet", dashboard, sections:[executiveSummarySection, sourceConversionSection, sourcewiseSection, projectwiseSection, projectSourceEnqBookingSection] };
-  },[reportScopedLeads,reportScopedActivityLogs,currentUser,reportPeopleUsers,projects,isDateInRange,reportStartDate,reportEndDate,TODAY_STR]);
+  },[reportScopedLeads,reportScopedActivityLogs,currentUser,reportPeopleUsers,projects,isDateInRange,reportStartDate,reportEndDate,TODAY_STR,findReportLeadForLog]);
 
   const activeRangeReport = useMemo(()=>{
     const sumRows = (rows, fields) => fields.reduce((acc, field)=>{acc[field]=rows.reduce((s,r)=>s+(Number(r[field])||0),0);return acc;},{});

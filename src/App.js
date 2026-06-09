@@ -45,6 +45,13 @@ const PROJECT_STATUSES = ["Upcoming","Pre-Launch","Ongoing","Completed","Sold-Ou
 const BRANCHES = ["Madurai Desk","Chennai South","Chennai North","Coimbatore"];
 const PROJECT_TYPES = ["Apartment","Villa","Plot"];
 const CALL_STATUSES = ["Warm","Cold","Not Reachable","Callback Requested"];
+const PROSPECT_STATUSES = ["Hot","Warm","Cold"];
+const PROSPECT_STATUS_STYLES = {
+  Hot: { color:"#f97316", bg:"rgba(249,115,22,0.12)", border:"rgba(249,115,22,0.28)" },
+  Warm: { color:"#facc15", bg:"rgba(250,204,21,0.12)", border:"rgba(250,204,21,0.28)" },
+  Cold: { color:"#60a5fa", bg:"rgba(96,165,250,0.12)", border:"rgba(96,165,250,0.28)" },
+};
+const getProspectStatus = (lead) => PROSPECT_STATUSES.includes(lead?.prospectStatus) ? lead.prospectStatus : "Warm";
 const PIE_COLORS = ['#ea580c','#3b82f6','#10b981','#8b5cf6','#ec4899','#f59e0b','#64748b','#14b8a6','#ef4444','#06b6d4','#a3e635','#fb923c'];
 
 // ─── ADMIN CREDENTIALS (hardcoded — never stored in DB) ───────────────────
@@ -165,7 +172,7 @@ function isFreshLead(lead) {
   return lead?.status === "Assigned" && lead?.assignedTo && lead.assignedTo !== "Unassigned" && isTimestampToday(lead.assignedAt);
 }
 
-function CalendarDateInput({ value, onChange, min, max, required = false, className = "", iconClassName = "text-orange-400" }) {
+function CalendarDateInput({ value, onChange, min, max, required = false, className = "", iconClassName = "text-white" }) {
   const inputRef = useRef(null);
   const openPicker = () => {
     const input = inputRef.current;
@@ -193,9 +200,9 @@ function CalendarDateInput({ value, onChange, min, max, required = false, classN
         onKeyDown={e => e.preventDefault()}
         onPaste={e => e.preventDefault()}
         onDrop={e => e.preventDefault()}
-        className={`w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500 font-mono pr-10 [color-scheme:dark] cursor-pointer ${className}`}
+        className={`w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500 font-mono pr-10 [color-scheme:dark] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0 ${className}`}
       />
-      <button type="button" onClick={openPicker} className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-slate-800 transition-colors" aria-label="Open calendar">
+      <button type="button" onClick={openPicker} className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg bg-slate-800/70 border border-slate-700 hover:bg-slate-700 transition-colors" aria-label="Open calendar">
         <Calendar className={`h-4 w-4 ${iconClassName}`} />
       </button>
     </div>
@@ -336,10 +343,11 @@ const KpiTile = ({ label, value, icon, color, sub }) => (
 );
 
 // ─── MOBILE CALL BUTTON + FEEDBACK POPUP ─────────────────────────────────
-function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY_STR }) {
+function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY_STR, prospectStatus = "Warm" }) {
   const [callState, setCallState] = useState("idle");
   const [callDuration, setCallDuration] = useState(0);
-  const [feedback, setFeedback] = useState({ rating: 0, notes: "", outcome: "Contacted", followUpDate: "" });
+  const makeDefaultFeedback = () => ({ rating: 0, notes: "", outcome: "Contacted", followUpDate: "", prospectStatus: PROSPECT_STATUSES.includes(prospectStatus) ? prospectStatus : "Warm" });
+  const [feedback, setFeedback] = useState(makeDefaultFeedback);
   const deadCallOutcomes = ["Not Interested", "Wrong Number"];
   const needsFollowUpDate = !deadCallOutcomes.includes(feedback.outcome);
   const timerRef = useRef(null);
@@ -354,6 +362,7 @@ function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY
     if (!phone) return;
     setCallState("calling");
     setCallDuration(0);
+    setFeedback(makeDefaultFeedback());
     callStartedAtRef.current = Date.now();
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => setCallDuration(d => d + 1), 1000);
@@ -377,14 +386,14 @@ function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY
       onFeedbackSaved({ ...feedback, followUpDate: needsFollowUpDate ? feedback.followUpDate : "", callDuration, calledAt: new Date().toISOString(), phone, leadName });
     }
     setCallState("idle");
-    setFeedback({ rating: 0, notes: "", outcome: "Contacted", followUpDate: "" });
+    setFeedback(makeDefaultFeedback());
     setCallDuration(0);
   };
 
   const dismiss = () => {
     clearInterval(timerRef.current);
     setCallState("idle");
-    setFeedback({ rating: 0, notes: "", outcome: "Contacted", followUpDate: "" });
+    setFeedback(makeDefaultFeedback());
     setCallDuration(0);
   };
 
@@ -472,9 +481,15 @@ function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY
                   {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Prospect Status</label>
+                <select value={feedback.prospectStatus} onChange={e => setFeedback(f => ({ ...f, prospectStatus: e.target.value }))} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                  {PROSPECT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
               {needsFollowUpDate&&<div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Next Follow-up Date</label>
-                <CalendarDateInput value={feedback.followUpDate} min={TODAY_STR} onChange={date => setFeedback(f => ({ ...f, followUpDate: date }))} className="text-xs focus:border-emerald-500" iconClassName="text-emerald-400" />
+                <CalendarDateInput value={feedback.followUpDate} min={TODAY_STR} onChange={date => setFeedback(f => ({ ...f, followUpDate: date }))} className="text-xs focus:border-emerald-500" />
               </div>}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Notes</label>
@@ -1281,11 +1296,12 @@ export default function App() {
   const [customPopup, setCustomPopup] = useState({ isOpen:false, leadId:null, targetValue:"", type:"status", title:"", message:"" });
   const [toastNotification, setToastNotification] = useState({ isVisible:false, message:"" });
   const [showExitAppPopup, setShowExitAppPopup] = useState(false);
+  const [prospectStatusPopup, setProspectStatusPopup] = useState({ isOpen:false, status:"" });
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isActivityLogModalOpen, setIsActivityLogModalOpen] = useState(false);
   const [dismissedAssignmentNotices, setDismissedAssignmentNotices] = useState([]);
-  const [newLeadForm, setNewLeadForm] = useState({ name:"", phone:"", altPhone:"", email:"", location:"", project:"", budget:25, source:"Website", assignedTo:"Unassigned", notes:"" });
+  const [newLeadForm, setNewLeadForm] = useState({ name:"", phone:"", altPhone:"", email:"", location:"", project:"", budget:25, source:"Website", assignedTo:"Unassigned", prospectStatus:"Warm", notes:"" });
   const [newProjectForm, setNewProjectForm] = useState({ name:"", location:"", branch:"Madurai Desk", type:"Plot", price:30, units:50, sold:0, status:"Pre-Launch" });
   const [newUserForm, setNewUserForm] = useState({ name:"", emailPrefix:"", pass:"", role:"Executive", branch:"Madurai Desk", phone:"", managerId:"" });
   const [newActivityForm, setNewActivityForm] = useState({ date:TODAY_STR, executive:"", project:"", source:"Own Leads", callsMade:0, callStatus:"Warm", followup:0, siteVisit:0, booking:0, registration:0, cancellation:0, collection:0, remark:"" });
@@ -1303,7 +1319,7 @@ export default function App() {
   const [selectedWhatsappTemplateId, setSelectedWhatsappTemplateId] = useState("");
   const [isLeadEditMode, setIsLeadEditMode] = useState(false);
   const [isLeadUpdateSaving, setIsLeadUpdateSaving] = useState(false);
-  const [leadEditDraft, setLeadEditDraft] = useState({ status:"", assignedTo:"Unassigned", project:"", source:"", phone:"", altPhone:"", statusEventDate:"", statusEventRemark:"" });
+  const [leadEditDraft, setLeadEditDraft] = useState({ status:"", assignedTo:"Unassigned", project:"", source:"", phone:"", altPhone:"", prospectStatus:"Warm", statusEventDate:"", statusEventRemark:"" });
   const [leadStatusEventPopup, setLeadStatusEventPopup] = useState({ isOpen:false, status:"", previousStatus:"", date:"", event:"" });
   const [newWhatsappTemplateForm, setNewWhatsappTemplateForm] = useState({ project:"All", title:"", message:"", imageUrl:"", imageDataUrl:"" });
   const allowBrowserExitRef = useRef(false);
@@ -1318,7 +1334,7 @@ export default function App() {
   useEffect(() => {
     if (!selectedLead) {
       setIsLeadEditMode(false);
-      setLeadEditDraft({ status:"", assignedTo:"Unassigned", project:"", source:"", statusEventDate:"", statusEventRemark:"" });
+      setLeadEditDraft({ status:"", assignedTo:"Unassigned", project:"", source:"", phone:"", altPhone:"", prospectStatus:"Warm", statusEventDate:"", statusEventRemark:"" });
       setLeadStatusEventPopup({ isOpen:false, status:"", previousStatus:"", date:"", event:"" });
       return;
     }
@@ -1328,6 +1344,9 @@ export default function App() {
       assignedTo: selectedLead.assignedTo || "Unassigned",
       project: selectedLead.project || "",
       source: selectedLead.source || "Website",
+      phone: selectedLead.phone || "",
+      altPhone: selectedLead.altPhone || "",
+      prospectStatus: getProspectStatus(selectedLead),
       statusEventDate: "",
       statusEventRemark: "",
     });
@@ -1495,7 +1514,8 @@ export default function App() {
       if (text.includes("contacted")) return { type:"Contacted", callStatus:"Contacted", ...empty, callsMade:1 };
       if (text.includes("follow-up") || text.includes("follow up")) return { type:"Follow-Up", callStatus:"Follow-Up", ...empty, callsMade:1, followup:1 };
       if (text.includes("negotiation")) return { type:"Negotiation", callStatus:"Negotiation", ...empty, callsMade:1, followup:1 };
-      if (text.includes("site visit")) return { type:"Site Visit", callStatus:"Site Visit", ...empty, callsMade:1, ...siteVisitMeta() };
+      if (text.includes("rnr") || text.includes("switched off") || text.includes("wrong number") || text.includes("not interested")) return { type:"Unreachable", callStatus:"Unreachable", ...empty, callsMade:1 };
+      if (text.includes("site visit")) return { type:"Site Visit", callStatus:"Site Visit", ...empty, ...siteVisitMeta() };
       if (text.includes("booking")) return { type:"Booking", callStatus:"Booking", ...empty, booking:1 };
       if (text.includes("registration")) return { type:"Registration", callStatus:"Registration", ...empty, registration:1 };
       if (text.includes("cancel")) return { type:"Cancellation", callStatus:"Cancellation", ...empty, cancellation:1 };
@@ -1816,12 +1836,20 @@ export default function App() {
     let logs=systemActivityLogs;
     if(currentUser&&!["Admin","Manager"].includes(currentUser.role))logs=logs.filter(l=>l.executive===currentUser.name);
     if(currentUser?.role==="Manager")logs=logs.filter(l=>currentManagerTeamNames.includes(l.executive));
-    return logs.filter(l=>l.date===TODAY_STR);
-  },[systemActivityLogs,currentUser,currentManagerTeamNames,TODAY_STR]);
+    const visibleLeadIds = new Set(processedLeads.map(l => l.id));
+    return logs.filter(l=>l.date===TODAY_STR && visibleLeadIds.has(l.leadId));
+  },[systemActivityLogs,currentUser,currentManagerTeamNames,TODAY_STR,processedLeads]);
 
   const activityKPIs = useMemo(()=>{
-    const totalCalls=dashboardActivityLogs.reduce((s,l)=>s+(l.callsMade||0),0);
     const totalFollowups=dashboardActivityLogs.reduce((s,l)=>s+(l.followup||0),0);
+    const callAttemptsByLead = new Map();
+    dashboardActivityLogs.forEach(log => {
+      if (!(log.callsMade || 0)) return;
+      const key = log.leadId || stripPhone(log.phone) || log.leadName || log.id;
+      callAttemptsByLead.set(key, (callAttemptsByLead.get(key) || 0) + (log.callsMade || 0));
+    });
+    const totalCalls = callAttemptsByLead.size;
+    const totalFollowupCalls = Array.from(callAttemptsByLead.values()).reduce((sum, count) => sum + Math.max(0, count - 1), 0);
     const totalSiteVisitPlanned=dashboardActivityLogs.reduce((s,l)=>s+(l.siteVisitPlanned||0),0);
     const totalSiteVisitDone=dashboardActivityLogs.reduce((s,l)=>s+(l.siteVisitDone||0),0);
     const totalSiteVisits=totalSiteVisitPlanned+totalSiteVisitDone;
@@ -1830,8 +1858,17 @@ export default function App() {
     const totalCancellations=dashboardActivityLogs.reduce((s,l)=>s+(l.cancellation||0),0);
     const totalCollection=dashboardActivityLogs.reduce((s,l)=>s+(l.collection||0),0);
     const convRate=totalCalls>0?((totalBookings/totalCalls)*100).toFixed(1):0;
-    return{totalCalls,totalFollowups,totalSiteVisitPlanned,totalSiteVisitDone,totalSiteVisits,totalBookings,totalRegistrations,totalCancellations,totalCollection,convRate};
+    return{totalCalls,totalFollowups,totalFollowupCalls,totalSiteVisitPlanned,totalSiteVisitDone,totalSiteVisits,totalBookings,totalRegistrations,totalCancellations,totalCollection,convRate};
   },[dashboardActivityLogs]);
+
+  const prospectStatusSummary = useMemo(()=>PROSPECT_STATUSES.map(status => ({
+    status,
+    count: processedLeads.filter(lead => getProspectStatus(lead) === status).length,
+    leads: processedLeads.filter(lead => getProspectStatus(lead) === status),
+  })), [processedLeads]);
+  const inactiveLeadStatuses = ["Not Interested","RNR","Switched Off","Wrong Number"];
+  const activeScopedLeadCount = useMemo(()=>processedLeads.filter(lead => !inactiveLeadStatuses.includes(lead.status)).length, [processedLeads]);
+  const inactiveScopedLeadCount = useMemo(()=>processedLeads.filter(lead => inactiveLeadStatuses.includes(lead.status)).length, [processedLeads]);
 
   const callsTrendData = useMemo(()=>{ const map={}; filteredActivityLogs.forEach(l=>{if(!map[l.date])map[l.date]={date:l.date,calls:0,followups:0,siteVisitPlanned:0,siteVisitDone:0,siteVisits:0,bookings:0};map[l.date].calls+=l.callsMade||0;map[l.date].followups+=l.followup||0;map[l.date].siteVisitPlanned+=l.siteVisitPlanned||0;map[l.date].siteVisitDone+=l.siteVisitDone||0;map[l.date].siteVisits+=l.siteVisit||0;map[l.date].bookings+=l.booking||0;}); return Object.values(map).sort((a,b)=>a.date.localeCompare(b.date)); },[filteredActivityLogs]);
   const projectPerfData = useMemo(()=>{ const map={}; filteredActivityLogs.forEach(l=>{if(!map[l.project])map[l.project]={project:l.project,calls:0,followups:0,siteVisitPlanned:0,siteVisitDone:0,siteVisits:0,bookings:0};map[l.project].calls+=l.callsMade||0;map[l.project].followups+=l.followup||0;map[l.project].siteVisitPlanned+=l.siteVisitPlanned||0;map[l.project].siteVisitDone+=l.siteVisitDone||0;map[l.project].siteVisits+=l.siteVisit||0;map[l.project].bookings+=l.booking||0;}); return Object.values(map).sort((a,b)=>b.calls-a.calls); },[filteredActivityLogs]);
@@ -1987,6 +2024,7 @@ export default function App() {
       source: selectedLead.source || "Website",
       phone: selectedLead.phone || "",
       altPhone: selectedLead.altPhone || "",
+      prospectStatus: getProspectStatus(selectedLead),
       statusEventDate: "",
       statusEventRemark: "",
     });
@@ -2002,6 +2040,7 @@ export default function App() {
         source: selectedLead.source || "Website",
         phone: selectedLead.phone || "",
         altPhone: selectedLead.altPhone || "",
+        prospectStatus: getProspectStatus(selectedLead),
         statusEventDate: "",
         statusEventRemark: "",
       });
@@ -2078,12 +2117,14 @@ export default function App() {
     const targetSource = currentUser.role === "Admin" ? (leadEditDraft.source || currentLead.source || "Website") : (currentLead.source || "Website");
     const targetPhone = stripPhone(leadEditDraft.phone || currentLead.phone);
     const targetAltPhone = stripPhone(leadEditDraft.altPhone || "");
+    const targetProspectStatus = PROSPECT_STATUSES.includes(leadEditDraft.prospectStatus) ? leadEditDraft.prospectStatus : getProspectStatus(currentLead);
     const assignedUser = targetAssignedTo !== "Unassigned" ? users.find(u => u.name === targetAssignedTo) : null;
     const project = projects.find(p => p.name === targetProject);
     const statusChanged = (currentLead.status || "") !== targetStatus;
     const sourceChanged = (currentLead.source || "") !== targetSource;
     const phoneChanged = stripPhone(currentLead.phone) !== targetPhone;
     const altPhoneChanged = stripPhone(currentLead.altPhone) !== targetAltPhone;
+    const prospectStatusChanged = getProspectStatus(currentLead) !== targetProspectStatus;
     if (!targetPhone) {
       triggerToastAlert("Please enter the primary phone number.");
       return;
@@ -2131,6 +2172,7 @@ export default function App() {
     if (sourceChanged) logs.push(makeHistoryLog(currentUser.name, `Source changed from ${currentLead.source || "Not set"} to ${targetSource}.`));
     if (phoneChanged) logs.push(makeHistoryLog(currentUser.name, `Primary phone changed from ${currentLead.phone || "Not set"} to ${targetPhone}.`));
     if (altPhoneChanged) logs.push(makeHistoryLog(currentUser.name, `Alternate phone changed from ${currentLead.altPhone || "Not set"} to ${targetAltPhone || "Not set"}.`));
+    if (prospectStatusChanged) logs.push(makeHistoryLog(currentUser.name, `Prospect status changed from ${getProspectStatus(currentLead)} to ${targetProspectStatus}.`));
     if (!logs.length) {
       setIsLeadEditMode(false);
       setSelectedLead(null);
@@ -2157,6 +2199,7 @@ export default function App() {
         assignedByRole: assignmentChanged ? currentUser.role : l.assignedByRole,
         project: targetProject,
         source: targetSource,
+        prospectStatus: targetProspectStatus,
         branch: assignedUser?.branch || project?.branch || l.branch,
         history: [...logs, ...(l.history || [])],
       };
@@ -2336,7 +2379,7 @@ export default function App() {
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`CRM_Lead_Upload_Template.${ext}`;document.body.appendChild(a);a.click();URL.revokeObjectURL(a.href);document.body.removeChild(a);
   };
 
-  const handleDataImportSubmit=async (e)=>{ e.preventDefault(); if(currentUser.role!=="Admin"){triggerToastAlert("Only Admin can upload data.");return;} if(!importText.trim())return; const warning=leadImportMode==="replace"?"This will clean existing leads and replace them with uploaded data. Continue?":"This will append uploaded leads to existing data. Continue?"; if(!window.confirm(warning))return; try{ const lines=importText.split("\n").map(l=>l.trim()).filter(Boolean); const newLeads=[]; lines.forEach((line,idx)=>{const cols=(line.includes("\t")?line.split("\t"):line.split(",")).map(c=>String(c||"").trim()); if(idx===0&&String(cols[0]||"").toLowerCase().includes("name"))return; if(cols.length>=4){const matchedProj=projects.find(p=>p.name.toLowerCase()===(cols[3]||"").toLowerCase().trim()); const branchHome=matchedProj?matchedProj.branch:"Madurai Desk"; const assignedUser=users.find(u=>u.name===(cols[7]||"")); const now=new Date(); newLeads.push({id:Date.now()+Math.floor(Math.random()*10000),name:cols[0]||"Lead",phone:stripPhone(cols[1]||"00000"),email:cols[2]||"",project:cols[3]||"",location:cols[4]||"Inbound",budget:parseInt(cols[5])||25,source:cols[6]||"Website",assignedTo:cols[7]||"Unassigned",assignedToId:assignedUser?.id||null,assignedAt:assignedUser?now.getTime():null,assignedByRole:currentUser.role,status:cols[7]&&cols[7]!=="Unassigned"?"Assigned":"New",branch:assignedUser?.branch||branchHome,dateCreated:getLocalDate(now),dateCreatedTime:getLocalTime(now),createdAt:now.toISOString(),newLeadTag:true,lastFollowUp:"None",nextFollowUp:getLocalDate(now),notes:cols[8]||"",history:[makeHistoryLog(currentUser.name,"Imported via paste.",now)],siteVisitTentativeDate:"",bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false});}});if(newLeads.length>0){const saved=await setLeads(leadImportMode==="replace"?newLeads:[...newLeads,...leads]); if(!saved){triggerToastAlert("Could not save imported leads.");return;} triggerToastAlert(`${leadImportMode==="replace"?"Replaced":"Imported"} ${newLeads.length} leads.`);setImportText("");}
+  const handleDataImportSubmit=async (e)=>{ e.preventDefault(); if(currentUser.role!=="Admin"){triggerToastAlert("Only Admin can upload data.");return;} if(!importText.trim())return; const warning=leadImportMode==="replace"?"This will clean existing leads and replace them with uploaded data. Continue?":"This will append uploaded leads to existing data. Continue?"; if(!window.confirm(warning))return; try{ const lines=importText.split("\n").map(l=>l.trim()).filter(Boolean); const newLeads=[]; lines.forEach((line,idx)=>{const cols=(line.includes("\t")?line.split("\t"):line.split(",")).map(c=>String(c||"").trim()); if(idx===0&&String(cols[0]||"").toLowerCase().includes("name"))return; if(cols.length>=4){const matchedProj=projects.find(p=>p.name.toLowerCase()===(cols[3]||"").toLowerCase().trim()); const branchHome=matchedProj?matchedProj.branch:"Madurai Desk"; const assignedUser=users.find(u=>u.name===(cols[7]||"")); const now=new Date(); newLeads.push({id:Date.now()+Math.floor(Math.random()*10000),name:cols[0]||"Lead",phone:stripPhone(cols[1]||"00000"),email:cols[2]||"",project:cols[3]||"",location:cols[4]||"Inbound",budget:parseInt(cols[5])||25,source:cols[6]||"Website",assignedTo:cols[7]||"Unassigned",assignedToId:assignedUser?.id||null,assignedAt:assignedUser?now.getTime():null,assignedByRole:currentUser.role,status:cols[7]&&cols[7]!=="Unassigned"?"Assigned":"New",prospectStatus:"Warm",branch:assignedUser?.branch||branchHome,dateCreated:getLocalDate(now),dateCreatedTime:getLocalTime(now),createdAt:now.toISOString(),newLeadTag:true,lastFollowUp:"None",nextFollowUp:getLocalDate(now),notes:cols[8]||"",history:[makeHistoryLog(currentUser.name,"Imported via paste.",now)],siteVisitTentativeDate:"",bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false});}});if(newLeads.length>0){const saved=await setLeads(leadImportMode==="replace"?newLeads:[...newLeads,...leads]); if(!saved){triggerToastAlert("Could not save imported leads.");return;} triggerToastAlert(`${leadImportMode==="replace"?"Replaced":"Imported"} ${newLeads.length} leads.`);setImportText("");}
   }catch(err){alert(err.message);} };
 
   const handleCreateUserSubmit=async (e)=>{ e.preventDefault(); const prefix=newUserForm.emailPrefix.trim().toLowerCase(); const role = newUserForm.role; if (role === "Admin") { triggerToastAlert("Use Admin Recovery or create another admin from secure backend controls."); return; } if(users.some(u=>u.email.toLowerCase()===`${prefix}@desam`)){triggerToastAlert("That username already exists.");return;} const manager=managerUsers.find(m=>String(m.id)===String(newUserForm.managerId)); const u={id:Date.now(),name:newUserForm.name.trim(),email:`${prefix}@desam`,...(await makePasswordFields(newUserForm.pass)),role,branch:newUserForm.branch,phone:stripPhone(newUserForm.phone)||"9840000000",active:true,avatar:newUserForm.name.charAt(0).toUpperCase(),managerId:["Executive","Telecaller"].includes(role)?(manager?.id||null):null,managerName:["Executive","Telecaller"].includes(role)?(manager?.name||""): ""}; const saved=await setUsers([...users, u]); if(!saved){triggerToastAlert("Could not save user to Supabase.");return;} setNewUserForm({name:"",emailPrefix:"",pass:"",role:"Executive",branch:"Madurai Desk",phone:"",managerId:""}); triggerToastAlert(`Profile for ${u.name} created.`); };
@@ -2372,8 +2415,8 @@ export default function App() {
     const projBranch = projects.find(p=>p.name===newLeadForm.project)?.branch || currentUser.branch || "Madurai Desk";
     const leadBranch = assignedUser ? assignedUser.branch : projBranch;
     const now = new Date();
-    const created={...newLeadForm,id:Date.now(),phone,altPhone:stripPhone(newLeadForm.altPhone),branch:leadBranch,dateCreated:getLocalDate(now),dateCreatedTime:getLocalTime(now),createdAt:now.toISOString(),newLeadTag:true,lastFollowUp:"None",nextFollowUp:getLocalDate(now),assignedToId:assignedUser?.id||null,assignedAt:assignedUser?Date.now():null,assignedByRole:currentUser.role,bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false,siteVisitTentativeDate:"",status:newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?"Assigned":"New",history:[makeHistoryLog(currentUser.name, "Lead captured."+(newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?` Assigned to ${newLeadForm.assignedTo}.`:""), now)]};
-    const saved=await setLeads([created,...leads]); if(!saved){triggerToastAlert("Could not save lead to Supabase.");return;} setIsLeadModalOpen(false); setNewLeadForm({name:"",phone:"",altPhone:"",email:"",location:"",project:projects[0]?.name||"",budget:25,source:"Website",assignedTo:"Unassigned",notes:""}); triggerToastAlert("Lead created."); };
+    const created={...newLeadForm,prospectStatus:PROSPECT_STATUSES.includes(newLeadForm.prospectStatus)?newLeadForm.prospectStatus:"Warm",id:Date.now(),phone,altPhone:stripPhone(newLeadForm.altPhone),branch:leadBranch,dateCreated:getLocalDate(now),dateCreatedTime:getLocalTime(now),createdAt:now.toISOString(),newLeadTag:true,lastFollowUp:"None",nextFollowUp:getLocalDate(now),assignedToId:assignedUser?.id||null,assignedAt:assignedUser?Date.now():null,assignedByRole:currentUser.role,bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false,siteVisitTentativeDate:"",status:newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?"Assigned":"New",history:[makeHistoryLog(currentUser.name, "Lead captured."+(newLeadForm.assignedTo&&newLeadForm.assignedTo!=="Unassigned"?` Assigned to ${newLeadForm.assignedTo}.`:""), now)]};
+    const saved=await setLeads([created,...leads]); if(!saved){triggerToastAlert("Could not save lead to Supabase.");return;} setIsLeadModalOpen(false); setNewLeadForm({name:"",phone:"",altPhone:"",email:"",location:"",project:projects[0]?.name||"",budget:25,source:"Website",assignedTo:"Unassigned",prospectStatus:"Warm",notes:""}); triggerToastAlert("Lead created."); };
 
   const handleCreateProject=(e)=>{ e.preventDefault(); if(currentUser?.role!=="Admin"){triggerToastAlert("Only Admin can add projects.");return;} const p={...newProjectForm,id:Date.now(),price:parseInt(newProjectForm.price)||0,units:parseInt(newProjectForm.units)||0,sold:parseInt(newProjectForm.sold)||0}; setProjects([p,...projects]); setIsProjectModalOpen(false); setNewProjectForm({name:"",location:"",branch:"Madurai Desk",type:"Plot",price:30,units:50,sold:0,status:"Pre-Launch"}); triggerToastAlert(`Project "${p.name}" added.`); };
   const handleCreateActivityLog=(e)=>{ e.preventDefault(); const now=new Date(); const log={...newActivityForm,id:Date.now(),date:newActivityForm.date||getLocalDate(now),time:getLocalTime(now),timestamp:now.toISOString(),executive:["Admin","Manager"].includes(currentUser.role)?newActivityForm.executive:currentUser.name,callsMade:parseInt(newActivityForm.callsMade)||0,followup:parseInt(newActivityForm.followup)||0,siteVisit:parseInt(newActivityForm.siteVisit)||0,booking:parseInt(newActivityForm.booking)||0,registration:parseInt(newActivityForm.registration)||0,cancellation:parseInt(newActivityForm.cancellation)||0,collection:parseInt(newActivityForm.collection)||0}; setActivityLogsStateWrapped(prev=>[log,...prev]); setIsActivityLogModalOpen(false); setNewActivityForm({date:TODAY_STR,executive:"",project:projects[0]?.name||"",source:"Own Leads",callsMade:0,callStatus:"Warm",followup:0,siteVisit:0,booking:0,registration:0,cancellation:0,collection:0,remark:""}); triggerToastAlert("Activity log saved."); };
@@ -2382,11 +2425,12 @@ export default function App() {
   const commitFinancialBookingLog=()=>{ const updated=leads.map(l=>l.id===selectedLead.id?{...l,status:"Booking Confirmed",bookingUnit:bkUnit,history:[makeHistoryLog(currentUser.name, `[Booking]: Unit [${bkUnit}] booked.`),...(l.history || [])]}:l); setLeads(updated); setSelectedLead(null); triggerToastAlert("Booking logged."); };
 
   const handleCallFeedback = (leadId, feedbackData) => {
-    const { notes, outcome, followUpDate, callDuration } = feedbackData;
-    const log = makeHistoryLog(currentUser.name, `[Mobile Call]: Duration ${Math.floor(callDuration/60)}m${callDuration%60}s. Outcome: ${outcome}.${notes ? ` Notes: ${notes}` : ""}${followUpDate ? ` Next follow-up: ${followUpDate}` : ""}`);
-    const updated = leads.map(l => { if (l.id !== leadId) return l; return { ...l, status: outcome || l.status, lastFollowUp: TODAY_STR, nextFollowUp: followUpDate || "None", history: [log, ...(l.history || [])] }; });
+    const { notes, outcome, followUpDate, callDuration, prospectStatus } = feedbackData;
+    const cleanProspectStatus = PROSPECT_STATUSES.includes(prospectStatus) ? prospectStatus : "Warm";
+    const log = makeHistoryLog(currentUser.name, `[Mobile Call]: Duration ${Math.floor(callDuration/60)}m${callDuration%60}s. Outcome: ${outcome}. Prospect: ${cleanProspectStatus}.${notes ? ` Notes: ${notes}` : ""}${followUpDate ? ` Next follow-up: ${followUpDate}` : ""}`);
+    const updated = leads.map(l => { if (l.id !== leadId) return l; return { ...l, status: outcome || l.status, prospectStatus: cleanProspectStatus, lastFollowUp: TODAY_STR, nextFollowUp: followUpDate || "None", history: [log, ...(l.history || [])] }; });
     setLeads(updated);
-    if (selectedLead && selectedLead.id === leadId) { setSelectedLead(prev => ({ ...prev, status: outcome || prev.status, history: [log, ...(prev.history || [])] })); }
+    if (selectedLead && selectedLead.id === leadId) { setSelectedLead(prev => ({ ...prev, status: outcome || prev.status, prospectStatus: cleanProspectStatus, history: [log, ...(prev.history || [])] })); }
     triggerToastAlert("Call feedback saved.");
   };
 
@@ -3145,8 +3189,9 @@ export default function App() {
                   )}
                 </div>
               )}
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
                 <KpiTile label="Total Calls" value={activityKPIs.totalCalls.toLocaleString()} icon={<Phone/>} color="#ea580c"/>
+                <KpiTile label="Followup Calls" value={activityKPIs.totalFollowupCalls.toLocaleString()} icon={<PhoneCall/>} color="#38bdf8"/>
                 <KpiTile label="Followups" value={activityKPIs.totalFollowups.toLocaleString()} icon={<PhoneCall/>} color="#3b82f6"/>
                 <KpiTile label="SV Planned" value={activityKPIs.totalSiteVisitPlanned} icon={<Calendar/>} color="#8b5cf6"/>
                 <KpiTile label="SV Done" value={activityKPIs.totalSiteVisitDone} icon={<MapPin/>} color="#10b981"/>
@@ -3155,11 +3200,20 @@ export default function App() {
                 <KpiTile label="Cancellation" value={activityKPIs.totalCancellations} icon={<XCircle/>} color="#ef4444"/>
                 <KpiTile label="Conversion %" value={`${activityKPIs.convRate}%`} icon={<TrendingUp/>} color="#a3e635"/>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-5">
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Scoped Leads <Briefcase className="h-4 w-4 text-orange-400"/></p><p className="text-3xl font-black text-white mt-1">{processedLeads.length}</p></div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">New Today <Star className="h-4 w-4 text-teal-300"/></p><p className="text-3xl font-black text-teal-300 mt-1">{newLeadDashboardItems.length}</p></div>
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Active Leads <Activity className="h-4 w-4 text-blue-400"/></p><p className="text-3xl font-black text-blue-400 mt-1">{processedLeads.filter(l=>["Assigned","Contacted","Follow-Up","Negotiation"].includes(l.status)).length}</p></div>
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Inactive / Unreachable <XCircle className="h-4 w-4 text-rose-400"/></p><p className="text-3xl font-black text-rose-400 mt-1">{processedLeads.filter(l=>["Not Interested","RNR","Switched Off","Wrong Number"].includes(l.status)).length}</p></div>
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Active Leads <Activity className="h-4 w-4 text-blue-400"/></p><p className="text-3xl font-black text-blue-400 mt-1">{activeScopedLeadCount}</p></div>
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Inactive / Unreachable <XCircle className="h-4 w-4 text-rose-400"/></p><p className="text-3xl font-black text-rose-400 mt-1">{inactiveScopedLeadCount}</p></div>
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Prospect Status <TrendingUp className="h-4 w-4 text-amber-300"/></p>
+                  <div className="mt-3 space-y-2">
+                    {prospectStatusSummary.map(item => {
+                      const style = PROSPECT_STATUS_STYLES[item.status];
+                      return <button key={item.status} type="button" onClick={()=>setProspectStatusPopup({isOpen:true,status:item.status})} className="w-full flex items-center justify-between rounded-lg border px-3 py-2 text-xs font-black transition-colors hover:bg-slate-900" style={{borderColor:style.border,color:style.color,backgroundColor:style.bg}}><span>{item.status}</span><span className="font-mono">{item.count}</span></button>;
+                    })}
+                  </div>
+                </div>
               </div>
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 space-y-4">
                 <h2 className="text-xs font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider"><Activity className="h-4 w-4"/> Action Queue</h2>
@@ -3209,7 +3263,7 @@ export default function App() {
                        <div className="col-span-2"><p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Enquiry Date</p><p className="text-xs text-orange-300 font-mono font-bold">{formatDateTimeLabel(lead)||"Not recorded"}</p></div>
                      </div>
                      <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-800/60">
-                       <div onClick={e=>e.stopPropagation()}><MobileCallButton phone={lead.phone} leadName={lead.name} onFeedbackSaved={(f)=>handleCallFeedback(lead.id, f)} currentUser={currentUser} TODAY_STR={TODAY_STR} /></div>
+                       <div onClick={e=>e.stopPropagation()}><MobileCallButton phone={lead.phone} leadName={lead.name} prospectStatus={getProspectStatus(lead)} onFeedbackSaved={(f)=>handleCallFeedback(lead.id, f)} currentUser={currentUser} TODAY_STR={TODAY_STR} /></div>
                        <div className="text-right">
                          <p className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Next Follow-Up</p>
                          <p className={`text-xs font-mono font-black mt-0.5 ${lead.nextFollowUp===TODAY_STR?"text-amber-400 animate-pulse":lead.nextFollowUp<TODAY_STR?"text-rose-400":"text-emerald-400"}`}>{lead.nextFollowUp==="None"?"Not Set":lead.nextFollowUp}</p>
@@ -3235,7 +3289,7 @@ export default function App() {
                    {["Admin","Manager"].includes(currentUser.role)&&<select value={actFilterExec} onChange={e=>setActFilterExec(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 flex-1 min-w-[120px]"><option value="All">All Executives</option>{visibleUsers.map(u=><option key={u.id} value={u.name}>{u.name}</option>)}</select>}
                    <select value={actFilterProject} onChange={e=>setActFilterProject(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 flex-1 min-w-[120px]"><option value="All">All Projects</option>{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select>
                    <select value={actFilterSource} onChange={e=>setActFilterSource(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500 flex-1 min-w-[120px]"><option value="All">All Sources</option>{SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select>
-                   <div className="flex items-center gap-2 flex-1 min-w-[230px]"><CalendarDateInput value={actStartDate} onChange={setActStartDate} className="rounded-lg py-2 text-slate-300 focus:border-emerald-500" iconClassName="text-emerald-400"/><span className="text-slate-600">-</span><CalendarDateInput value={actEndDate} onChange={setActEndDate} className="rounded-lg py-2 text-slate-300 focus:border-emerald-500" iconClassName="text-emerald-400"/></div>
+                   <div className="flex items-center gap-2 flex-1 min-w-[230px]"><CalendarDateInput value={actStartDate} onChange={setActStartDate} className="rounded-lg py-2 text-slate-300 focus:border-emerald-500"/><span className="text-slate-600">-</span><CalendarDateInput value={actEndDate} onChange={setActEndDate} className="rounded-lg py-2 text-slate-300 focus:border-emerald-500"/></div>
                    {(activitySearch||actFilterExec!=="All"||actFilterProject!=="All"||actFilterSource!=="All"||actFilterStatus!=="All"||actStartDate!==TODAY_STR||actEndDate!==TODAY_STR)&&<button onClick={()=>{setActivitySearch("");setActFilterExec("All");setActFilterProject("All");setActFilterSource("All");setActFilterStatus("All");setActStartDate(TODAY_STR);setActEndDate(TODAY_STR);}} className="text-emerald-400 hover:text-emerald-300 font-bold px-3 py-2 border border-emerald-500/30 rounded-lg flex items-center gap-1 bg-emerald-500/10"><X className="h-3.5 w-3.5"/> Clear</button>}
                  </div>
                  <div className="overflow-x-auto border border-slate-800 rounded-xl bg-slate-900/40">
@@ -3365,9 +3419,9 @@ export default function App() {
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div><h2 className="text-sm font-black text-white uppercase tracking-wider">Selected Range Reports</h2><p className="text-[10px] text-slate-500 mt-1">Daily, monthly, and selected range summaries are calculated from saved lead activity.</p></div>
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 text-xs">
-                    <CalendarDateInput value={reportStartDate} onChange={setReportStartDate} className="rounded-lg py-2 text-slate-300 focus:border-blue-500" iconClassName="text-blue-400"/>
+                    <CalendarDateInput value={reportStartDate} onChange={setReportStartDate} className="rounded-lg py-2 text-slate-300 focus:border-blue-500"/>
                     <span className="hidden sm:block text-slate-600">-</span>
-                    <CalendarDateInput value={reportEndDate} onChange={setReportEndDate} className="rounded-lg py-2 text-slate-300 focus:border-blue-500" iconClassName="text-blue-400"/>
+                    <CalendarDateInput value={reportEndDate} onChange={setReportEndDate} className="rounded-lg py-2 text-slate-300 focus:border-blue-500"/>
                     {currentUser.role==="Admin"&&<button onClick={()=>exportSelectedRangeReport("excel")} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><FileSpreadsheet className="h-3.5 w-3.5"/> Excel</button>}
                     {currentUser.role==="Admin"&&<button onClick={()=>exportSelectedRangeReport("csv")} className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><Table2 className="h-3.5 w-3.5"/> CSV</button>}
                     {currentUser.role==="Admin"&&<button onClick={()=>exportSelectedRangeReport("pdf")} className="bg-rose-600 hover:bg-rose-700 text-white font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><FileText className="h-3.5 w-3.5"/> PDF</button>}
@@ -3471,6 +3525,44 @@ export default function App() {
       </div>
 
       {/* ═══ MODALS & OVERLAYS ════════════════════════════════════════════ */}
+      {prospectStatusPopup.isOpen&&(
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[220] flex items-end sm:items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-black text-white">{prospectStatusPopup.status} Prospects</h3>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Click a customer to open the drawer</p>
+              </div>
+              <button onClick={()=>setProspectStatusPopup({isOpen:false,status:""})} className="text-slate-500 hover:text-white p-2 hover:bg-slate-800 rounded-xl transition-colors"><X className="h-5 w-5"/></button>
+            </div>
+            <div className="max-h-[70vh] overflow-y-auto p-4">
+              {prospectStatusSummary.find(item=>item.status===prospectStatusPopup.status)?.leads.length?(
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {prospectStatusSummary.find(item=>item.status===prospectStatusPopup.status)?.leads.map(lead=>(
+                    <button key={lead.id} onClick={()=>{setProspectStatusPopup({isOpen:false,status:""});setSelectedLead(lead);}} className="text-left bg-slate-900/70 hover:bg-slate-900 border border-slate-800 hover:border-orange-500/50 rounded-xl p-3 transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-black text-white text-sm truncate">{lead.name}</p>
+                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">{lead.phone}</p>
+                        </div>
+                        <span className="shrink-0 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider" style={{color:PROSPECT_STATUS_STYLES[getProspectStatus(lead)].color,backgroundColor:PROSPECT_STATUS_STYLES[getProspectStatus(lead)].bg,border:`1px solid ${PROSPECT_STATUS_STYLES[getProspectStatus(lead)].border}`}}>{getProspectStatus(lead)}</span>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]">
+                        <p className="text-orange-400 font-bold truncate">{lead.project || "No project"}</p>
+                        <p className="text-slate-400 text-right truncate">{lead.status || "New"}</p>
+                        <p className="text-slate-500 truncate">Owner: {lead.assignedTo || "Unassigned"}</p>
+                        <p className="text-slate-500 text-right font-mono">{formatDateTimeLabel(lead) || "-"}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ):(
+                <div className="py-10 text-center text-slate-500 font-bold text-sm">No customers in this prospect status.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {selectedLead&&(
         <div className="fixed inset-y-0 right-0 w-full sm:w-[450px] lg:w-[500px] bg-slate-950 border-l border-slate-800 shadow-2xl z-50 flex flex-col transform transition-transform duration-300 ease-in-out">
           <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-900/50">
@@ -3480,6 +3572,7 @@ export default function App() {
           <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-slate-950">
              <div className="grid grid-cols-2 gap-3 text-xs">
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Status</p>{isLeadEditMode?<select value={leadEditDraft.status} onChange={e=>handleLeadDraftStatusChange(e.target.value)} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500">{STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select>:<span className="block mt-1 font-black truncate" style={{color:SC[selectedLead.status]?.text}}>{selectedLead.status}</span>}</div>
+               <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Prospect Status</p>{isLeadEditMode?<select value={leadEditDraft.prospectStatus||"Warm"} onChange={e=>setLeadEditDraft({...leadEditDraft,prospectStatus:e.target.value})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500">{PROSPECT_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select>:<span className="inline-flex mt-1 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider" style={{color:PROSPECT_STATUS_STYLES[getProspectStatus(selectedLead)].color,backgroundColor:PROSPECT_STATUS_STYLES[getProspectStatus(selectedLead)].bg,border:`1px solid ${PROSPECT_STATUS_STYLES[getProspectStatus(selectedLead)].border}`}}>{getProspectStatus(selectedLead)}</span>}</div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Assigned</p>{isLeadEditMode&&["Admin","Manager"].includes(currentUser.role)?<select value={leadEditDraft.assignedTo||"Unassigned"} onChange={e=>setLeadEditDraft({...leadEditDraft,assignedTo:e.target.value})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500"><option value="Unassigned">Unassigned</option>{assignableUsers.map(u=><option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}</select>:<p className="font-bold text-white truncate mt-1">{selectedLead.assignedTo||"Unassigned"}</p>}</div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Project / Budget</p>{isLeadEditMode?<select value={leadEditDraft.project||""} onChange={e=>setLeadEditDraft({...leadEditDraft,project:e.target.value})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-orange-400 focus:outline-none focus:border-orange-500">{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select>:<p className="font-bold text-orange-400 truncate mt-1">{selectedLead.project} <span className="text-slate-500 mx-1">•</span> <span className="font-mono text-emerald-400">₹{selectedLead.budget}L</span></p>}</div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Source</p>{isLeadEditMode&&currentUser.role==="Admin"?<select value={leadEditDraft.source||"Website"} onChange={e=>setLeadEditDraft({...leadEditDraft,source:e.target.value})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 focus:outline-none focus:border-orange-500">{SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select>:<p className="font-bold text-slate-300 mt-1 truncate">{selectedLead.source}</p>}</div>
@@ -3491,7 +3584,7 @@ export default function App() {
              <div className="space-y-4">
                 <div className="flex items-center gap-2 border-b border-slate-800 pb-2"><Activity className="h-4 w-4 text-blue-400"/><h3 className="text-xs font-black uppercase tracking-wider text-slate-300">Action Center</h3></div>
                 <div className="grid grid-cols-2 gap-2">
-                  <MobileCallButton phone={selectedLead.phone} leadName={selectedLead.name} onFeedbackSaved={(f)=>handleCallFeedback(selectedLead.id, f)} currentUser={currentUser} TODAY_STR={TODAY_STR} />
+                  <MobileCallButton phone={selectedLead.phone} leadName={selectedLead.name} prospectStatus={getProspectStatus(selectedLead)} onFeedbackSaved={(f)=>handleCallFeedback(selectedLead.id, f)} currentUser={currentUser} TODAY_STR={TODAY_STR} />
                   <a href={`https://wa.me/91${stripPhone(selectedLead.phone)}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-wider bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600 hover:text-white transition-all shadow-md"><MessageSquare className="h-3.5 w-3.5"/> WhatsApp</a>
                 </div>
                 <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-3 space-y-2">
@@ -3565,6 +3658,7 @@ export default function App() {
                   <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Interest Project *</label><select required value={newLeadForm.project} onChange={e=>setNewLeadForm({...newLeadForm,project:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-orange-500">{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
                   <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Budget (₹ Lakhs) *</label><input type="number" required min="5" value={newLeadForm.budget} onChange={e=>setNewLeadForm({...newLeadForm,budget:parseInt(e.target.value)||0})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 font-mono"/></div>
                   <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Lead Source *</label><select required value={newLeadForm.source} onChange={e=>setNewLeadForm({...newLeadForm,source:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-orange-500">{SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
+                  <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Prospect Status</label><select value={newLeadForm.prospectStatus||"Warm"} onChange={e=>setNewLeadForm({...newLeadForm,prospectStatus:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-orange-500">{PROSPECT_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
                   {["Admin","Manager"].includes(currentUser.role)&&<div className="space-y-1.5 sm:col-span-2"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Assign To</label><select value={newLeadForm.assignedTo} onChange={e=>setNewLeadForm({...newLeadForm,assignedTo:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-orange-500"><option value="Unassigned">Leave Unassigned (Pool)</option>{assignableUsers.map(u=><option key={u.id} value={u.name}>{u.name} ({u.role} - {u.branch})</option>)}</select></div>}
                   <div className="space-y-1.5 sm:col-span-2"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Initial Notes / Remarks</label><textarea rows={3} value={newLeadForm.notes} onChange={e=>setNewLeadForm({...newLeadForm,notes:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 resize-none"/></div>
                 </div>
@@ -3583,7 +3677,7 @@ export default function App() {
             </div>
             <form onSubmit={handleCreateActivityLog} className="flex-1 overflow-y-auto p-6 space-y-5 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Log Date</label><CalendarDateInput required value={newActivityForm.date} max={TODAY_STR} onChange={date=>setNewActivityForm({...newActivityForm,date})} className="focus:border-emerald-500" iconClassName="text-emerald-400"/></div>
+                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Log Date</label><CalendarDateInput required value={newActivityForm.date} max={TODAY_STR} onChange={date=>setNewActivityForm({...newActivityForm,date})} className="focus:border-emerald-500"/></div>
                 {["Admin","Manager"].includes(currentUser.role)?<div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Executive</label><select required value={newActivityForm.executive} onChange={e=>setNewActivityForm({...newActivityForm,executive:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500"><option value="">Select Executive...</option>{visibleUsers.map(u=><option key={u.id} value={u.name}>{u.name}</option>)}</select></div>:<div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Executive</label><input type="text" readOnly value={currentUser.name} className="w-full bg-slate-900/50 border border-slate-800 rounded-xl px-3 py-2 text-slate-400 cursor-not-allowed"/></div>}
                 <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Project Base</label><select required value={newActivityForm.project} onChange={e=>setNewActivityForm({...newActivityForm,project:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500">{visibleProjects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
                 <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Primary Source</label><select required value={newActivityForm.source} onChange={e=>setNewActivityForm({...newActivityForm,source:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-300 focus:outline-none focus:border-emerald-500">{SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>

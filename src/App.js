@@ -46,12 +46,13 @@ const BRANCHES = ["Madurai Desk","Chennai South","Chennai North","Coimbatore"];
 const PROJECT_TYPES = ["Apartment","Villa","Plot"];
 const CALL_STATUSES = ["Warm","Cold","Not Reachable","Callback Requested"];
 const PROSPECT_STATUSES = ["Hot","Warm","Cold"];
+const AUTO_COLD_LEAD_STATUSES = ["Not Interested","Wrong Number"];
 const PROSPECT_STATUS_STYLES = {
   Hot: { color:"#f97316", bg:"rgba(249,115,22,0.12)", border:"rgba(249,115,22,0.28)" },
   Warm: { color:"#facc15", bg:"rgba(250,204,21,0.12)", border:"rgba(250,204,21,0.28)" },
   Cold: { color:"#60a5fa", bg:"rgba(96,165,250,0.12)", border:"rgba(96,165,250,0.28)" },
 };
-const getProspectStatus = (lead) => PROSPECT_STATUSES.includes(lead?.prospectStatus) ? lead.prospectStatus : "Warm";
+const getProspectStatus = (lead) => AUTO_COLD_LEAD_STATUSES.includes(lead?.status) ? "Cold" : PROSPECT_STATUSES.includes(lead?.prospectStatus) ? lead.prospectStatus : "Warm";
 const PIE_COLORS = ['#ea580c','#3b82f6','#10b981','#8b5cf6','#ec4899','#f59e0b','#64748b','#14b8a6','#ef4444','#06b6d4','#a3e635','#fb923c'];
 
 // ─── ADMIN CREDENTIALS (hardcoded — never stored in DB) ───────────────────
@@ -481,7 +482,7 @@ function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Call Outcome</label>
-                <select value={feedback.outcome} onChange={e => setFeedback(f => ({ ...f, outcome: e.target.value, followUpDate: deadCallOutcomes.includes(e.target.value) ? "" : f.followUpDate }))} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                <select value={feedback.outcome} onChange={e => setFeedback(f => ({ ...f, outcome: e.target.value, prospectStatus: AUTO_COLD_LEAD_STATUSES.includes(e.target.value) ? "Cold" : f.prospectStatus, followUpDate: deadCallOutcomes.includes(e.target.value) ? "" : f.followUpDate }))} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
                   {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
@@ -1329,12 +1330,27 @@ export default function App() {
   const [newWhatsappTemplateForm, setNewWhatsappTemplateForm] = useState({ project:"All", title:"", message:"", imageUrl:"", imageDataUrl:"" });
   const allowBrowserExitRef = useRef(false);
   const notifiedAlertsRef = useRef(new Set());
+  const coldLeadMigrationDoneRef = useRef(false);
 
   useEffect(() => {
     if (!selectedLead) return;
     const latestLead = leads.find(l => l.id === selectedLead.id);
     if (latestLead && latestLead !== selectedLead) setSelectedLead(latestLead);
   }, [leads, selectedLead]);
+
+  useEffect(() => {
+    if (!storageReady || currentUser?.role !== "Admin" || coldLeadMigrationDoneRef.current || !leads.length) return;
+    const needsColdUpdate = leads.some(lead => AUTO_COLD_LEAD_STATUSES.includes(lead.status) && lead.prospectStatus !== "Cold");
+    if (!needsColdUpdate) {
+      coldLeadMigrationDoneRef.current = true;
+      return;
+    }
+    coldLeadMigrationDoneRef.current = true;
+    const updated = leads.map(lead => AUTO_COLD_LEAD_STATUSES.includes(lead.status) && lead.prospectStatus !== "Cold" ? { ...lead, prospectStatus:"Cold" } : lead);
+    setLeads(updated).then(saved => {
+      if (!saved) coldLeadMigrationDoneRef.current = false;
+    });
+  }, [storageReady, currentUser?.role, leads, setLeads]);
 
   useEffect(() => {
     if (!selectedLead) {
@@ -2067,7 +2083,7 @@ export default function App() {
 
   const handleLeadDraftStatusChange = (status) => {
     const previousStatus = leadEditDraft.status || selectedLead?.status || "New";
-    setLeadEditDraft(prev => ({ ...prev, status, statusEventDate:"", statusEventRemark:"" }));
+    setLeadEditDraft(prev => ({ ...prev, status, prospectStatus: AUTO_COLD_LEAD_STATUSES.includes(status) ? "Cold" : prev.prospectStatus, statusEventDate:"", statusEventRemark:"" }));
     const config = getStatusEventConfig(status);
     if (config) {
       const needsDate = config.dateRequired !== false;
@@ -2124,7 +2140,7 @@ export default function App() {
     const targetSource = currentUser.role === "Admin" ? (leadEditDraft.source || currentLead.source || "Website") : (currentLead.source || "Website");
     const targetPhone = stripPhone(leadEditDraft.phone || currentLead.phone);
     const targetAltPhone = stripPhone(leadEditDraft.altPhone || "");
-    const targetProspectStatus = leadEditDraft.prospectStatus || "";
+    const targetProspectStatus = AUTO_COLD_LEAD_STATUSES.includes(targetStatus) ? "Cold" : leadEditDraft.prospectStatus || "";
     const assignedUser = targetAssignedTo !== "Unassigned" ? users.find(u => u.name === targetAssignedTo) : null;
     const project = projects.find(p => p.name === targetProject);
     const statusChanged = (currentLead.status || "") !== targetStatus;
@@ -2438,7 +2454,7 @@ export default function App() {
 
   const handleCallFeedback = (leadId, feedbackData) => {
     const { notes, outcome, followUpDate, callDuration, prospectStatus } = feedbackData;
-    const cleanProspectStatus = PROSPECT_STATUSES.includes(prospectStatus) ? prospectStatus : "Warm";
+    const cleanProspectStatus = AUTO_COLD_LEAD_STATUSES.includes(outcome) ? "Cold" : PROSPECT_STATUSES.includes(prospectStatus) ? prospectStatus : "Warm";
     const log = makeHistoryLog(currentUser.name, `[Mobile Call]: Duration ${Math.floor(callDuration/60)}m${callDuration%60}s. Outcome: ${outcome}. Prospect: ${cleanProspectStatus}.${notes ? ` Notes: ${notes}` : ""}${followUpDate ? ` Next follow-up: ${followUpDate}` : ""}`);
     const updated = leads.map(l => { if (l.id !== leadId) return l; return { ...l, status: outcome || l.status, prospectStatus: cleanProspectStatus, lastFollowUp: TODAY_STR, nextFollowUp: followUpDate || "None", history: [log, ...(l.history || [])] }; });
     setLeads(updated);

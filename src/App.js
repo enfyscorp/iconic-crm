@@ -382,6 +382,10 @@ function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY
   };
 
   const saveFeedback = () => {
+    if (!PROSPECT_STATUSES.includes(feedback.prospectStatus)) {
+      alert("Please select Hot, Warm, or Cold before saving feedback.");
+      return;
+    }
     if (onFeedbackSaved) {
       onFeedbackSaved({ ...feedback, followUpDate: needsFollowUpDate ? feedback.followUpDate : "", callDuration, calledAt: new Date().toISOString(), phone, leadName });
     }
@@ -1297,6 +1301,7 @@ export default function App() {
   const [toastNotification, setToastNotification] = useState({ isVisible:false, message:"" });
   const [showExitAppPopup, setShowExitAppPopup] = useState(false);
   const [prospectStatusPopup, setProspectStatusPopup] = useState({ isOpen:false, status:"" });
+  const [isInactiveLeadPopupOpen, setIsInactiveLeadPopupOpen] = useState(false);
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isActivityLogModalOpen, setIsActivityLogModalOpen] = useState(false);
@@ -1866,9 +1871,11 @@ export default function App() {
     count: processedLeads.filter(lead => getProspectStatus(lead) === status).length,
     leads: processedLeads.filter(lead => getProspectStatus(lead) === status),
   })), [processedLeads]);
+  const prospectStatusSummaryMap = useMemo(()=>prospectStatusSummary.reduce((map, item) => ({ ...map, [item.status]: item }), {}), [prospectStatusSummary]);
   const inactiveLeadStatuses = ["Not Interested","RNR","Switched Off","Wrong Number"];
+  const inactiveScopedLeads = useMemo(()=>processedLeads.filter(lead => inactiveLeadStatuses.includes(lead.status)), [processedLeads]);
   const activeScopedLeadCount = useMemo(()=>processedLeads.filter(lead => !inactiveLeadStatuses.includes(lead.status)).length, [processedLeads]);
-  const inactiveScopedLeadCount = useMemo(()=>processedLeads.filter(lead => inactiveLeadStatuses.includes(lead.status)).length, [processedLeads]);
+  const inactiveScopedLeadCount = inactiveScopedLeads.length;
 
   const callsTrendData = useMemo(()=>{ const map={}; filteredActivityLogs.forEach(l=>{if(!map[l.date])map[l.date]={date:l.date,calls:0,followups:0,siteVisitPlanned:0,siteVisitDone:0,siteVisits:0,bookings:0};map[l.date].calls+=l.callsMade||0;map[l.date].followups+=l.followup||0;map[l.date].siteVisitPlanned+=l.siteVisitPlanned||0;map[l.date].siteVisitDone+=l.siteVisitDone||0;map[l.date].siteVisits+=l.siteVisit||0;map[l.date].bookings+=l.booking||0;}); return Object.values(map).sort((a,b)=>a.date.localeCompare(b.date)); },[filteredActivityLogs]);
   const projectPerfData = useMemo(()=>{ const map={}; filteredActivityLogs.forEach(l=>{if(!map[l.project])map[l.project]={project:l.project,calls:0,followups:0,siteVisitPlanned:0,siteVisitDone:0,siteVisits:0,bookings:0};map[l.project].calls+=l.callsMade||0;map[l.project].followups+=l.followup||0;map[l.project].siteVisitPlanned+=l.siteVisitPlanned||0;map[l.project].siteVisitDone+=l.siteVisitDone||0;map[l.project].siteVisits+=l.siteVisit||0;map[l.project].bookings+=l.booking||0;}); return Object.values(map).sort((a,b)=>b.calls-a.calls); },[filteredActivityLogs]);
@@ -2117,7 +2124,7 @@ export default function App() {
     const targetSource = currentUser.role === "Admin" ? (leadEditDraft.source || currentLead.source || "Website") : (currentLead.source || "Website");
     const targetPhone = stripPhone(leadEditDraft.phone || currentLead.phone);
     const targetAltPhone = stripPhone(leadEditDraft.altPhone || "");
-    const targetProspectStatus = PROSPECT_STATUSES.includes(leadEditDraft.prospectStatus) ? leadEditDraft.prospectStatus : getProspectStatus(currentLead);
+    const targetProspectStatus = leadEditDraft.prospectStatus || "";
     const assignedUser = targetAssignedTo !== "Unassigned" ? users.find(u => u.name === targetAssignedTo) : null;
     const project = projects.find(p => p.name === targetProject);
     const statusChanged = (currentLead.status || "") !== targetStatus;
@@ -2127,6 +2134,10 @@ export default function App() {
     const prospectStatusChanged = getProspectStatus(currentLead) !== targetProspectStatus;
     if (!targetPhone) {
       triggerToastAlert("Please enter the primary phone number.");
+      return;
+    }
+    if (!PROSPECT_STATUSES.includes(targetProspectStatus)) {
+      triggerToastAlert("Please select Hot, Warm, or Cold before saving.");
       return;
     }
     const duplicatePhoneLead = leads.find(l => l.id !== currentLead.id && stripPhone(l.phone) === targetPhone);
@@ -3201,20 +3212,16 @@ export default function App() {
                 <KpiTile label="Cancellation" value={activityKPIs.totalCancellations} icon={<XCircle/>} color="#ef4444"/>
                 <KpiTile label="Conversion %" value={`${activityKPIs.convRate}%`} icon={<TrendingUp/>} color="#a3e635"/>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-7 gap-5">
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Scoped Leads <Briefcase className="h-4 w-4 text-orange-400"/></p><p className="text-3xl font-black text-white mt-1">{processedLeads.length}</p></div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">New Today <Star className="h-4 w-4 text-teal-300"/></p><p className="text-3xl font-black text-teal-300 mt-1">{newLeadDashboardItems.length}</p></div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Active Leads <Activity className="h-4 w-4 text-blue-400"/></p><p className="text-3xl font-black text-blue-400 mt-1">{activeScopedLeadCount}</p></div>
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Inactive / Unreachable <XCircle className="h-4 w-4 text-rose-400"/></p><p className="text-3xl font-black text-rose-400 mt-1">{inactiveScopedLeadCount}</p></div>
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Prospect Status <TrendingUp className="h-4 w-4 text-amber-300"/></p>
-                  <div className="mt-3 space-y-2">
-                    {prospectStatusSummary.map(item => {
-                      const style = PROSPECT_STATUS_STYLES[item.status];
-                      return <button key={item.status} type="button" onClick={()=>setProspectStatusPopup({isOpen:true,status:item.status})} className="w-full flex items-center justify-between rounded-lg border px-3 py-2 text-xs font-black transition-colors hover:bg-slate-900" style={{borderColor:style.border,color:style.color,backgroundColor:style.bg}}><span>{item.status}</span><span className="font-mono">{item.count}</span></button>;
-                    })}
-                  </div>
-                </div>
+                <button type="button" onClick={()=>setIsInactiveLeadPopupOpen(true)} className="text-left bg-slate-950 border border-slate-800 p-5 rounded-xl hover:bg-slate-900 transition-colors"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Inactive / Unreachable <XCircle className="h-4 w-4 text-rose-400"/></p><p className="text-3xl font-black text-rose-400 mt-1">{inactiveScopedLeadCount}</p></button>
+                {PROSPECT_STATUSES.map(status => {
+                  const item = prospectStatusSummaryMap[status] || { count:0 };
+                  const style = PROSPECT_STATUS_STYLES[status];
+                  return <button key={status} type="button" onClick={()=>setProspectStatusPopup({isOpen:true,status})} className="text-left bg-slate-950 border p-5 rounded-xl transition-colors hover:bg-slate-900" style={{borderColor:style.border}}><p className="text-[10px] font-bold uppercase tracking-wider flex justify-between" style={{color:style.color}}>{status} Leads <TrendingUp className="h-4 w-4"/></p><p className="text-3xl font-black mt-1" style={{color:style.color}}>{item.count}</p></button>;
+                })}
               </div>
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 lg:p-6 space-y-4">
                 <h2 className="text-xs font-black text-orange-400 flex items-center gap-2 uppercase tracking-wider"><Activity className="h-4 w-4"/> Action Queue</h2>
@@ -3559,6 +3566,44 @@ export default function App() {
                 </div>
               ):(
                 <div className="py-10 text-center text-slate-500 font-bold text-sm">No customers in this prospect status.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {isInactiveLeadPopupOpen&&(
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[220] flex items-end sm:items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-black text-white">Inactive / Unreachable Leads</h3>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{inactiveScopedLeadCount} leads marked Not Interested, RNR, Switched Off, or Wrong Number</p>
+              </div>
+              <button onClick={()=>setIsInactiveLeadPopupOpen(false)} className="text-slate-500 hover:text-white p-2 hover:bg-slate-800 rounded-xl transition-colors"><X className="h-5 w-5"/></button>
+            </div>
+            <div className="max-h-[70vh] overflow-y-auto p-4">
+              {inactiveScopedLeads.length?(
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {inactiveScopedLeads.map(lead=>(
+                    <button key={lead.id} onClick={()=>{setIsInactiveLeadPopupOpen(false);setSelectedLead(lead);}} className="text-left bg-slate-900/70 hover:bg-slate-900 border border-slate-800 hover:border-rose-500/50 rounded-xl p-3 transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-black text-white text-sm truncate">{lead.name}</p>
+                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">{lead.phone}</p>
+                        </div>
+                        <span className="shrink-0 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider" style={{backgroundColor:SC[lead.status]?.bg,color:SC[lead.status]?.text,border:`1px solid ${SC[lead.status]?.border}`}}>{lead.status}</span>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]">
+                        <p className="text-orange-400 font-bold truncate">{lead.project || "No project"}</p>
+                        <p className="text-slate-400 text-right truncate">{getProspectStatus(lead)}</p>
+                        <p className="text-slate-500 truncate">Owner: {lead.assignedTo || "Unassigned"}</p>
+                        <p className="text-slate-500 text-right font-mono">{formatDateTimeLabel(lead) || "-"}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ):(
+                <div className="py-10 text-center text-slate-500 font-bold text-sm">No inactive or unreachable leads.</div>
               )}
             </div>
           </div>

@@ -53,6 +53,7 @@ const PROSPECT_STATUS_STYLES = {
   Cold: { color:"#60a5fa", bg:"rgba(96,165,250,0.12)", border:"rgba(96,165,250,0.28)" },
 };
 const getProspectStatus = (lead) => AUTO_COLD_LEAD_STATUSES.includes(lead?.status) ? "Cold" : PROSPECT_STATUSES.includes(lead?.prospectStatus) ? lead.prospectStatus : "Warm";
+const normalizeReportPersonName = (name) => String(name || "").trim().toLowerCase() === "saamrat" ? "Admin" : name;
 const PIE_COLORS = ['#ea580c','#3b82f6','#10b981','#8b5cf6','#ec4899','#f59e0b','#64748b','#14b8a6','#ef4444','#06b6d4','#a3e635','#fb923c'];
 
 // ─── ADMIN CREDENTIALS (hardcoded — never stored in DB) ───────────────────
@@ -1355,36 +1356,45 @@ export default function App() {
 
   useEffect(() => {
     if (!storageReady || currentUser?.role !== "Admin" || saamratLeadMigrationDoneRef.current || !leads.length) return;
+    const isSaamrat = (value) => String(value || "").trim().toLowerCase() === "saamrat";
     const saamratUser = users.find(user => String(user.name || "").trim().toLowerCase() === "saamrat");
     const adminTarget = users.find(user => user.role === "Admin" && String(user.name || "").trim().toLowerCase() === "admin");
     const shouldMoveLead = (lead) => {
-      const assignedName = String(lead.assignedTo || "").trim().toLowerCase();
-      return assignedName === "saamrat" || (saamratUser?.id && lead.assignedToId === saamratUser.id);
+      return isSaamrat(lead.assignedTo) || (saamratUser?.id && lead.assignedToId === saamratUser.id);
     };
     const matchingCount = leads.filter(shouldMoveLead).length;
-    if (!matchingCount) {
+    const historyCount = leads.reduce((count, lead) => count + (lead.history || []).filter(item => isSaamrat(item.by)).length, 0);
+    const activityLogCount = activityLogs.filter(logItem => isSaamrat(logItem.executive)).length;
+    if (!matchingCount && !historyCount && !activityLogCount) {
       saamratLeadMigrationDoneRef.current = true;
       return;
     }
     saamratLeadMigrationDoneRef.current = true;
     const now = new Date();
-    const log = makeHistoryLog(currentUser.name, `Transferred from Saamrat to Admin.`, now);
-    const updated = leads.map(lead => shouldMoveLead(lead) ? {
-      ...lead,
-      assignedTo: "Admin",
-      assignedToId: adminTarget?.id || null,
-      assignedAt: Date.now(),
-      assignedByRole: "Admin",
-      history: [log, ...(lead.history || [])],
-    } : lead);
+    const log = makeHistoryLog("Admin", `Transferred from Saamrat to Admin.`, now);
+    const updated = leads.map(lead => {
+      const moved = shouldMoveLead(lead);
+      const cleanedHistory = (lead.history || []).map(item => isSaamrat(item.by) ? { ...item, by:"Admin" } : item);
+      if (!moved) return { ...lead, history: cleanedHistory };
+      return {
+        ...lead,
+        assignedTo: "Admin",
+        assignedToId: adminTarget?.id || null,
+        assignedAt: Date.now(),
+        assignedByRole: "Admin",
+        history: [log, ...cleanedHistory],
+      };
+    });
+    const cleanedActivityLogs = activityLogs.map(logItem => isSaamrat(logItem.executive) ? { ...logItem, executive:"Admin" } : logItem);
+    if (activityLogCount) setActivityLogsStateWrapped(cleanedActivityLogs);
     setLeads(updated).then(saved => {
       if (!saved) {
         saamratLeadMigrationDoneRef.current = false;
         return;
       }
-      triggerToastAlert(`Transferred ${matchingCount} Saamrat lead${matchingCount === 1 ? "" : "s"} to Admin.`);
+      triggerToastAlert(`Transferred Saamrat leads and report history to Admin.`);
     });
-  }, [storageReady, currentUser, leads, users, setLeads]);
+  }, [storageReady, currentUser, leads, users, activityLogs, setLeads, setActivityLogsStateWrapped]);
 
   useEffect(() => {
     if (!selectedLead) {
@@ -1586,7 +1596,7 @@ export default function App() {
         date: h.date || lead.dateCreated || TODAY_STR,
         time: h.time || lead.dateCreatedTime || "",
         timestamp: h.timestamp || "",
-        executive: h.by || lead.assignedTo || "System",
+        executive: normalizeReportPersonName(h.by || lead.assignedTo || "System"),
         project: lead.project || "",
         source: lead.source || "",
         leadName: lead.name || "",
@@ -1690,11 +1700,12 @@ export default function App() {
   const summarizePeopleActivity = useCallback((logs)=>{
     const map = {};
     reportPeopleUsers.filter(u=>["Manager","Executive","Telecaller"].includes(u.role)).forEach(u=>{
-      map[u.name]={name:u.name,role:u.role,calls:0,followup:0,siteVisit:0,siteVisitPlanned:0,siteVisitDone:0,booking:0,registration:0,cancellation:0,productivity:0};
+      const name = normalizeReportPersonName(u.name);
+      if(!map[name])map[name]={name,role:u.role,calls:0,followup:0,siteVisit:0,siteVisitPlanned:0,siteVisitDone:0,booking:0,registration:0,cancellation:0,productivity:0};
     });
     logs.forEach(l=>{
-      const name = l.executive || "System";
-      if(!map[name])map[name]={name,role:reportPeopleUsers.find(u=>u.name===name)?.role||"User",calls:0,followup:0,siteVisit:0,siteVisitPlanned:0,siteVisitDone:0,booking:0,registration:0,cancellation:0,productivity:0};
+      const name = normalizeReportPersonName(l.executive || "System");
+      if(!map[name])map[name]={name,role:reportPeopleUsers.find(u=>normalizeReportPersonName(u.name)===name)?.role||"User",calls:0,followup:0,siteVisit:0,siteVisitPlanned:0,siteVisitDone:0,booking:0,registration:0,cancellation:0,productivity:0};
       map[name].calls += l.callsMade || 0;
       map[name].followup += l.followup || 0;
       map[name].siteVisit += l.siteVisit || 0;
@@ -1803,7 +1814,7 @@ export default function App() {
     };
     reportScopedLeads.forEach(lead=>{
       if(!isDateInRange(lead.dateCreated,reportStartDate,reportEndDate))return;
-      ensure(lead.assignedTo||"Unassigned", lead.project).enquirySet.add(lead.id);
+      ensure(normalizeReportPersonName(lead.assignedTo||"Unassigned"), lead.project).enquirySet.add(lead.id);
     });
     reportScopedActivityLogs.forEach(log=>{
       if(!isDateInRange(log.date,reportStartDate,reportEndDate))return;
@@ -1828,7 +1839,7 @@ export default function App() {
     };
     reportScopedLeads.forEach(lead=>{
       if(!isDateInRange(lead.dateCreated,reportStartDate,reportEndDate))return;
-      ensure(lead.assignedTo||"Unassigned", lead.source).enquirySet.add(lead.id);
+      ensure(normalizeReportPersonName(lead.assignedTo||"Unassigned"), lead.source).enquirySet.add(lead.id);
     });
     reportScopedActivityLogs.forEach(log=>{
       if(!isDateInRange(log.date,reportStartDate,reportEndDate))return;
@@ -2524,16 +2535,16 @@ export default function App() {
   const performanceSummaryReport = useMemo(()=>{
     const logs = reportScopedActivityLogs.filter(l=>isDateInRange(l.date,reportStartDate,reportEndDate));
     const peopleNames = [...new Set([
-      ...reportPeopleUsers.filter(u=>["Manager","Executive","Telecaller"].includes(u.role)).map(u=>u.name),
-      ...logs.map(l=>l.executive).filter(Boolean),
+      ...reportPeopleUsers.filter(u=>["Manager","Executive","Telecaller"].includes(u.role)).map(u=>normalizeReportPersonName(u.name)),
+      ...logs.map(l=>normalizeReportPersonName(l.executive)).filter(Boolean),
     ])].sort((a,b)=>a.localeCompare(b));
     const fmtCells = (row) => row.map(formatReportValue);
     const makeSection = (title, labels, valueGetter, showTotalsRow = true) => {
       const rows = labels.map(label => {
-        const values = peopleNames.map(name => logs.reduce((sum, log) => sum + (log.executive === name ? valueGetter(log, label) : 0), 0));
+        const values = peopleNames.map(name => logs.reduce((sum, log) => sum + (normalizeReportPersonName(log.executive) === name ? valueGetter(log, label) : 0), 0));
         return fmtCells([label, ...values, values.reduce((sum, value) => sum + value, 0)]);
       });
-      const totals = peopleNames.map(name => logs.reduce((sum, log) => sum + (log.executive === name ? valueGetter(log, "TOTAL") : 0), 0));
+      const totals = peopleNames.map(name => logs.reduce((sum, log) => sum + (normalizeReportPersonName(log.executive) === name ? valueGetter(log, "TOTAL") : 0), 0));
       return { title, headers:[title, ...peopleNames, "TOTAL"], rows, totals:showTotalsRow ? fmtCells(["TOTAL", ...totals, totals.reduce((sum, value) => sum + value, 0)]) : null };
     };
     const metricLabels = ["Calls made","Followup","SV Planned","SV Done","Booking","Registration","Cancellation"];
@@ -2563,10 +2574,10 @@ export default function App() {
     const leadsInRange = reportScopedLeads.filter(lead=>isDateInRange(lead.dateCreated,reportStartDate,reportEndDate));
     const logsInRange = reportScopedActivityLogs.filter(log=>isDateInRange(log.date,reportStartDate,reportEndDate));
     const personNames = [...new Set([
-      ...(currentUser?.role==="Admin" ? [currentUser.name] : []),
-      ...reportPeopleUsers.filter(u=>["Manager","Executive","Telecaller"].includes(u.role)).map(u=>u.name),
-      ...leadsInRange.map(l=>l.assignedTo).filter(Boolean),
-      ...logsInRange.map(l=>l.executive).filter(Boolean),
+      ...(currentUser?.role==="Admin" ? [normalizeReportPersonName(currentUser.name)] : []),
+      ...reportPeopleUsers.filter(u=>["Manager","Executive","Telecaller"].includes(u.role)).map(u=>normalizeReportPersonName(u.name)),
+      ...leadsInRange.map(l=>normalizeReportPersonName(l.assignedTo)).filter(Boolean),
+      ...logsInRange.map(l=>normalizeReportPersonName(l.executive)).filter(Boolean),
     ])].filter(Boolean).sort((a,b)=>a.localeCompare(b));
     const sourceOrder = ["Walk-In","Own Leads","99acres","Olx","Office Leads","Meta Ads","Just Dial","Reference","924000"];
     const sourceNames = [...new Set([...sourceOrder, ...leadsInRange.map(l=>l.source).filter(Boolean), ...logsInRange.map(l=>l.source).filter(Boolean)])].filter(source=>leadsInRange.some(lead=>(lead.source || "Unknown")===source)).sort((a,b)=>{
@@ -2618,7 +2629,7 @@ export default function App() {
       totals:null,
     };
     const executiveSummaryRows = personNames.map(name=>{
-        const logs = logsInRange.filter(log=>(log.executive || "System")===name);
+        const logs = logsInRange.filter(log=>normalizeReportPersonName(log.executive || "System")===name);
         const calls = logs.reduce((sum,log)=>sum+(log.callsMade||0),0);
         const followup = logs.reduce((sum,log)=>sum+(log.followup||0),0);
         const svPlan = logs.reduce((sum,log)=>sum+(log.siteVisitPlanned||0),0);
@@ -2639,7 +2650,7 @@ export default function App() {
       totals:fmtCells(["TOTAL",executiveTotalsRaw.calls,executiveTotalsRaw.followup,executiveTotalsRaw.svPlan,executiveTotalsRaw.svDone,executiveTotalsRaw.booking,executiveTotalsRaw.registration,executiveTotalsRaw.cancellation,calculateBookingProductivity(executiveTotalsRaw.booking,executiveTotalsRaw.calls)]),
     };
     const sourcewiseRows = personNames.map(name=>{
-      const values = sourceNames.map(source=>leadsInRange.filter(lead=>(lead.assignedTo || "Unassigned")===name && (lead.source || "Unknown")===source).length);
+      const values = sourceNames.map(source=>leadsInRange.filter(lead=>normalizeReportPersonName(lead.assignedTo || "Unassigned")===name && (lead.source || "Unknown")===source).length);
       return fmtCells([name, ...values, values.reduce((sum,value)=>sum+value,0)]);
     });
     const sourcewiseTotals = sourceNames.map(source=>leadsInRange.filter(lead=>(lead.source || "Unknown")===source).length);
@@ -2661,9 +2672,9 @@ export default function App() {
     const projectRows = personNames.map(name=>{
       const values = [];
       projectNames.forEach(project=>{
-        values.push(leadsInRange.filter(lead=>(lead.assignedTo || "Unassigned")===name && (lead.project || "Unknown")===project).length);
-        values.push(uniqueLogCount(logsInRange, log=>(log.executive || "System")===name && (log.project || "Unknown")===project && log.siteVisitDone));
-        values.push(uniqueLogCount(logsInRange, log=>(log.executive || "System")===name && (log.project || "Unknown")===project && log.booking));
+        values.push(leadsInRange.filter(lead=>normalizeReportPersonName(lead.assignedTo || "Unassigned")===name && (lead.project || "Unknown")===project).length);
+        values.push(uniqueLogCount(logsInRange, log=>normalizeReportPersonName(log.executive || "System")===name && (log.project || "Unknown")===project && log.siteVisitDone));
+        values.push(uniqueLogCount(logsInRange, log=>normalizeReportPersonName(log.executive || "System")===name && (log.project || "Unknown")===project && log.booking));
       });
       const totalEnq = values.filter((_,i)=>i%3===0).reduce((sum,value)=>sum+value,0);
       const totalSv = values.filter((_,i)=>i%3===1).reduce((sum,value)=>sum+value,0);
@@ -2752,7 +2763,7 @@ export default function App() {
       sourceMix:sourceNames.map(source=>({name:sourceLabel(source),value:sourceMetricValue(source,"Enq"),booking:sourceMetricValue(source,"Booking")})).filter(item=>item.value>0),
       projectMix:projectNames.map(project=>({name:project,value:leadsInRange.filter(lead=>(lead.project || "Unknown")===project).length,booking:uniqueLogCount(logsInRange, log=>(log.project || "Unknown")===project && log.booking)})).filter(item=>item.value>0),
       executiveBars:personNames.map(name=>{
-        const logs = logsInRange.filter(log=>(log.executive || "System")===name);
+        const logs = logsInRange.filter(log=>normalizeReportPersonName(log.executive || "System")===name);
         const calls = logs.reduce((sum,log)=>sum+(log.callsMade||0),0);
         const booking = logs.reduce((sum,log)=>sum+(log.booking||0),0);
         return {name,calls,booking};
@@ -2785,16 +2796,16 @@ export default function App() {
     if(selectedMatrixReport==="ExecutiveProjectwise"){
       const totals=sumRows(rangeExecutiveProjectReport,["enquiry","calls","followup","siteVisitPlanned","siteVisitDone","booking","registration","cancellation"]);
       totals.productivity=calculateBookingProductivity(totals.booking,totals.calls);
-      return {title:"Executivewise-Projectwise Report",headers:["Executive","Project","Enquiry","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity %"],rows:rangeExecutiveProjectReport.map(r=>fmtRow([r.executive,r.project,r.enquiry,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),rowKeys:rangeExecutiveProjectReport.map(r=>`executive-project:${r.executive}:${r.project}`),details:rangeExecutiveProjectReport.map(r=>buildReportCustomerDetails(lead=>(lead.assignedTo||"Unassigned")===r.executive&&lead.project===r.project,log=>(log.executive||"Unassigned")===r.executive&&log.project===r.project)),totals:fmtRow(["TOTAL","",totals.enquiry,totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
+      return {title:"Executivewise-Projectwise Report",headers:["Executive","Project","Enquiry","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity %"],rows:rangeExecutiveProjectReport.map(r=>fmtRow([r.executive,r.project,r.enquiry,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),rowKeys:rangeExecutiveProjectReport.map(r=>`executive-project:${r.executive}:${r.project}`),details:rangeExecutiveProjectReport.map(r=>buildReportCustomerDetails(lead=>normalizeReportPersonName(lead.assignedTo||"Unassigned")===r.executive&&lead.project===r.project,log=>normalizeReportPersonName(log.executive||"Unassigned")===r.executive&&log.project===r.project)),totals:fmtRow(["TOTAL","",totals.enquiry,totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
     }
     if(selectedMatrixReport==="ExecutiveSourcewise"){
       const totals=sumRows(rangeExecutiveSourceReport,["enquiry","calls","followup","siteVisitPlanned","siteVisitDone","booking","registration","cancellation"]);
       totals.productivity=calculateBookingProductivity(totals.booking,totals.calls);
-      return {title:"Executivewise-Sourcewise Report",headers:["Executive","Source","Enquiry","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity %"],rows:rangeExecutiveSourceReport.map(r=>fmtRow([r.executive,r.source,r.enquiry,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),rowKeys:rangeExecutiveSourceReport.map(r=>`executive-source:${r.executive}:${r.source}`),details:rangeExecutiveSourceReport.map(r=>buildReportCustomerDetails(lead=>(lead.assignedTo||"Unassigned")===r.executive&&lead.source===r.source,log=>(log.executive||"Unassigned")===r.executive&&log.source===r.source)),totals:fmtRow(["TOTAL","",totals.enquiry,totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
+      return {title:"Executivewise-Sourcewise Report",headers:["Executive","Source","Enquiry","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity %"],rows:rangeExecutiveSourceReport.map(r=>fmtRow([r.executive,r.source,r.enquiry,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),rowKeys:rangeExecutiveSourceReport.map(r=>`executive-source:${r.executive}:${r.source}`),details:rangeExecutiveSourceReport.map(r=>buildReportCustomerDetails(lead=>normalizeReportPersonName(lead.assignedTo||"Unassigned")===r.executive&&lead.source===r.source,log=>normalizeReportPersonName(log.executive||"Unassigned")===r.executive&&log.source===r.source)),totals:fmtRow(["TOTAL","",totals.enquiry,totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
     }
     const totals=sumRows(rangePeopleActivitySummary,["calls","followup","siteVisitPlanned","siteVisitDone","booking","registration","cancellation"]);
     totals.productivity=calculateBookingProductivity(totals.booking,totals.calls);
-    return {title:"Executivewise Report",headers:["Name","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity %"],rows:rangePeopleActivitySummary.map(r=>fmtRow([r.name,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),rowKeys:rangePeopleActivitySummary.map(r=>`executive:${r.name}`),details:rangePeopleActivitySummary.map(r=>buildReportCustomerDetails(lead=>(lead.assignedTo||"Unassigned")===r.name,log=>(log.executive||"Unassigned")===r.name)),totals:fmtRow(["TOTAL",totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
+    return {title:"Executivewise Report",headers:["Name","Calls","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Productivity %"],rows:rangePeopleActivitySummary.map(r=>fmtRow([r.name,r.calls,r.followup,r.siteVisitPlanned,r.siteVisitDone,r.booking,r.registration,r.cancellation,r.productivity])),rowKeys:rangePeopleActivitySummary.map(r=>`executive:${r.name}`),details:rangePeopleActivitySummary.map(r=>buildReportCustomerDetails(lead=>normalizeReportPersonName(lead.assignedTo||"Unassigned")===r.name,log=>normalizeReportPersonName(log.executive||"Unassigned")===r.name)),totals:fmtRow(["TOTAL",totals.calls,totals.followup,totals.siteVisitPlanned,totals.siteVisitDone,totals.booking,totals.registration,totals.cancellation,totals.productivity])};
   },[selectedMatrixReport,managementSummaryReport,performanceSummaryReport,rangePeopleActivitySummary,rangeSourceReport,rangeProjectReport,rangeSourceProjectReport,rangeExecutiveProjectReport,rangeExecutiveSourceReport,buildReportCustomerDetails]);
 
   useEffect(() => {

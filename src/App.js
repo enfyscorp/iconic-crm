@@ -2321,7 +2321,8 @@ export default function App() {
       return;
     }
     if (emailOrUsername.includes("@")) {
-      if (!emailOrUsername.endsWith("@desamdevelopers.com")) {
+      const isCreatorSuperAdmin = emailOrUsername === ADMIN_SUPPORT_EMAIL;
+      if (!emailOrUsername.endsWith("@desamdevelopers.com") && !isCreatorSuperAdmin) {
         setLoginError("Admin login must use @desamdevelopers.com. Staff login must use user@desam.");
         return;
       }

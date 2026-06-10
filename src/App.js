@@ -22,6 +22,7 @@ import {
 const DESAM_LOGO_ASSET = "/DESAM-NEW-LOGO.png";
 
 const ADMIN_SUPPORT_EMAIL = "enfyscorp@gmail.com";
+const CRM_BACKEND_REFRESH_MS = 15000;
 const maskEmail = (email) => {
   if (!email) return "••••@desam";
   const [local, domain] = email.split("@");
@@ -331,8 +332,10 @@ function useIsMobile() {
 }
 
 // ─── KPI TILE ─────────────────────────────────────────────────────────────
-const KpiTile = ({ label, value, icon, color, sub }) => (
-  <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex flex-col gap-1">
+const KpiTile = ({ label, value, icon, color, sub, onClick }) => {
+  const baseClass = "bg-slate-950 border border-slate-800 p-4 rounded-xl flex flex-col gap-1 transition-colors";
+  const content = (
+    <>
     <div className="flex justify-between items-start">
       <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider leading-tight">{label}</p>
       <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${color}20` }}>
@@ -341,8 +344,11 @@ const KpiTile = ({ label, value, icon, color, sub }) => (
     </div>
     <p className="text-2xl font-black" style={{ color }}>{value}</p>
     {sub && <p className="text-[9px] text-slate-500 font-medium">{sub}</p>}
-  </div>
-);
+    </>
+  );
+  if (onClick) return <button type="button" onClick={onClick} className={`${baseClass} text-left hover:bg-slate-900 cursor-pointer`}>{content}</button>;
+  return <div className={baseClass}>{content}</div>;
+};
 
 // ─── MOBILE CALL BUTTON + FEEDBACK POPUP ─────────────────────────────────
 function MobileCallButton({ phone, leadName, onFeedbackSaved, currentUser, TODAY_STR, prospectStatus = "Warm" }) {
@@ -1283,7 +1289,9 @@ export default function App() {
   useEffect(() => {
     if (!storageReady || !currentUser) return;
     refreshLeadsFromBackend();
-    const intervalId = window.setInterval(refreshLeadsFromBackend, 2000);
+    const intervalId = window.setInterval(() => {
+      if (!document.hidden) refreshLeadsFromBackend();
+    }, CRM_BACKEND_REFRESH_MS);
     const refreshWhenVisible = () => {
       if (!document.hidden) refreshLeadsFromBackend();
     };
@@ -1304,6 +1312,7 @@ export default function App() {
   const [showExitAppPopup, setShowExitAppPopup] = useState(false);
   const [prospectStatusPopup, setProspectStatusPopup] = useState({ isOpen:false, status:"" });
   const [isInactiveLeadPopupOpen, setIsInactiveLeadPopupOpen] = useState(false);
+  const [dashboardDetailPopup, setDashboardDetailPopup] = useState({ isOpen:false, type:"" });
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isActivityLogModalOpen, setIsActivityLogModalOpen] = useState(false);
@@ -1944,8 +1953,64 @@ export default function App() {
   const prospectStatusSummaryMap = useMemo(()=>prospectStatusSummary.reduce((map, item) => ({ ...map, [item.status]: item }), {}), [prospectStatusSummary]);
   const inactiveLeadStatuses = ["Not Interested","RNR","Switched Off","Wrong Number"];
   const inactiveScopedLeads = useMemo(()=>processedLeads.filter(lead => inactiveLeadStatuses.includes(lead.status)), [processedLeads]);
-  const activeScopedLeadCount = useMemo(()=>processedLeads.filter(lead => !inactiveLeadStatuses.includes(lead.status)).length, [processedLeads]);
+  const activeScopedLeads = useMemo(()=>processedLeads.filter(lead => !inactiveLeadStatuses.includes(lead.status)), [processedLeads]);
+  const activeScopedLeadCount = activeScopedLeads.length;
   const inactiveScopedLeadCount = inactiveScopedLeads.length;
+
+  const dashboardLeadById = useMemo(() => {
+    const map = new Map();
+    processedLeads.forEach(lead => map.set(String(lead.id), lead));
+    return map;
+  }, [processedLeads]);
+
+  const findDashboardLeadForLog = useCallback((log) => {
+    if (!log) return null;
+    return dashboardLeadById.get(String(log.leadId)) || processedLeads.find(lead => stripPhone(lead.phone) === stripPhone(log.phone));
+  }, [dashboardLeadById, processedLeads]);
+
+  const dashboardDetailData = useMemo(() => {
+    const latestFirst = (a, b) => (`${b.date || b.dateCreated || ""} ${b.time || b.dateCreatedTime || ""}`).localeCompare(`${a.date || a.dateCreated || ""} ${a.time || a.dateCreatedTime || ""}`);
+    const directLeadGroup = (title, subtitle, leads) => ({
+      title,
+      subtitle,
+      rows: [...leads].sort(latestFirst).map(lead => ({ lead, count:null, lastLog:null, note:lead.status || "" })),
+    });
+    const logGroup = (title, subtitle, predicate, valueGetter = () => 1, rowFilter = () => true) => {
+      const map = new Map();
+      dashboardActivityLogs.forEach(log => {
+        if (!predicate(log)) return;
+        const lead = findDashboardLeadForLog(log);
+        if (!lead) return;
+        const key = String(lead.id);
+        const existing = map.get(key) || { lead, count:0, lastLog:null };
+        existing.count += valueGetter(log);
+        if (!existing.lastLog || `${log.date || ""} ${log.time || ""}` > `${existing.lastLog.date || ""} ${existing.lastLog.time || ""}`) existing.lastLog = log;
+        map.set(key, existing);
+      });
+      return { title, subtitle, rows:Array.from(map.values()).filter(rowFilter).sort((a,b)=>latestFirst(a.lastLog || a.lead, b.lastLog || b.lead)) };
+    };
+    const callAttempts = logGroup("Total Calls", "Customers called today. Multiple attempts for the same customer are shown inside the card.", log => (log.callsMade || 0) > 0, log => log.callsMade || 0);
+    const followupCallRows = callAttempts.rows
+      .map(row => ({ ...row, count:Math.max(0, (row.count || 0) - 1) }))
+      .filter(row => row.count > 0);
+    return {
+      totalCalls: callAttempts,
+      followupCalls: { title:"Followup Calls", subtitle:"Extra call attempts made today after the first call to the same customer.", rows:followupCallRows },
+      followups: logGroup("Followups", "Customers moved to follow-up today.", log => (log.followup || 0) > 0, log => log.followup || 0),
+      svPlanned: logGroup("Site Visit Planned", "Customers for whom a site visit was planned today.", log => (log.siteVisitPlanned || 0) > 0, log => log.siteVisitPlanned || 0),
+      svDone: logGroup("Site Visit Done", "Customers whose site visit was completed today.", log => (log.siteVisitDone || 0) > 0, log => log.siteVisitDone || 0),
+      bookings: logGroup("Bookings", "Customers booked today.", log => (log.booking || 0) > 0, log => log.booking || 0),
+      registrations: logGroup("Registration", "Customers registered today.", log => (log.registration || 0) > 0, log => log.registration || 0),
+      cancellations: logGroup("Cancellation", "Customers cancelled today.", log => (log.cancellation || 0) > 0, log => log.cancellation || 0),
+      conversion: logGroup("Conversion Customers", "Bookings used for today's conversion percentage.", log => (log.booking || 0) > 0, log => log.booking || 0),
+      scoped: directLeadGroup("Scoped Leads", "All leads visible to you with the current access and filters.", processedLeads),
+      newToday: directLeadGroup("New Today", "Fresh leads assigned today in your scope.", newLeadDashboardItems),
+      active: directLeadGroup("Active Leads", "Leads not marked inactive or unreachable.", activeScopedLeads),
+      inactive: directLeadGroup("Inactive / Unreachable Leads", "Leads marked Not Interested, RNR, Switched Off, or Wrong Number.", inactiveScopedLeads),
+    };
+  }, [dashboardActivityLogs, findDashboardLeadForLog, processedLeads, newLeadDashboardItems, activeScopedLeads, inactiveScopedLeads]);
+
+  const activeDashboardDetail = dashboardDetailData[dashboardDetailPopup.type] || { title:"Dashboard Details", subtitle:"", rows:[] };
 
   const callsTrendData = useMemo(()=>{ const map={}; filteredActivityLogs.forEach(l=>{if(!map[l.date])map[l.date]={date:l.date,calls:0,followups:0,siteVisitPlanned:0,siteVisitDone:0,siteVisits:0,bookings:0};map[l.date].calls+=l.callsMade||0;map[l.date].followups+=l.followup||0;map[l.date].siteVisitPlanned+=l.siteVisitPlanned||0;map[l.date].siteVisitDone+=l.siteVisitDone||0;map[l.date].siteVisits+=l.siteVisit||0;map[l.date].bookings+=l.booking||0;}); return Object.values(map).sort((a,b)=>a.date.localeCompare(b.date)); },[filteredActivityLogs]);
   const projectPerfData = useMemo(()=>{ const map={}; filteredActivityLogs.forEach(l=>{if(!map[l.project])map[l.project]={project:l.project,calls:0,followups:0,siteVisitPlanned:0,siteVisitDone:0,siteVisits:0,bookings:0};map[l.project].calls+=l.callsMade||0;map[l.project].followups+=l.followup||0;map[l.project].siteVisitPlanned+=l.siteVisitPlanned||0;map[l.project].siteVisitDone+=l.siteVisitDone||0;map[l.project].siteVisits+=l.siteVisit||0;map[l.project].bookings+=l.booking||0;}); return Object.values(map).sort((a,b)=>b.calls-a.calls); },[filteredActivityLogs]);
@@ -3280,21 +3345,21 @@ export default function App() {
                 </div>
               )}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
-                <KpiTile label="Total Calls" value={activityKPIs.totalCalls.toLocaleString()} icon={<Phone/>} color="#ea580c"/>
-                <KpiTile label="Followup Calls" value={activityKPIs.totalFollowupCalls.toLocaleString()} icon={<PhoneCall/>} color="#38bdf8"/>
-                <KpiTile label="Followups" value={activityKPIs.totalFollowups.toLocaleString()} icon={<PhoneCall/>} color="#3b82f6"/>
-                <KpiTile label="SV Planned" value={activityKPIs.totalSiteVisitPlanned} icon={<Calendar/>} color="#8b5cf6"/>
-                <KpiTile label="SV Done" value={activityKPIs.totalSiteVisitDone} icon={<MapPin/>} color="#10b981"/>
-                <KpiTile label="Bookings" value={activityKPIs.totalBookings} icon={<BookOpen/>} color="#8b5cf6"/>
-                <KpiTile label="Registration" value={activityKPIs.totalRegistrations} icon={<UserCheck/>} color="#f59e0b"/>
-                <KpiTile label="Cancellation" value={activityKPIs.totalCancellations} icon={<XCircle/>} color="#ef4444"/>
-                <KpiTile label="Conversion %" value={`${activityKPIs.convRate}%`} icon={<TrendingUp/>} color="#a3e635"/>
+                <KpiTile label="Total Calls" value={activityKPIs.totalCalls.toLocaleString()} icon={<Phone/>} color="#ea580c" onClick={()=>setDashboardDetailPopup({isOpen:true,type:"totalCalls"})}/>
+                <KpiTile label="Followup Calls" value={activityKPIs.totalFollowupCalls.toLocaleString()} icon={<PhoneCall/>} color="#38bdf8" onClick={()=>setDashboardDetailPopup({isOpen:true,type:"followupCalls"})}/>
+                <KpiTile label="Followups" value={activityKPIs.totalFollowups.toLocaleString()} icon={<PhoneCall/>} color="#3b82f6" onClick={()=>setDashboardDetailPopup({isOpen:true,type:"followups"})}/>
+                <KpiTile label="SV Planned" value={activityKPIs.totalSiteVisitPlanned} icon={<Calendar/>} color="#8b5cf6" onClick={()=>setDashboardDetailPopup({isOpen:true,type:"svPlanned"})}/>
+                <KpiTile label="SV Done" value={activityKPIs.totalSiteVisitDone} icon={<MapPin/>} color="#10b981" onClick={()=>setDashboardDetailPopup({isOpen:true,type:"svDone"})}/>
+                <KpiTile label="Bookings" value={activityKPIs.totalBookings} icon={<BookOpen/>} color="#8b5cf6" onClick={()=>setDashboardDetailPopup({isOpen:true,type:"bookings"})}/>
+                <KpiTile label="Registration" value={activityKPIs.totalRegistrations} icon={<UserCheck/>} color="#f59e0b" onClick={()=>setDashboardDetailPopup({isOpen:true,type:"registrations"})}/>
+                <KpiTile label="Cancellation" value={activityKPIs.totalCancellations} icon={<XCircle/>} color="#ef4444" onClick={()=>setDashboardDetailPopup({isOpen:true,type:"cancellations"})}/>
+                <KpiTile label="Conversion %" value={`${activityKPIs.convRate}%`} icon={<TrendingUp/>} color="#a3e635" onClick={()=>setDashboardDetailPopup({isOpen:true,type:"conversion"})}/>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-7 gap-5">
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Scoped Leads <Briefcase className="h-4 w-4 text-orange-400"/></p><p className="text-3xl font-black text-white mt-1">{processedLeads.length}</p></div>
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">New Today <Star className="h-4 w-4 text-teal-300"/></p><p className="text-3xl font-black text-teal-300 mt-1">{newLeadDashboardItems.length}</p></div>
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Active Leads <Activity className="h-4 w-4 text-blue-400"/></p><p className="text-3xl font-black text-blue-400 mt-1">{activeScopedLeadCount}</p></div>
-                <button type="button" onClick={()=>setIsInactiveLeadPopupOpen(true)} className="text-left bg-slate-950 border border-slate-800 p-5 rounded-xl hover:bg-slate-900 transition-colors"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Inactive / Unreachable <XCircle className="h-4 w-4 text-rose-400"/></p><p className="text-3xl font-black text-rose-400 mt-1">{inactiveScopedLeadCount}</p></button>
+                <button type="button" onClick={()=>setDashboardDetailPopup({isOpen:true,type:"scoped"})} className="text-left bg-slate-950 border border-slate-800 p-5 rounded-xl hover:bg-slate-900 transition-colors"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Scoped Leads <Briefcase className="h-4 w-4 text-orange-400"/></p><p className="text-3xl font-black text-white mt-1">{processedLeads.length}</p></button>
+                <button type="button" onClick={()=>setDashboardDetailPopup({isOpen:true,type:"newToday"})} className="text-left bg-slate-950 border border-slate-800 p-5 rounded-xl hover:bg-slate-900 transition-colors"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">New Today <Star className="h-4 w-4 text-teal-300"/></p><p className="text-3xl font-black text-teal-300 mt-1">{newLeadDashboardItems.length}</p></button>
+                <button type="button" onClick={()=>setDashboardDetailPopup({isOpen:true,type:"active"})} className="text-left bg-slate-950 border border-slate-800 p-5 rounded-xl hover:bg-slate-900 transition-colors"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Active Leads <Activity className="h-4 w-4 text-blue-400"/></p><p className="text-3xl font-black text-blue-400 mt-1">{activeScopedLeadCount}</p></button>
+                <button type="button" onClick={()=>setDashboardDetailPopup({isOpen:true,type:"inactive"})} className="text-left bg-slate-950 border border-slate-800 p-5 rounded-xl hover:bg-slate-900 transition-colors"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between">Inactive / Unreachable <XCircle className="h-4 w-4 text-rose-400"/></p><p className="text-3xl font-black text-rose-400 mt-1">{inactiveScopedLeadCount}</p></button>
                 {PROSPECT_STATUSES.map(status => {
                   const item = prospectStatusSummaryMap[status] || { count:0 };
                   const style = PROSPECT_STATUS_STYLES[status];
@@ -3611,6 +3676,45 @@ export default function App() {
       </div>
 
       {/* ═══ MODALS & OVERLAYS ════════════════════════════════════════════ */}
+      {dashboardDetailPopup.isOpen&&(
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[220] flex items-end sm:items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-black text-white">{activeDashboardDetail.title}</h3>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{activeDashboardDetail.rows.length} customer{activeDashboardDetail.rows.length===1?"":"s"} - {activeDashboardDetail.subtitle}</p>
+              </div>
+              <button onClick={()=>setDashboardDetailPopup({isOpen:false,type:""})} className="text-slate-500 hover:text-white p-2 hover:bg-slate-800 rounded-xl transition-colors"><X className="h-5 w-5"/></button>
+            </div>
+            <div className="max-h-[72vh] overflow-y-auto p-4">
+              {activeDashboardDetail.rows.length?(
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {activeDashboardDetail.rows.map(({ lead, count, lastLog })=>(
+                    <button key={`${dashboardDetailPopup.type}-${lead.id}`} onClick={()=>{setDashboardDetailPopup({isOpen:false,type:""});setSelectedLead(lead);}} className="text-left bg-slate-900/70 hover:bg-slate-900 border border-slate-800 hover:border-orange-500/50 rounded-xl p-3 transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-black text-white text-sm truncate">{lead.name || "Customer"}</p>
+                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">{lead.phone || "-"}</p>
+                        </div>
+                        {count!==null&&count!==undefined&&<span className="shrink-0 bg-orange-500/10 text-orange-300 border border-orange-500/25 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider">{count}</span>}
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]">
+                        <p className="text-orange-400 font-bold truncate">{lead.project || "No project"}</p>
+                        <p className="text-slate-400 text-right truncate">{lead.status || "New"}</p>
+                        <p className="text-slate-500 truncate">Owner: {lead.assignedTo || "Unassigned"}</p>
+                        <p className="text-slate-500 text-right truncate">{lead.source || "No source"}</p>
+                        <p className="text-slate-500 truncate">Prospect: {getProspectStatus(lead)}</p>
+                        <p className="text-slate-500 text-right font-mono">{lastLog ? formatDateTimeLabel(lastLog) : (formatDateTimeLabel(lead) || "-")}</p>
+                      </div>
+                      {lastLog?.remark&&<p className="mt-2 text-[10px] text-slate-400 line-clamp-2">{lastLog.remark}</p>}
+                    </button>
+                  ))}
+                </div>
+              ):(<div className="py-10 text-center text-slate-500 font-bold text-sm">No customers found for this dashboard figure.</div>)}
+            </div>
+          </div>
+        </div>
+      )}
       {prospectStatusPopup.isOpen&&(
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[220] flex items-end sm:items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-800 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden">

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
+import { crmApi } from "./supabaseClient";
 import { supabase } from "./supabaseClient"; // ─── INTEGRATED BACKEND BRIDGE ───
 import {
   Users, ShieldAlert, BarChart3, Building2, Briefcase,
@@ -1179,17 +1180,15 @@ export default function App() {
       }
       if (Array.isArray(stateMap["leads"]) && !pendingStateKeysRef.current.has("leads")) setLeadsState(stateMap["leads"]);
       if (Array.isArray(stateMap["projects"]) && !pendingStateKeysRef.current.has("projects")) setProjectsState(stateMap["projects"]);
+      if (Array.isArray(stateMap["activity_logs"]) && !pendingStateKeysRef.current.has("activity_logs")) setActivityLogsState(stateMap["activity_logs"]);
       if (Array.isArray(stateMap["whatsapp_templates"]) && !pendingStateKeysRef.current.has("whatsapp_templates")) setWhatsappTemplatesState(stateMap["whatsapp_templates"]);
-      if (Array.isArray(stateMap["non_admin_users"]) && !pendingStateKeysRef.current.has("non_admin_users")) {
-        const migrated = await migratePlainPasswords(stateMap["non_admin_users"]);
-        setNonAdminUsersState(migrated.users);
-        if (migrated.changed) persistState("non_admin_users", migrated.users);
-      }
+      if (Array.isArray(stateMap["admin_users"])) setAdminUsersState(stateMap["admin_users"]);
+      if (Array.isArray(stateMap["non_admin_users"])) setNonAdminUsersState(stateMap["non_admin_users"]);
       if (Array.isArray(stateMap["reset_requests"]) && !pendingStateKeysRef.current.has("reset_requests")) setResetRequestsState(stateMap["reset_requests"]);
     } catch (err) {
       console.error("Failed to refresh backend state:", err);
     }
-  }, [persistState]);
+  }, []);
 
   const loadStaffUsersFromBackend = useCallback(async () => {
     const { data: dbRows, error } = await supabase.from("crm_state_store").select("*");
@@ -1248,19 +1247,15 @@ export default function App() {
         setWhatsappTemplatesState(w);
         setResetRequestsState(r);
         const { data: sessionData } = await supabase.auth.getSession();
-        if (isSupabaseAdminUser(sessionData?.session?.user)) {
-          const admin = authUserToAdmin(sessionData.session.user);
-          setCurrentUser(admin);
-          rememberSession(admin);
-        } else {
-          try {
-            const saved = JSON.parse(localStorage.getItem("crm_current_user") || "null");
-            if (saved?.role !== "Admin") {
-              const latest = nonAdmins.find(u => u.id === saved.id && u.active !== false && u.email === saved.email && u.passwordHash === saved.passwordHash);
-              if (latest) setCurrentUser(latest);
-              else forgetSession();
-            }
-          } catch { forgetSession(); }
+        if (sessionData?.session?.user) {
+          const { data: profileData, error:profileError } = await crmApi.me();
+          if (!profileError && profileData?.user) {
+            setCurrentUser(profileData.user);
+            rememberSession(profileData.user);
+          } else {
+            await supabase.auth.signOut();
+            forgetSession();
+          }
         }
       } catch (err) {
         console.error("Failed to load Supabase state:", err);
@@ -1274,10 +1269,12 @@ export default function App() {
         setWhatsappTemplatesState([]);
         setResetRequestsState([]);
         const { data: sessionData } = await supabase.auth.getSession();
-        if (isSupabaseAdminUser(sessionData?.session?.user)) {
-          const admin = authUserToAdmin(sessionData.session.user);
-          setCurrentUser(admin);
-          rememberSession(admin);
+        if (sessionData?.session?.user) {
+          const { data:profileData } = await crmApi.me();
+          if (profileData?.user) {
+            setCurrentUser(profileData.user);
+            rememberSession(profileData.user);
+          }
         }
       } finally {
         if (isMounted) setStorageReady(true);
@@ -2438,61 +2435,36 @@ export default function App() {
     e.preventDefault();
     setLoginError("");
     const emailOrUsername = loginEmail.toLowerCase().trim();
-    let allUsers = users.filter(u => u.role !== "Admin");
-    if (emailOrUsername.endsWith("@desam")) {
-      try {
-        allUsers = await loadStaffUsersFromBackend();
-      } catch (err) {
-        const detail = err?.message || err?.details || err?.hint || JSON.stringify(err || {});
-        setLoginError(`Cannot load staff login data from Supabase. ${detail}`);
-        return;
-      }
-    }
-    const found = allUsers.find(u => u.email.toLowerCase() === emailOrUsername && u.active);
-    if (found) {
-      const acc = await verifyPassword(found, loginPassword) ? found : null;
-      if (acc) {
-        allowBrowserExitRef.current=false;
-        setCurrentUser(acc);
-        rememberSession(acc);
-        setLoginError("");
-        triggerToastAlert(`Welcome, ${acc.name}!`);
-        return;
-      }
-      setLoginError("Invalid credentials.");
+    const isStaffUsername = emailOrUsername.endsWith("@desam");
+    const authEmail = isStaffUsername
+      ? `${emailOrUsername.split("@")[0]}@staff.desamdevelopers.com`
+      : emailOrUsername;
+    if (!isStaffUsername && authEmail !== ADMIN_SUPPORT_EMAIL && !authEmail.endsWith("@desamdevelopers.com")) {
+      setLoginError("Admin login must use @desamdevelopers.com. Staff login must use user@desam.");
       return;
     }
-    if (emailOrUsername.endsWith("@desam")) {
-      setLoginError("Staff login not found. Staff must use user@desam. Admin must use @desamdevelopers.com.");
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email:authEmail,
+      password:loginPassword,
+    });
+    if (data?.user) {
+      const { data:profileData, error:profileError } = await crmApi.me();
+      if (!profileData?.user) {
+        await supabase.auth.signOut();
+        setLoginError(profileError?.error || profileError?.message || "This account is not provisioned for the CRM.");
+        return;
+      }
+      const account = profileData.user;
+      allowBrowserExitRef.current=false;
+      setCurrentUser(account);
+      rememberSession(account);
+      setLoginError("");
+      triggerToastAlert(`Welcome, ${account.name}!`);
       return;
     }
-    if (emailOrUsername.includes("@")) {
-      const isCreatorSuperAdmin = emailOrUsername === ADMIN_SUPPORT_EMAIL;
-      if (!emailOrUsername.endsWith("@desamdevelopers.com") && !isCreatorSuperAdmin) {
-        setLoginError("Admin login must use @desamdevelopers.com. Staff login must use user@desam.");
-        return;
-      }
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: emailOrUsername,
-        password: loginPassword,
-      });
-      if (data?.user) {
-        if (!isSupabaseAdminUser(data.user)) {
-          await supabase.auth.signOut();
-          setLoginError("This Supabase account is not marked as Admin.");
-          return;
-        }
-        const admin = authUserToAdmin(data.user);
-        allowBrowserExitRef.current=false;
-        setCurrentUser(admin);
-        rememberSession(admin);
-        triggerToastAlert(`Welcome, ${admin.name}!`);
-        return;
-      }
-      if (error?.message) {
-        setLoginError(error.message);
-        return;
-      }
+    if (error?.message || error?.error_description || error?.msg) {
+      setLoginError(error.message || error.error_description || error.msg);
+      return;
     }
     setLoginError("Invalid credentials.");
   };
@@ -2529,14 +2501,38 @@ export default function App() {
   const handleDataImportSubmit=async (e)=>{ e.preventDefault(); if(currentUser.role!=="Admin"){triggerToastAlert("Only Admin can upload data.");return;} if(!importText.trim())return; const warning=leadImportMode==="replace"?"This will clean existing leads and replace them with uploaded data. Continue?":"This will append uploaded leads to existing data. Continue?"; if(!window.confirm(warning))return; try{ const lines=importText.split("\n").map(l=>l.trim()).filter(Boolean); const newLeads=[]; lines.forEach((line,idx)=>{const cols=(line.includes("\t")?line.split("\t"):line.split(",")).map(c=>String(c||"").trim()); if(idx===0&&String(cols[0]||"").toLowerCase().includes("name"))return; if(cols.length>=4){const matchedProj=projects.find(p=>p.name.toLowerCase()===(cols[3]||"").toLowerCase().trim()); const branchHome=matchedProj?matchedProj.branch:"Madurai Desk"; const assignedUser=users.find(u=>u.name===(cols[7]||"")); const now=new Date(); newLeads.push({id:Date.now()+Math.floor(Math.random()*10000),name:cols[0]||"Lead",phone:stripPhone(cols[1]||"00000"),email:cols[2]||"",project:cols[3]||"",location:cols[4]||"Inbound",budget:parseInt(cols[5])||25,source:cols[6]||"Website",assignedTo:cols[7]||"Unassigned",assignedToId:assignedUser?.id||null,assignedAt:assignedUser?now.getTime():null,assignedByRole:currentUser.role,status:cols[7]&&cols[7]!=="Unassigned"?"Assigned":"New",prospectStatus:"Warm",branch:assignedUser?.branch||branchHome,dateCreated:getLocalDate(now),dateCreatedTime:getLocalTime(now),createdAt:now.toISOString(),newLeadTag:true,lastFollowUp:"None",nextFollowUp:getLocalDate(now),notes:cols[8]||"",history:[makeHistoryLog(currentUser.name,"Imported via paste.",now)],siteVisitTentativeDate:"",bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false});}});if(newLeads.length>0){const saved=await setLeads(leadImportMode==="replace"?newLeads:[...newLeads,...leads]); if(!saved){triggerToastAlert("Could not save imported leads.");return;} triggerToastAlert(`${leadImportMode==="replace"?"Replaced":"Imported"} ${newLeads.length} leads.`);setImportText("");}
   }catch(err){alert(err.message);} };
 
-  const handleCreateUserSubmit=async (e)=>{ e.preventDefault(); const prefix=newUserForm.emailPrefix.trim().toLowerCase(); const role = newUserForm.role; if (role === "Admin") { triggerToastAlert("Use Admin Recovery or create another admin from secure backend controls."); return; } if(users.some(u=>u.email.toLowerCase()===`${prefix}@desam`)){triggerToastAlert("That username already exists.");return;} const manager=managerUsers.find(m=>String(m.id)===String(newUserForm.managerId)); const u={id:Date.now(),name:newUserForm.name.trim(),email:`${prefix}@desam`,...(await makePasswordFields(newUserForm.pass)),role,branch:newUserForm.branch,phone:stripPhone(newUserForm.phone)||"9840000000",active:true,avatar:newUserForm.name.charAt(0).toUpperCase(),managerId:["Executive","Telecaller"].includes(role)?(manager?.id||null):null,managerName:["Executive","Telecaller"].includes(role)?(manager?.name||""): ""}; const saved=await setUsers([...users, u]); if(!saved){triggerToastAlert("Could not save user to Supabase.");return;} setNewUserForm({name:"",emailPrefix:"",pass:"",role:"Executive",branch:"Madurai Desk",phone:"",managerId:""}); triggerToastAlert(`Profile for ${u.name} created.`); };
+  const handleCreateUserSubmit=async (e)=>{
+    e.preventDefault();
+    const prefix=newUserForm.emailPrefix.trim().toLowerCase();
+    const role=newUserForm.role;
+    const loginUsername=role==="Admin"?`${prefix}@desamdevelopers.com`:`${prefix}@desam`;
+    if(users.some(u=>u.email.toLowerCase()===loginUsername)){triggerToastAlert("That username already exists.");return;}
+    const { data, error } = await crmApi.createUser({
+      legacyId:Date.now(),
+      loginUsername,
+      password:newUserForm.pass,
+      name:newUserForm.name.trim(),
+      role,
+      branch:role==="Admin"?"All Branches":newUserForm.branch,
+      phone:stripPhone(newUserForm.phone)||"9840000000",
+      managerId:["Executive","Telecaller"].includes(role)?(newUserForm.managerId||null):null,
+    });
+    if(error||!data?.user){triggerToastAlert(error?.error||error?.message||"Could not create the Supabase Auth user.");return;}
+    const created=data.user;
+    if(created.role==="Admin")setAdminUsersState(prev=>[...prev.filter(u=>u.id!==created.id),created]);
+    else setNonAdminUsersState(prev=>[...prev.filter(u=>u.id!==created.id),created]);
+    setNewUserForm({name:"",emailPrefix:"",pass:"",role:"Executive",branch:"Madurai Desk",phone:"",managerId:""});
+    triggerToastAlert(`Profile for ${created.name} created.`);
+  };
 
   const handleDeleteUser=async (userId)=>{
     if(userId===currentUser.id){triggerToastAlert("Cannot delete your own account.");return;}
     if(HARDCODED_ADMINS.some(a=>a.id===userId)){triggerToastAlert("Admin accounts cannot be deleted here.");return;}
-    const saved=await setUsers(users.filter(u => u.id !== userId));
-    if(!saved){triggerToastAlert("Could not remove user from Supabase.");return;}
-    triggerToastAlert("Profile removed.");
+    const { error }=await crmApi.deactivateUser(userId);
+    if(error){triggerToastAlert(error?.error||error?.message||"Could not deactivate the user.");return;}
+    setAdminUsersState(prev=>prev.filter(u=>u.id!==userId));
+    setNonAdminUsersState(prev=>prev.filter(u=>u.id!==userId));
+    triggerToastAlert("User login deactivated.");
   };
 
   const openEditUserModal=(user)=>{
@@ -2550,12 +2546,23 @@ export default function App() {
     if (passwordValue && passwordValue !== editUserForm.confirmNewPassword) { triggerToastAlert("Passwords do not match."); return; }
     const prefix=editUserForm.email.split('@')[0].trim().toLowerCase();
     const { newPassword, confirmNewPassword, ...cleanForm } = editUserForm;
-    const passwordFields = passwordValue ? await makePasswordFields(passwordValue) : {};
     const manager=managerUsers.find(m=>String(m.id)===String(cleanForm.managerId));
-    const u={...cleanForm,...passwordFields,name:cleanForm.name.trim(),email:`${prefix}@desam`,branch:cleanForm.role==="Admin"?"All Branches":cleanForm.branch,phone:stripPhone(cleanForm.phone)||"9840000000",avatar:cleanForm.name.charAt(0).toUpperCase(),active:cleanForm.active!==false,managerId:["Executive","Telecaller"].includes(cleanForm.role)?(manager?.id||null):null,managerName:["Executive","Telecaller"].includes(cleanForm.role)?(manager?.name||""):""};
-    const saved=await setUsers(users.map(x => x.id === u.id ? u : x));
-    if(!saved){triggerToastAlert("Could not save user changes to Supabase.");return;}
-    setIsEditUserModalOpen(false);setEditUserForm(null); triggerToastAlert(`Profile for ${u.name} updated.`); };
+    const loginUsername=cleanForm.role==="Admin"?`${prefix}@desamdevelopers.com`:`${prefix}@desam`;
+    const { data, error }=await crmApi.updateUser(cleanForm.id,{
+      loginUsername,
+      password:passwordValue||undefined,
+      name:cleanForm.name.trim(),
+      role:cleanForm.role,
+      branch:cleanForm.role==="Admin"?"All Branches":cleanForm.branch,
+      phone:stripPhone(cleanForm.phone)||"9840000000",
+      active:cleanForm.active!==false,
+      managerId:["Executive","Telecaller"].includes(cleanForm.role)?(manager?.id||null):null,
+    });
+    if(error||!data?.user){triggerToastAlert(error?.error||error?.message||"Could not save user changes.");return;}
+    const updatedUser=data.user;
+    setAdminUsersState(prev=>updatedUser.role==="Admin"?[...prev.filter(u=>u.id!==updatedUser.id),updatedUser]:prev.filter(u=>u.id!==updatedUser.id));
+    setNonAdminUsersState(prev=>updatedUser.role!=="Admin"?[...prev.filter(u=>u.id!==updatedUser.id),updatedUser]:prev.filter(u=>u.id!==updatedUser.id));
+    setIsEditUserModalOpen(false);setEditUserForm(null); triggerToastAlert(`Profile for ${updatedUser.name} updated.`); };
 
   const handleCreateLead=async (e)=>{ e.preventDefault(); const phone=stripPhone(newLeadForm.phone); const dup=leads.find(l=>stripPhone(l.phone)===phone); if(dup){setDuplicateConflictRecord(dup);return;}
     const assignedUser = newLeadForm.assignedTo && newLeadForm.assignedTo !== "Unassigned" ? users.find(u => u.name === newLeadForm.assignedTo) : null;
@@ -3231,7 +3238,6 @@ export default function App() {
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
-        {showResetModal && <PasswordResetModal users={users} setUsers={setUsers} resetRequests={resetRequests} setResetRequests={setResetRequests} onClose={() => setShowResetModal(false)} />}
         <div className="sm:mx-auto w-full max-w-md text-center space-y-4">
           <div className="flex justify-center mb-2"><img src={DESAM_LOGO_ASSET} alt="Desam Developers Logo" className="h-16 w-auto object-contain drop-shadow-lg"/></div>
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Operational Control Platform</p>
@@ -3245,7 +3251,7 @@ export default function App() {
               <button type="submit" className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg">Authorize Access</button>
             </form>
             <div className="pt-2 border-t border-slate-900 flex justify-center">
-              <button onClick={() => setShowResetModal(true)} className="flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-orange-400 transition-colors font-bold uppercase tracking-wide"><KeyRound className="h-3.5 w-3.5" /> Forgot Password?</button>
+              <button onClick={() => setLoginError("Please contact a CRM administrator to reset your password.")} className="flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-orange-400 transition-colors font-bold uppercase tracking-wide"><KeyRound className="h-3.5 w-3.5" /> Forgot Password?</button>
             </div>
           </div>
         </div>
@@ -3657,10 +3663,10 @@ export default function App() {
                     <h3 className="text-sm font-black text-white uppercase tracking-wider mb-5 flex items-center gap-2 border-b border-slate-800 pb-4"><UserPlus className="h-4 w-4 text-emerald-500"/> Provision Identity</h3>
                     <form onSubmit={handleCreateUserSubmit} className="space-y-4 text-xs">
                       <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Full Name</label><input type="text" required value={newUserForm.name} onChange={e=>setNewUserForm({...newUserForm,name:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-rose-500" placeholder="e.g. John Doe"/></div>
-                      <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Username Prefix</label><div className="flex items-center"><input type="text" required value={newUserForm.emailPrefix} onChange={e=>setNewUserForm({...newUserForm,emailPrefix:e.target.value.replace(/\s+/g,'').toLowerCase()})} className="w-full bg-slate-900 border border-slate-800 rounded-l-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-rose-500 font-mono" placeholder="john"/><span className="bg-slate-800 border border-slate-800 border-l-0 rounded-r-xl px-3 py-2.5 text-slate-500 font-mono font-bold">@desam</span></div></div>
+                      <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Username Prefix</label><div className="flex items-center"><input type="text" required value={newUserForm.emailPrefix} onChange={e=>setNewUserForm({...newUserForm,emailPrefix:e.target.value.replace(/\s+/g,'').toLowerCase()})} className="w-full bg-slate-900 border border-slate-800 rounded-l-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-rose-500 font-mono" placeholder="john"/><span className="bg-slate-800 border border-slate-800 border-l-0 rounded-r-xl px-3 py-2.5 text-slate-500 font-mono font-bold">{newUserForm.role==="Admin"?"@desamdevelopers.com":"@desam"}</span></div></div>
                       <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Initial Password</label><input type="password" required minLength={6} value={newUserForm.pass} onChange={e=>setNewUserForm({...newUserForm,pass:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-rose-500" placeholder="Minimum 6 characters"/></div>
                       <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Role</label><select value={newUserForm.role} onChange={e=>setNewUserForm({...newUserForm,role:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-rose-500"><option value="Manager">Manager</option><option value="Executive">Executive</option><option value="Telecaller">Telecaller</option></select></div>
+                        <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Role</label><select value={newUserForm.role} onChange={e=>setNewUserForm({...newUserForm,role:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-rose-500"><option value="Admin">Admin</option><option value="Manager">Manager</option><option value="Executive">Executive</option><option value="Telecaller">Telecaller</option></select></div>
                         <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Branch</label><select value={newUserForm.branch} onChange={e=>setNewUserForm({...newUserForm,branch:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-rose-500">{BRANCHES.map(b=><option key={b} value={b}>{b}</option>)}</select></div>
                       </div>
                       {["Executive","Telecaller"].includes(newUserForm.role)&&<div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Reporting Manager</label><select value={newUserForm.managerId||""} onChange={e=>setNewUserForm({...newUserForm,managerId:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-rose-500"><option value="">Not mapped</option>{managerUsers.map(m=><option key={m.id} value={m.id}>{m.name} ({m.branch})</option>)}</select></div>}
@@ -3964,7 +3970,7 @@ export default function App() {
               <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Username / Email</label><input type="text" required value={editUserForm.email} onChange={e=>setEditUserForm({...editUserForm,email:e.target.value.toLowerCase().replace(/\s/g,'')})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-blue-500 font-mono"/></div>
               <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Phone Number</label><input type="tel" required value={editUserForm.phone} onChange={e=>setEditUserForm({...editUserForm,phone:stripPhone(e.target.value)})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-blue-500 font-mono"/></div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Role</label><select value={editUserForm.role} onChange={e=>setEditUserForm({...editUserForm,role:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-blue-500"><option value="Manager">Manager</option><option value="Executive">Executive</option><option value="Telecaller">Telecaller</option></select></div>
+                <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Role</label><select value={editUserForm.role} onChange={e=>setEditUserForm({...editUserForm,role:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-blue-500"><option value="Admin">Admin</option><option value="Manager">Manager</option><option value="Executive">Executive</option><option value="Telecaller">Telecaller</option></select></div>
                 <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Branch</label><select value={editUserForm.branch} onChange={e=>setEditUserForm({...editUserForm,branch:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-blue-500">{BRANCHES.map(b=><option key={b} value={b}>{b}</option>)}</select></div>
               </div>
               {["Executive","Telecaller"].includes(editUserForm.role)&&<div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Reporting Manager</label><select value={editUserForm.managerId||""} onChange={e=>setEditUserForm({...editUserForm,managerId:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-blue-500"><option value="">Not mapped</option>{managerUsers.map(m=><option key={m.id} value={m.id}>{m.name} ({m.branch})</option>)}</select></div>}

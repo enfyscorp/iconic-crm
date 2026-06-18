@@ -2001,11 +2001,17 @@ export default function App() {
       cancellations: logGroup("Cancellation", "Customers cancelled today.", log => (log.cancellation || 0) > 0, log => log.cancellation || 0),
       conversion: logGroup("Conversion Customers", "Bookings used for today's conversion percentage.", log => (log.booking || 0) > 0, log => log.booking || 0),
       scoped: directLeadGroup("Scoped Leads", "All leads visible to you with the current access and filters.", processedLeads),
-      newToday: directLeadGroup("New Today", "Fresh leads assigned today in your scope.", newLeadDashboardItems),
+      newToday: directLeadGroup(
+        "New Today",
+        "Fresh leads assigned today in your scope.",
+        processedLeads
+          .filter(isFreshLead)
+          .sort((a,b)=>(b.createdAt||`${b.dateCreated||""} ${b.dateCreatedTime||""}`).localeCompare(a.createdAt||`${a.dateCreated||""} ${a.dateCreatedTime||""}`))
+      ),
       active: directLeadGroup("Active Leads", "Leads not marked inactive or unreachable.", activeScopedLeads),
       inactive: directLeadGroup("Inactive / Unreachable Leads", "Leads marked Not Interested, RNR, Switched Off, or Wrong Number.", inactiveScopedLeads),
     };
-  }, [dashboardActivityLogs, findDashboardLeadForLog, processedLeads, newLeadDashboardItems, activeScopedLeads, inactiveScopedLeads]);
+  }, [dashboardActivityLogs, findDashboardLeadForLog, processedLeads, activeScopedLeads, inactiveScopedLeads]);
 
   const activeDashboardDetail = dashboardDetailData[dashboardDetailPopup.type] || { title:"Dashboard Details", subtitle:"", rows:[] };
 

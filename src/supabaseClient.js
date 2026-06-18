@@ -50,6 +50,45 @@ const getSession = () => {
   }
 };
 
+const saveSession = (session) => {
+  if (session) localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+  else localStorage.removeItem(AUTH_SESSION_KEY);
+};
+
+async function ensureSession() {
+  const session = getSession();
+  if (!session?.access_token) return null;
+  const expiresAtMs = Number(session.expires_at || 0) * 1000;
+  if (!expiresAtMs || expiresAtMs > Date.now() + 60000) return session;
+  if (!session.refresh_token) {
+    saveSession(null);
+    return null;
+  }
+  const config = await getConfig();
+  try {
+    const response = await fetch(`${config.url}/auth/v1/token?grant_type=refresh_token`, {
+      method:"POST",
+      headers:{ apikey:config.anonKey, "Content-Type":"application/json" },
+      body:JSON.stringify({ refresh_token:session.refresh_token }),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.access_token) {
+      saveSession(null);
+      return null;
+    }
+    const refreshed = {
+      access_token:data.access_token,
+      refresh_token:data.refresh_token || session.refresh_token,
+      expires_at:data.expires_at,
+      user:data.user,
+    };
+    saveSession(refreshed);
+    return refreshed;
+  } catch {
+    return session;
+  }
+}
+
 const configError = async () => {
   const config = await getConfig();
   return {
@@ -97,7 +136,7 @@ const localStore = {
 async function authHeaders() {
   const config = await getConfig();
   if (!config.url || !config.anonKey) return null;
-  const session = getSession();
+  const session = await ensureSession();
   return {
     baseUrl: config.url.replace(/\/$/, ""),
     headers: {
@@ -131,18 +170,18 @@ export const supabase = {
           expires_at: data.expires_at,
           user: data.user,
         };
-        localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+        saveSession(session);
         return { data: { session, user: data.user }, error: null };
       } catch (error) {
         return { data: null, error };
       }
     },
     async signOut() {
-      localStorage.removeItem(AUTH_SESSION_KEY);
+      saveSession(null);
       return { error: null };
     },
     async getSession() {
-      return { data: { session: getSession() }, error: null };
+      return { data: { session: await ensureSession() }, error: null };
     },
   },
   from(table) {
@@ -151,7 +190,10 @@ export const supabase = {
         const auth = await authHeaders();
         if (!auth) return localStore.from(table).select(columns);
         try {
-          const response = await fetch(`${auth.baseUrl}/rest/v1/${table}?select=${encodeURIComponent(columns)}`, {
+          const url = table === "crm_state_store"
+            ? "/crm-api/state"
+            : `${auth.baseUrl}/rest/v1/${table}?select=${encodeURIComponent(columns)}`;
+          const response = await fetch(url, {
             headers: {
               ...auth.headers,
               "Cache-Control": "no-cache",
@@ -160,7 +202,8 @@ export const supabase = {
             cache: "no-store",
           });
           const data = await response.json();
-          return response.ok ? { data, error: null } : { data: null, error: data };
+          const rows = table === "crm_state_store" ? data?.rows : data;
+          return response.ok ? { data:rows, error:null } : { data:null, error:data };
         } catch (error) {
           return { data: null, error };
         }
@@ -168,6 +211,20 @@ export const supabase = {
       async upsert(row, options = {}) {
         const auth = await authHeaders();
         if (!auth) return localStore.from(table).upsert(row);
+        if (table === "crm_state_store") {
+          try {
+            const response = await fetch(`/crm-api/state/${encodeURIComponent(row.key)}`, {
+              method:"POST",
+              headers:auth.headers,
+              body:JSON.stringify({ value:row.value }),
+              cache:"no-store",
+            });
+            const data = await response.json().catch(() => null);
+            return response.ok ? { data:data?.row, error:null } : { data:null, error:data };
+          } catch (error) {
+            return { data:null, error };
+          }
+        }
         const onConflict = encodeURIComponent(options.onConflict || "key");
         const payload = table === "crm_state_store" ? { ...row, updated_at: new Date().toISOString() } : row;
         try {
@@ -187,5 +244,41 @@ export const supabase = {
         }
       },
     };
+  },
+};
+
+async function secureApi(path, options = {}) {
+  const auth = await authHeaders();
+  if (!auth?.headers?.Authorization || auth.headers.Authorization.endsWith(auth.anonKey)) {
+    return { data:null, error:{ message:"Please sign in again." } };
+  }
+  try {
+    const response = await fetch(`/crm-api${path}`, {
+      ...options,
+      headers:{ ...auth.headers, ...(options.headers || {}) },
+      cache:"no-store",
+    });
+    const data = await response.json().catch(() => null);
+    return response.ok ? { data, error:null } : { data:null, error:data || { message:`Request failed (${response.status}).` } };
+  } catch (error) {
+    return { data:null, error };
+  }
+}
+
+export const crmApi = {
+  me() {
+    return secureApi("/me");
+  },
+  listUsers() {
+    return secureApi("/admin/users");
+  },
+  createUser(user) {
+    return secureApi("/admin/users", { method:"POST", body:JSON.stringify(user) });
+  },
+  updateUser(legacyId, user) {
+    return secureApi(`/admin/users/${encodeURIComponent(legacyId)}`, { method:"PATCH", body:JSON.stringify(user) });
+  },
+  deactivateUser(legacyId) {
+    return secureApi(`/admin/users/${encodeURIComponent(legacyId)}`, { method:"DELETE" });
   },
 };

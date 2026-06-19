@@ -11,7 +11,7 @@ import {
   Menu, ArrowRight, Home, FileText, ArrowLeft, ClipboardList,
   Phone, UserCheck, BookOpen, XCircle, Activity,
   Table2, Eye, RefreshCw, AlertCircle, HelpCircle, KeyRound,
-  ShieldCheck, RotateCcw, Send, PhoneOff, Star, MessageSquare
+  ShieldCheck, RotateCcw, Send, PhoneOff, Star, MessageSquare, Sun, Moon
 } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
@@ -58,6 +58,77 @@ const PROSPECT_STATUS_STYLES = {
 const getProspectStatus = (lead) => AUTO_COLD_LEAD_STATUSES.includes(lead?.status) ? "Cold" : PROSPECT_STATUSES.includes(lead?.prospectStatus) ? lead.prospectStatus : "Warm";
 const normalizeReportPersonName = (name) => String(name || "").trim().toLowerCase() === "saamrat" ? "Admin" : name;
 const PIE_COLORS = ['#ea580c','#3b82f6','#10b981','#8b5cf6','#ec4899','#f59e0b','#64748b','#14b8a6','#ef4444','#06b6d4','#a3e635','#fb923c'];
+const LIGHT_THEME_CSS = `
+  html.crm-light,
+  html.crm-light body,
+  html.crm-light #root { background:#f1f5f9; color:#0f172a; color-scheme:light; }
+  html.crm-light .bg-slate-950 { background-color:#ffffff !important; }
+  html.crm-light .bg-slate-900 { background-color:#f1f5f9 !important; }
+  html.crm-light .bg-slate-800 { background-color:#e2e8f0 !important; }
+  html.crm-light .bg-slate-700 { background-color:#cbd5e1 !important; }
+  html.crm-light [class~="bg-slate-950/40"],
+  html.crm-light [class~="bg-slate-950/80"] { background-color:rgba(255,255,255,.88) !important; }
+  html.crm-light [class~="bg-slate-900/30"],
+  html.crm-light [class~="bg-slate-900/40"],
+  html.crm-light [class~="bg-slate-900/50"],
+  html.crm-light [class~="bg-slate-900/60"],
+  html.crm-light [class~="bg-slate-900/70"],
+  html.crm-light [class~="bg-slate-900/80"],
+  html.crm-light [class~="bg-slate-900/90"] { background-color:rgba(241,245,249,.94) !important; }
+  html.crm-light [class~="bg-slate-800/50"],
+  html.crm-light [class~="bg-slate-800/70"] { background-color:rgba(226,232,240,.92) !important; }
+  html.crm-light .border-slate-900 { border-color:#e2e8f0 !important; }
+  html.crm-light .border-slate-800,
+  html.crm-light [class~="border-slate-800/50"],
+  html.crm-light [class~="border-slate-800/60"] { border-color:#cbd5e1 !important; }
+  html.crm-light .border-slate-700 { border-color:#94a3b8 !important; }
+  html.crm-light .text-slate-100,
+  html.crm-light .text-slate-200,
+  html.crm-light .text-slate-300,
+  html.crm-light .text-white { color:#0f172a !important; }
+  html.crm-light .text-slate-400 { color:#475569 !important; }
+  html.crm-light .text-slate-500 { color:#64748b !important; }
+  html.crm-light .text-slate-600,
+  html.crm-light .text-slate-700 { color:#475569 !important; }
+  html.crm-light input,
+  html.crm-light select,
+  html.crm-light textarea { background-color:#ffffff !important; color:#0f172a !important; }
+  html.crm-light input::placeholder,
+  html.crm-light textarea::placeholder { color:#94a3b8 !important; }
+  html.crm-light table tbody tr:hover { background-color:#f8fafc !important; }
+  html.crm-light .divide-slate-800 > :not([hidden]) ~ :not([hidden]) { border-color:#cbd5e1 !important; }
+  html.crm-light .shadow-inner { box-shadow:inset 0 1px 2px rgba(15,23,42,.08) !important; }
+  html.crm-light .shadow-xl,
+  html.crm-light .shadow-2xl { box-shadow:0 12px 28px rgba(15,23,42,.12) !important; }
+  html.crm-light .hover\\:bg-slate-700:hover { background-color:#cbd5e1 !important; }
+  html.crm-light .hover\\:bg-slate-800:hover,
+  html.crm-light [class~="hover:bg-slate-800/50"]:hover { background-color:#e2e8f0 !important; }
+  html.crm-light .hover\\:bg-slate-900:hover,
+  html.crm-light [class~="hover:bg-slate-900/40"]:hover,
+  html.crm-light [class~="hover:bg-slate-900/50"]:hover,
+  html.crm-light [class~="hover:bg-slate-900/60"]:hover,
+  html.crm-light .hover\\:bg-slate-950:hover { background-color:#f8fafc !important; }
+  html.crm-light [class*="bg-orange-"].text-white,
+  html.crm-light [class*="bg-rose-"].text-white,
+  html.crm-light [class*="bg-emerald-"].text-white,
+  html.crm-light [class*="bg-blue-"].text-white,
+  html.crm-light [class*="bg-teal-"].text-white,
+  html.crm-light [class*="from-orange-"].text-white,
+  html.crm-light [class*="from-emerald-"].text-white,
+  html.crm-light [class*="from-blue-"].text-white,
+  html.crm-light [class*="from-rose-"].text-white { color:#ffffff !important; }
+  html.crm-light button.bg-orange-600,
+  html.crm-light button.bg-rose-600,
+  html.crm-light button.bg-emerald-600,
+  html.crm-light button.bg-blue-600,
+  html.crm-light button.bg-teal-600 { color:#ffffff !important; }
+  html.crm-light .recharts-default-tooltip { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important; }
+  html.crm-light .recharts-tooltip-label,
+  html.crm-light .recharts-tooltip-item { color:#0f172a !important; font-weight:400 !important; }
+  html.crm-light .recharts-cartesian-grid line { stroke:#cbd5e1 !important; }
+  html.crm-light .recharts-legend-item-text,
+  html.crm-light .recharts-text { fill:#475569 !important; color:#475569 !important; }
+`;
 
 // ─── ADMIN CREDENTIALS (hardcoded — never stored in DB) ───────────────────
 const HARDCODED_ADMINS = [];
@@ -1034,6 +1105,10 @@ export default function App() {
   const isMobile = useIsMobile();
 
   const [storageReady, setStorageReady] = useState(false);
+  const [theme, setTheme] = useState(() => {
+    try { return localStorage.getItem("crm_theme") === "light" ? "light" : "dark"; }
+    catch { return "dark"; }
+  });
   const [currentUser, setCurrentUser] = useState(null);
   const [notificationPermission, setNotificationPermission] = useState(typeof Notification !== "undefined" ? Notification.permission : "unsupported");
   const [loginEmail, setLoginEmail] = useState("");
@@ -1048,6 +1123,22 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showAllDashboardNewLeads, setShowAllDashboardNewLeads] = useState(false);
   const [showAllDashboardFollowUps, setShowAllDashboardFollowUps] = useState(false);
+
+  useEffect(() => {
+    let style = document.getElementById("crm-theme-styles");
+    if (!style) {
+      style = document.createElement("style");
+      style.id = "crm-theme-styles";
+      style.textContent = LIGHT_THEME_CSS;
+      document.head.appendChild(style);
+    }
+    document.documentElement.classList.toggle("crm-light", theme === "light");
+    try { localStorage.setItem("crm_theme", theme); } catch {}
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(current => current === "dark" ? "light" : "dark");
+  }, []);
 
   const [filterSource, setFilterSource] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
@@ -3238,6 +3329,18 @@ export default function App() {
     );
   };
 
+  const ThemeToggleButton = ({ login = false }) => (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      className={`${login ? "fixed top-4 right-4 z-20" : ""} h-9 w-9 flex-shrink-0 inline-flex items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors`}
+    >
+      {theme === "dark" ? <Sun className="h-4 w-4"/> : <Moon className="h-4 w-4"/>}
+    </button>
+  );
+
   const navItems = [
     {id:"dashboard",icon:<Layers/>,label:"DASHBOARD"},
     {id:"leads",icon:<PhoneCall/>,label:"LEAD CHANNELS"},
@@ -3290,6 +3393,7 @@ export default function App() {
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-slate-200">
+        <ThemeToggleButton login/>
         <div className="sm:mx-auto w-full max-w-md text-center space-y-4">
           <div className="flex justify-center mb-2"><img src={DESAM_LOGO_ASSET} alt="Desam Developers Logo" className="h-16 w-auto object-contain drop-shadow-lg"/></div>
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Operational Control Platform</p>
@@ -3356,6 +3460,7 @@ export default function App() {
             <div className="relative w-48 sm:w-80 hidden sm:block"><Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500"/><input type="text" value={globalSearch} onChange={e=>setGlobalSearch(e.target.value)} placeholder="Search leads..." className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500"/></div>
           </div>
           <div className="flex items-center gap-3">
+            <ThemeToggleButton/>
             {notificationPermission!=="granted"&&currentUser&&(
               <button onClick={requestBrowserNotifications} className="relative flex items-center gap-1.5 text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl hover:bg-emerald-500/20 transition-colors">
                 <Bell className="h-3.5 w-3.5" />

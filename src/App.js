@@ -2536,6 +2536,7 @@ export default function App() {
   };
 
   const executeDataExportSequence=(formatType)=>{
+    if(!isCurrentUserSuperAdmin){triggerToastAlert("Only the Super Admin can download existing CRM data.");return;}
     if(customerActivityRows.length===0){triggerToastAlert("No data to export.");return;}
     const headers=["Last Contacted","User","Client","Phone","Project","Source","Calls Made","Followup","SV Planned","SV Done","Booking","Registration","Cancellation","Collection","Last Remark"];
     const rows=customerActivityRows.map(l=>[formatDateTimeLabel({date:l.lastContactedDate,time:l.lastContactedTime}),l.executive,l.leadName,l.phone,l.project,l.source,l.callsMade,l.followup,l.siteVisitPlanned,l.siteVisitDone,l.booking,l.registration,l.cancellation,l.collection,l.lastRemark]);
@@ -2661,6 +2662,7 @@ export default function App() {
 
   const exportLeadUploadFile=(formatType,includeExisting=false)=>{
     if(currentUser?.role!=="Admin"){triggerToastAlert("Only Admin can export lead data.");return;}
+    if(includeExisting&&!isCurrentUserSuperAdmin){triggerToastAlert("Only the Super Admin can download existing lead data.");return;}
     const rows=includeExisting?leadUploadRows(leads):[["Sample Customer","9876543210","customer@example.com",projects[0]?.name||"Project Name","Madurai","25","Website","Unassigned","Initial remark","","Warm"]];
     const ext=formatType==="excel"?"xlsx":"csv";
     const name=includeExisting?`CRM_Leads_Export_${TODAY_STR}`:"CRM_Lead_Upload_Template";
@@ -3181,6 +3183,7 @@ export default function App() {
   }, [selectedMatrixReport, reportStartDate, reportEndDate]);
 
   const exportSelectedRangeReport = (formatType) => {
+    if(["excel","csv"].includes(formatType)&&!isCurrentUserSuperAdmin){triggerToastAlert("Only the Super Admin can download existing CRM data.");return;}
     const hasSections = Array.isArray(activeRangeReport.sections);
     const headers = activeRangeReport.headers || [];
     const rows = hasSections ? [] : [...activeRangeReport.rows, activeRangeReport.totals];
@@ -3751,7 +3754,7 @@ export default function App() {
             <div className="space-y-5">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-950 p-5 border border-slate-800 rounded-2xl shadow-xl">
                 <div><h1 className="text-lg lg:text-xl font-black text-white flex items-center gap-2"><ClipboardList className="h-5 w-5 text-emerald-500"/> Activity Tracker</h1><p className="text-[10px] text-slate-500 mt-1">{customerActivityRows.length} customer summaries recorded.</p></div>
-                {currentUser.role==="Admin"&&<button onClick={()=>executeDataExportSequence("excel")} className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 border border-slate-700 text-emerald-400 font-black text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider transition-colors flex items-center justify-center gap-2 shadow-lg"><Download className="h-4 w-4"/> Export</button>}
+                {isCurrentUserSuperAdmin&&<button onClick={()=>executeDataExportSequence("excel")} className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 border border-slate-700 text-emerald-400 font-black text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider transition-colors flex items-center justify-center gap-2 shadow-lg"><Download className="h-4 w-4"/> Export</button>}
               </div>
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4 text-xs">
                  <div className="flex flex-wrap gap-3">
@@ -3892,8 +3895,8 @@ export default function App() {
                     <CalendarDateInput value={reportStartDate} onChange={setReportStartDate} className="rounded-lg py-2 text-slate-300 focus:border-blue-500"/>
                     <span className="hidden sm:block text-slate-600">-</span>
                     <CalendarDateInput value={reportEndDate} onChange={setReportEndDate} className="rounded-lg py-2 text-slate-300 focus:border-blue-500"/>
-                    {currentUser.role==="Admin"&&<button onClick={()=>exportSelectedRangeReport("excel")} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><FileSpreadsheet className="h-3.5 w-3.5"/> Excel</button>}
-                    {currentUser.role==="Admin"&&<button onClick={()=>exportSelectedRangeReport("csv")} className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><Table2 className="h-3.5 w-3.5"/> CSV</button>}
+                    {isCurrentUserSuperAdmin&&<button onClick={()=>exportSelectedRangeReport("excel")} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><FileSpreadsheet className="h-3.5 w-3.5"/> Excel</button>}
+                    {isCurrentUserSuperAdmin&&<button onClick={()=>exportSelectedRangeReport("csv")} className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><Table2 className="h-3.5 w-3.5"/> CSV</button>}
                     {currentUser.role==="Admin"&&<button onClick={()=>exportSelectedRangeReport("pdf")} className="bg-rose-600 hover:bg-rose-700 text-white font-black px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"><FileText className="h-3.5 w-3.5"/> PDF</button>}
                     {(reportStartDate!==monthStartDate||reportEndDate!==TODAY_STR)&&<button onClick={()=>{setReportStartDate(monthStartDate);setReportEndDate(TODAY_STR);}} className="text-blue-400 hover:text-blue-300 font-bold px-3 py-2 border border-blue-500/30 rounded-lg flex items-center justify-center gap-1 bg-blue-500/10"><X className="h-3.5 w-3.5"/> Clear</button>}
                   </div>
@@ -3967,7 +3970,7 @@ export default function App() {
                     <h3 className="text-sm font-black text-white uppercase tracking-wider mb-5 flex items-center gap-2 border-b border-slate-800 pb-4"><Upload className="h-4 w-4 text-orange-500"/> Admin Data Upload</h3>
                     <p className="text-[10px] text-slate-500 mb-3">Download the blank format, enter leads without changing the headings, then upload the completed file.</p>
                     <div className="grid grid-cols-2 gap-2 mb-2"><button onClick={()=>downloadLeadUploadTemplate("excel")} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] px-3 py-2 rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5"><FileSpreadsheet className="h-3.5 w-3.5"/> Blank Excel</button><button onClick={()=>downloadLeadUploadTemplate("csv")} className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-black text-[10px] px-3 py-2 rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5"><Table2 className="h-3.5 w-3.5"/> Blank CSV</button></div>
-                    <div className="grid grid-cols-2 gap-2 mb-4"><button onClick={()=>exportLeadUploadFile("excel",true)} className="bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] px-3 py-2 rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5"><Download className="h-3.5 w-3.5"/> Export Leads Excel</button><button onClick={()=>exportLeadUploadFile("csv",true)} className="bg-slate-900 hover:bg-slate-800 border border-blue-500/30 text-blue-400 font-black text-[10px] px-3 py-2 rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5"><Download className="h-3.5 w-3.5"/> Export Leads CSV</button></div>
+                    {isCurrentUserSuperAdmin&&<div className="grid grid-cols-2 gap-2 mb-4"><button onClick={()=>exportLeadUploadFile("excel",true)} className="bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] px-3 py-2 rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5"><Download className="h-3.5 w-3.5"/> Export Leads Excel</button><button onClick={()=>exportLeadUploadFile("csv",true)} className="bg-slate-900 hover:bg-slate-800 border border-blue-500/30 text-blue-400 font-black text-[10px] px-3 py-2 rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5"><Download className="h-3.5 w-3.5"/> Export Leads CSV</button></div>}
                     <form onSubmit={handleDataImportSubmit} className="space-y-3 text-xs">
                       <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Select Completed File</label><label className="w-full min-h-20 border-2 border-dashed border-slate-700 hover:border-orange-500/60 bg-slate-900 rounded-xl flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors px-3 text-center"><Upload className="h-5 w-5 text-orange-400"/><span className="font-black text-slate-300">{leadImportFileName||"Choose Excel or CSV file"}</span><span className="text-[9px] text-slate-500">.xlsx, .xls or .csv</span><input type="file" accept=".xlsx,.xls,.csv,text/csv" onChange={e=>handleLeadImportFile(e.target.files?.[0])} className="hidden"/></label></div>
                       <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Upload Mode</label><select value={leadImportMode} onChange={e=>setLeadImportMode(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-orange-500"><option value="append">Append to existing data</option>{isCurrentUserSuperAdmin&&<option value="replace">Clean existing data and replace</option>}</select></div>

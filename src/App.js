@@ -3329,15 +3329,16 @@ export default function App() {
     );
   };
 
-  const ThemeToggleButton = ({ login = false }) => (
+  const ThemeToggleButton = ({ login = false, full = false }) => (
     <button
       type="button"
       onClick={toggleTheme}
       title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
       aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-      className={`${login ? "fixed top-4 right-4 z-20" : ""} h-9 w-9 flex-shrink-0 inline-flex items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors`}
+      className={`${login ? "fixed top-4 right-4 z-20" : ""} ${full ? "w-full px-3 gap-2" : "px-2.5 sm:px-3 gap-2"} h-9 flex-shrink-0 inline-flex items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors text-[10px] font-black uppercase tracking-wide`}
     >
       {theme === "dark" ? <Sun className="h-4 w-4"/> : <Moon className="h-4 w-4"/>}
+      <span className={login || full ? "" : "hidden sm:inline"}>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
     </button>
   );
 
@@ -3370,6 +3371,7 @@ export default function App() {
         </nav>
       </div>
       <div className="p-4 border-t border-slate-800 bg-slate-950/40">
+        <div className="mb-2"><ThemeToggleButton full/></div>
         <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-800">
           <div className="flex items-center gap-2 overflow-hidden">
             <div className="h-7 w-7 rounded-lg bg-orange-600 font-black text-xs flex items-center justify-center text-white flex-shrink-0">{currentUser?.avatar}</div>

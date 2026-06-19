@@ -5,6 +5,7 @@ const SUPABASE_URL = String(process.env.SUPABASE_INTERNAL_URL || "http://127.0.0
 const ANON_KEY = process.env.SUPABASE_ANON_KEY || "";
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const MAX_BODY_BYTES = 50 * 1024 * 1024;
+const SUPER_ADMIN_EMAIL = "enfyscorp@gmail.com";
 
 if (!ANON_KEY || !SERVICE_KEY) {
   console.error("Missing SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY.");
@@ -224,7 +225,22 @@ async function writeScopedState(key, incoming, profile, profiles) {
     throw error;
   }
   if (!Array.isArray(incoming)) return saveStateValue(key, incoming);
-  if (profile.role === "Admin" || !["leads", "activity_logs"].includes(key)) {
+  if (profile.role === "Admin") {
+    if (key === "leads" && String(profile.login_username || "").trim().toLowerCase() !== SUPER_ADMIN_EMAIL) {
+      const rows = await readStateRows();
+      const existing = rows.find(row => row.key === "leads")?.value;
+      const current = Array.isArray(existing) ? existing : [];
+      const incomingIds = new Set(incoming.map(item => String(item.id)));
+      const removedLead = current.some(item => !incomingIds.has(String(item.id)));
+      if (removedLead) {
+        const error = new Error("Only the Super Admin can delete leads.");
+        error.status = 403;
+        throw error;
+      }
+    }
+    return saveStateValue(key, incoming);
+  }
+  if (!["leads", "activity_logs"].includes(key)) {
     return saveStateValue(key, incoming);
   }
 

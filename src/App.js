@@ -50,6 +50,7 @@ const PROJECT_TYPES = ["Apartment","Villa","Plot"];
 const CALL_STATUSES = ["Warm","Cold","Not Reachable","Callback Requested"];
 const PROSPECT_STATUSES = ["Hot","Warm","Cold"];
 const AUTO_COLD_LEAD_STATUSES = ["Not Interested","Wrong Number"];
+const LEAD_UPLOAD_HEADERS = ["Name","Phone","Email","Project","Location","Budget","Source","AssignedTo","Notes","AltPhone","ProspectStatus"];
 const PROSPECT_STATUS_STYLES = {
   Hot: { color:"#f97316", bg:"rgba(249,115,22,0.12)", border:"rgba(249,115,22,0.28)" },
   Warm: { color:"#facc15", bg:"rgba(250,204,21,0.12)", border:"rgba(250,204,21,0.28)" },
@@ -1400,6 +1401,7 @@ export default function App() {
   const [selectedLead, setSelectedLead] = useState(null);
   const [importText, setImportText] = useState("");
   const [leadImportMode, setLeadImportMode] = useState("append");
+  const [leadImportFileName, setLeadImportFileName] = useState("");
   const [customPopup, setCustomPopup] = useState({ isOpen:false, leadId:null, targetValue:"", type:"status", title:"", message:"" });
   const [toastNotification, setToastNotification] = useState({ isVisible:false, message:"" });
   const [showExitAppPopup, setShowExitAppPopup] = useState(false);
@@ -2612,17 +2614,171 @@ export default function App() {
     setCustomPopup({isOpen:false,leadId:null,targetValue:"",type:"status",title:"",message:""});
   };
 
-  const downloadLeadUploadTemplate=(formatType)=>{
-    const headers=["Name","Phone","Email","Project","Location","Budget","Source","AssignedTo","Notes"];
-    const sample=["Sample Customer","9876543210","customer@example.com",projects[0]?.name||"Project Name","Madurai","25","Website","Unassigned","Initial remark"];
-    let blob; const ext=formatType==="excel"?"xlsx":"csv";
-    if(formatType==="excel"){const ws=XLSX.utils.aoa_to_sheet([headers,sample]);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Lead Upload");blob=new Blob([XLSX.write(wb,{bookType:"xlsx",type:"array"})],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});}
-    else{blob=new Blob([[headers.join(","),sample.join(",")].join("\n")],{type:"text/csv;charset=utf-8;"});}
-    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`CRM_Lead_Upload_Template.${ext}`;document.body.appendChild(a);a.click();URL.revokeObjectURL(a.href);document.body.removeChild(a);
+  const downloadBrowserFile = (blob, fileName) => {
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=fileName;
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(a.href);
+    document.body.removeChild(a);
   };
 
-  const handleDataImportSubmit=async (e)=>{ e.preventDefault(); if(currentUser.role!=="Admin"){triggerToastAlert("Only Admin can upload data.");return;} if(!importText.trim())return; const warning=leadImportMode==="replace"?"This will clean existing leads and replace them with uploaded data. Continue?":"This will append uploaded leads to existing data. Continue?"; if(!window.confirm(warning))return; try{ const lines=importText.split("\n").map(l=>l.trim()).filter(Boolean); const newLeads=[]; lines.forEach((line,idx)=>{const cols=(line.includes("\t")?line.split("\t"):line.split(",")).map(c=>String(c||"").trim()); if(idx===0&&String(cols[0]||"").toLowerCase().includes("name"))return; if(cols.length>=4){const matchedProj=projects.find(p=>p.name.toLowerCase()===(cols[3]||"").toLowerCase().trim()); const branchHome=matchedProj?matchedProj.branch:"Madurai Desk"; const assignedUser=users.find(u=>u.name===(cols[7]||"")); const now=new Date(); newLeads.push({id:Date.now()+Math.floor(Math.random()*10000),name:cols[0]||"Lead",phone:stripPhone(cols[1]||"00000"),email:cols[2]||"",project:cols[3]||"",location:cols[4]||"Inbound",budget:parseInt(cols[5])||25,source:cols[6]||"Website",assignedTo:cols[7]||"Unassigned",assignedToId:assignedUser?.id||null,assignedAt:assignedUser?now.getTime():null,assignedByRole:currentUser.role,status:cols[7]&&cols[7]!=="Unassigned"?"Assigned":"New",prospectStatus:"Warm",branch:assignedUser?.branch||branchHome,dateCreated:getLocalDate(now),dateCreatedTime:getLocalTime(now),createdAt:now.toISOString(),newLeadTag:true,lastFollowUp:"None",nextFollowUp:getLocalDate(now),notes:cols[8]||"",history:[makeHistoryLog(currentUser.name,"Imported via paste.",now)],siteVisitTentativeDate:"",bookingUnit:"",bookingAmount:0,bookingMode:"",bookingDate:"",regPending:false,regCompleted:false});}});if(newLeads.length>0){const saved=await setLeads(leadImportMode==="replace"?newLeads:[...newLeads,...leads]); if(!saved){triggerToastAlert("Could not save imported leads.");return;} triggerToastAlert(`${leadImportMode==="replace"?"Replaced":"Imported"} ${newLeads.length} leads.`);setImportText("");}
-  }catch(err){alert(err.message);} };
+  const leadUploadRows = (sourceLeads) => sourceLeads.map(lead => [
+    lead.name || "",
+    lead.phone || "",
+    lead.email || "",
+    lead.project || "",
+    lead.location || "",
+    lead.budget ?? "",
+    lead.source || "",
+    lead.assignedTo || "Unassigned",
+    lead.notes || "",
+    lead.altPhone || "",
+    getProspectStatus(lead),
+  ]);
+
+  const buildLeadUploadWorkbook = (rows) => {
+    const wb=XLSX.utils.book_new();
+    const ws=XLSX.utils.aoa_to_sheet([LEAD_UPLOAD_HEADERS,...rows]);
+    ws["!cols"]=[{wch:24},{wch:16},{wch:28},{wch:24},{wch:20},{wch:12},{wch:22},{wch:22},{wch:38},{wch:16},{wch:18}];
+    XLSX.utils.book_append_sheet(wb,ws,"Lead Upload");
+    const guideRows=[
+      ["Field","Guidance"],
+      ["Name","Required. Customer name."],
+      ["Phone","Required. Prefer a 10-digit phone number."],
+      ["Project",`Use an existing project: ${projects.map(p=>p.name).join(", ")}`],
+      ["Source",`Use a source such as: ${SOURCES.join(", ")}`],
+      ["AssignedTo",`Use Unassigned or an existing staff name: ${users.filter(u=>u.role!=="Admin").map(u=>u.name).join(", ")}`],
+      ["ProspectStatus","Hot, Warm, or Cold. Defaults to Warm."],
+      ["Upload Mode","Append keeps existing leads. Replace removes existing leads before upload."],
+    ];
+    const guide=XLSX.utils.aoa_to_sheet(guideRows);
+    guide["!cols"]=[{wch:20},{wch:100}];
+    XLSX.utils.book_append_sheet(wb,guide,"Instructions");
+    return wb;
+  };
+
+  const exportLeadUploadFile=(formatType,includeExisting=false)=>{
+    if(currentUser?.role!=="Admin"){triggerToastAlert("Only Admin can export lead data.");return;}
+    const rows=includeExisting?leadUploadRows(leads):[["Sample Customer","9876543210","customer@example.com",projects[0]?.name||"Project Name","Madurai","25","Website","Unassigned","Initial remark","","Warm"]];
+    const ext=formatType==="excel"?"xlsx":"csv";
+    const name=includeExisting?`CRM_Leads_Export_${TODAY_STR}`:"CRM_Lead_Upload_Template";
+    if(formatType==="excel"){
+      const wb=buildLeadUploadWorkbook(rows);
+      downloadBrowserFile(new Blob([XLSX.write(wb,{bookType:"xlsx",type:"array"})],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),`${name}.${ext}`);
+    }else{
+      const fmtCell=(val)=>{const s=val===null||val===undefined?"":String(val);return /[\",\\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;};
+      const csv=[LEAD_UPLOAD_HEADERS.map(fmtCell).join(","),...rows.map(row=>row.map(fmtCell).join(","))].join("\n");
+      downloadBrowserFile(new Blob(["\ufeff",csv],{type:"text/csv;charset=utf-8;"}),`${name}.${ext}`);
+    }
+    triggerToastAlert(includeExisting?`Lead data exported as ${ext.toUpperCase()}.`:`Upload template downloaded as ${ext.toUpperCase()}.`);
+  };
+
+  const downloadLeadUploadTemplate=(formatType)=>exportLeadUploadFile(formatType,false);
+
+  const handleLeadImportFile=(file)=>{
+    if(!file)return;
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try{
+        const wb=XLSX.read(reader.result,{type:"array"});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        if(!ws)throw new Error("The selected file has no readable sheet.");
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:false,blankrows:false});
+        if(rows.length<2)throw new Error("The selected file does not contain lead rows.");
+        setImportText(rows.map(row=>row.map(value=>String(value??"").replace(/\t/g," ")).join("\t")).join("\n"));
+        setLeadImportFileName(file.name);
+        triggerToastAlert(`${rows.length-1} lead row${rows.length===2?"":"s"} ready for review.`);
+      }catch(err){
+        setLeadImportFileName("");
+        triggerToastAlert(err.message||"Could not read the selected file.");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleDataImportSubmit=async (e)=>{
+    e.preventDefault();
+    if(currentUser.role!=="Admin"){triggerToastAlert("Only Admin can upload data.");return;}
+    if(leadImportMode==="replace"&&!isCurrentUserSuperAdmin){triggerToastAlert("Only the Super Admin can replace all lead data.");return;}
+    if(!importText.trim()){triggerToastAlert("Select an Excel/CSV file or paste lead rows.");return;}
+    const warning=leadImportMode==="replace"?"This will permanently remove all existing leads and replace them with the uploaded data. Continue?":"This will append the uploaded leads to existing data. Continue?";
+    if(!window.confirm(warning))return;
+    try{
+      const parsedWorkbook=XLSX.read(importText,{type:"string"});
+      const parsedSheet=parsedWorkbook.Sheets[parsedWorkbook.SheetNames[0]];
+      const table=XLSX.utils.sheet_to_json(parsedSheet,{header:1,defval:"",raw:false,blankrows:false});
+      if(table.length<1)throw new Error("No lead rows were found.");
+      const normalizedHeader=value=>String(value||"").trim().toLowerCase().replace(/[^a-z0-9]/g,"");
+      const firstRowKeys=new Set(table[0].map(normalizedHeader));
+      const hasHeader=firstRowKeys.has("name")&&firstRowKeys.has("phone");
+      const headerRow=hasHeader?table[0]:LEAD_UPLOAD_HEADERS;
+      const dataRows=hasHeader?table.slice(1):table;
+      const headerMap=new Map(headerRow.map((value,index)=>[normalizedHeader(value),index]));
+      const valueFor=(row,name,fallbackIndex)=>{
+        const index=headerMap.has(normalizedHeader(name))?headerMap.get(normalizedHeader(name)):fallbackIndex;
+        return String(row[index]??"").trim();
+      };
+      const newLeads=[];
+      const skipped=[];
+      const seenPhones=new Set(leadImportMode==="append"?leads.map(lead=>stripPhone(lead.phone)):[]);
+      dataRows.forEach((row,index)=>{
+        const name=valueFor(row,"Name",0);
+        const phone=stripPhone(valueFor(row,"Phone",1));
+        const rowNumber=index+(hasHeader?2:1);
+        if(!name||!phone){skipped.push(`Row ${rowNumber}: Name and phone are required.`);return;}
+        if(seenPhones.has(phone)){skipped.push(`Row ${rowNumber}: Duplicate phone ${phone}.`);return;}
+        seenPhones.add(phone);
+        const projectName=valueFor(row,"Project",3);
+        const matchedProj=projects.find(p=>p.name.toLowerCase()===projectName.toLowerCase());
+        const assignedName=valueFor(row,"AssignedTo",7)||"Unassigned";
+        const assignedUser=users.find(u=>u.name.toLowerCase()===assignedName.toLowerCase());
+        const assignedTo=assignedUser?.name||"Unassigned";
+        const now=new Date();
+        const prospect=valueFor(row,"ProspectStatus",10);
+        newLeads.push({
+          id:Date.now()+index+Math.floor(Math.random()*10000),
+          name,
+          phone,
+          altPhone:stripPhone(valueFor(row,"AltPhone",9)),
+          email:valueFor(row,"Email",2),
+          project:projectName,
+          location:valueFor(row,"Location",4)||"Inbound",
+          budget:parseFloat(valueFor(row,"Budget",5))||25,
+          source:valueFor(row,"Source",6)||"Website",
+          assignedTo,
+          assignedToId:assignedUser?.id||null,
+          assignedAt:assignedUser?now.getTime():null,
+          assignedByRole:currentUser.role,
+          status:assignedUser?"Assigned":"New",
+          prospectStatus:PROSPECT_STATUSES.includes(prospect)?prospect:"Warm",
+          branch:assignedUser?.branch||matchedProj?.branch||"Madurai Desk",
+          dateCreated:getLocalDate(now),
+          dateCreatedTime:getLocalTime(now),
+          createdAt:now.toISOString(),
+          newLeadTag:true,
+          lastFollowUp:"None",
+          nextFollowUp:getLocalDate(now),
+          notes:valueFor(row,"Notes",8),
+          history:[makeHistoryLog(currentUser.name,`Bulk imported${leadImportFileName?` from ${leadImportFileName}`:""}.`,now)],
+          siteVisitTentativeDate:"",
+          bookingUnit:"",
+          bookingAmount:0,
+          bookingMode:"",
+          bookingDate:"",
+          regPending:false,
+          regCompleted:false,
+        });
+      });
+      if(newLeads.length===0)throw new Error(skipped[0]||"No valid leads were found.");
+      const saved=await setLeads(leadImportMode==="replace"?newLeads:[...newLeads,...leads]);
+      if(!saved){triggerToastAlert("Could not save imported leads.");return;}
+      triggerToastAlert(`${leadImportMode==="replace"?"Replaced data with":"Imported"} ${newLeads.length} leads${skipped.length?`; skipped ${skipped.length}`:""}.`);
+      setImportText("");
+      setLeadImportFileName("");
+    }catch(err){triggerToastAlert(err.message||"Could not import the file.");}
+  };
 
   const handleCreateUserSubmit=async (e)=>{
     e.preventDefault();
@@ -3329,16 +3485,15 @@ export default function App() {
     );
   };
 
-  const ThemeToggleButton = ({ login = false, full = false }) => (
+  const ThemeToggleButton = ({ login = false }) => (
     <button
       type="button"
       onClick={toggleTheme}
       title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
       aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-      className={`${login ? "fixed top-4 right-4 z-20" : ""} ${full ? "w-full px-3 gap-2" : "px-2.5 sm:px-3 gap-2"} h-9 flex-shrink-0 inline-flex items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors text-[10px] font-black uppercase tracking-wide`}
+      className={`${login ? "fixed top-4 right-4 z-20" : ""} h-9 w-9 flex-shrink-0 inline-flex items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors`}
     >
       {theme === "dark" ? <Sun className="h-4 w-4"/> : <Moon className="h-4 w-4"/>}
-      <span className={login || full ? "" : "hidden sm:inline"}>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
     </button>
   );
 
@@ -3371,7 +3526,6 @@ export default function App() {
         </nav>
       </div>
       <div className="p-4 border-t border-slate-800 bg-slate-950/40">
-        <div className="mb-2"><ThemeToggleButton full/></div>
         <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-800">
           <div className="flex items-center gap-2 overflow-hidden">
             <div className="h-7 w-7 rounded-lg bg-orange-600 font-black text-xs flex items-center justify-center text-white flex-shrink-0">{currentUser?.avatar}</div>
@@ -3811,10 +3965,14 @@ export default function App() {
                   <AdminResetRequestsPanel resetRequests={resetRequests} setResetRequests={setResetRequests} triggerToastAlert={triggerToastAlert} />
                   <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
                     <h3 className="text-sm font-black text-white uppercase tracking-wider mb-5 flex items-center gap-2 border-b border-slate-800 pb-4"><Upload className="h-4 w-4 text-orange-500"/> Admin Data Upload</h3>
-                    <div className="grid grid-cols-2 gap-2 mb-4"><button onClick={()=>downloadLeadUploadTemplate("excel")} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] px-3 py-2 rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5"><FileSpreadsheet className="h-3.5 w-3.5"/> Excel Format</button><button onClick={()=>downloadLeadUploadTemplate("csv")} className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-black text-[10px] px-3 py-2 rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5"><Table2 className="h-3.5 w-3.5"/> CSV Format</button></div>
+                    <p className="text-[10px] text-slate-500 mb-3">Download the blank format, enter leads without changing the headings, then upload the completed file.</p>
+                    <div className="grid grid-cols-2 gap-2 mb-2"><button onClick={()=>downloadLeadUploadTemplate("excel")} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] px-3 py-2 rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5"><FileSpreadsheet className="h-3.5 w-3.5"/> Blank Excel</button><button onClick={()=>downloadLeadUploadTemplate("csv")} className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-black text-[10px] px-3 py-2 rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5"><Table2 className="h-3.5 w-3.5"/> Blank CSV</button></div>
+                    <div className="grid grid-cols-2 gap-2 mb-4"><button onClick={()=>exportLeadUploadFile("excel",true)} className="bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] px-3 py-2 rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5"><Download className="h-3.5 w-3.5"/> Export Leads Excel</button><button onClick={()=>exportLeadUploadFile("csv",true)} className="bg-slate-900 hover:bg-slate-800 border border-blue-500/30 text-blue-400 font-black text-[10px] px-3 py-2 rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5"><Download className="h-3.5 w-3.5"/> Export Leads CSV</button></div>
                     <form onSubmit={handleDataImportSubmit} className="space-y-3 text-xs">
-                      <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Upload Mode</label><select value={leadImportMode} onChange={e=>setLeadImportMode(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-orange-500"><option value="append">Append to existing data</option><option value="replace">Clean existing data and replace</option></select></div>
-                      <textarea rows={5} value={importText} onChange={e=>setImportText(e.target.value)} placeholder="Paste rows from Excel here..." className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 resize-none"/>
+                      <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Select Completed File</label><label className="w-full min-h-20 border-2 border-dashed border-slate-700 hover:border-orange-500/60 bg-slate-900 rounded-xl flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors px-3 text-center"><Upload className="h-5 w-5 text-orange-400"/><span className="font-black text-slate-300">{leadImportFileName||"Choose Excel or CSV file"}</span><span className="text-[9px] text-slate-500">.xlsx, .xls or .csv</span><input type="file" accept=".xlsx,.xls,.csv,text/csv" onChange={e=>handleLeadImportFile(e.target.files?.[0])} className="hidden"/></label></div>
+                      <div className="space-y-1.5"><label className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Upload Mode</label><select value={leadImportMode} onChange={e=>setLeadImportMode(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-orange-500"><option value="append">Append to existing data</option>{isCurrentUserSuperAdmin&&<option value="replace">Clean existing data and replace</option>}</select></div>
+                      <details className="border border-slate-800 rounded-xl bg-slate-900/50"><summary className="cursor-pointer px-3 py-2.5 text-[10px] font-black uppercase tracking-wider text-slate-400">Advanced: Paste Rows</summary><div className="p-3 pt-0"><textarea rows={5} value={importText} onChange={e=>{setImportText(e.target.value);setLeadImportFileName("");}} placeholder="Paste rows from Excel here..." className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-orange-500 resize-none"/></div></details>
+                      {importText.trim()&&<p className="text-[10px] text-emerald-400 font-bold flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5"/> Data is ready for validation and upload.</p>}
                       <button type="submit" className={`w-full text-white font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 ${leadImportMode==="replace"?"bg-rose-600 hover:bg-rose-700":"bg-orange-600 hover:bg-orange-700"}`}><AlertTriangle className="h-4 w-4"/> {leadImportMode==="replace"?"Clean & Upload":"Append Upload"}</button>
                     </form>
                   </div>

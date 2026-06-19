@@ -23,6 +23,7 @@ import {
 const DESAM_LOGO_ASSET = "/DESAM-NEW-LOGO.png";
 
 const ADMIN_SUPPORT_EMAIL = "enfyscorp@gmail.com";
+const SUPER_ADMIN_EMAIL = "enfyscorp@gmail.com";
 const CRM_BACKEND_REFRESH_MS = 15000;
 const maskEmail = (email) => {
   if (!email) return "••••@desam";
@@ -1078,6 +1079,10 @@ export default function App() {
   const stateSaveSeqRef = useRef({});
 
   const users = useMemo(() => [...adminUsers, ...nonAdminUsers], [adminUsers, nonAdminUsers]);
+  const isCurrentUserSuperAdmin = useMemo(
+    () => String(currentUser?.email || "").trim().toLowerCase() === SUPER_ADMIN_EMAIL,
+    [currentUser]
+  );
   const rememberSession = useCallback((user) => {
     try { localStorage.setItem("crm_current_user", JSON.stringify(user)); } catch {}
   }, []);
@@ -2400,6 +2405,27 @@ export default function App() {
     triggerToastAlert("Template deleted.");
   };
 
+  const handleDeleteLead = async (lead) => {
+    if (!isCurrentUserSuperAdmin) {
+      triggerToastAlert("Only the Super Admin can delete leads.");
+      return;
+    }
+    const confirmation = window.prompt(`Permanent deletion cannot be undone.\n\nType the customer name exactly to delete:\n${lead.name}`);
+    if (confirmation === null) return;
+    if (confirmation.trim().toLowerCase() !== String(lead.name || "").trim().toLowerCase()) {
+      triggerToastAlert("Lead deletion cancelled. Customer name did not match.");
+      return;
+    }
+    const saved = await setLeads(leads.filter(item => String(item.id) !== String(lead.id)));
+    if (!saved) {
+      triggerToastAlert("Could not delete the lead.");
+      return;
+    }
+    setSelectedLead(null);
+    setIsLeadEditMode(false);
+    triggerToastAlert(`${lead.name} was permanently deleted.`);
+  };
+
   const buildWhatsappTemplateMessage = (template, lead) => {
     const message = (template?.message || "")
       .replaceAll("{name}", lead?.name || "")
@@ -3244,7 +3270,7 @@ export default function App() {
         <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-800">
           <div className="flex items-center gap-2 overflow-hidden">
             <div className="h-7 w-7 rounded-lg bg-orange-600 font-black text-xs flex items-center justify-center text-white flex-shrink-0">{currentUser?.avatar}</div>
-            <div className="truncate w-24"><p className="text-xs font-bold text-slate-200 truncate">{currentUser?.name}</p><p className="text-[9px] text-orange-400 font-black tracking-wider uppercase truncate">{currentUser?.role}</p></div>
+            <div className="truncate w-24"><p className="text-xs font-bold text-slate-200 truncate">{currentUser?.name}</p><p className="text-[9px] text-orange-400 font-black tracking-wider uppercase truncate">{isCurrentUserSuperAdmin?"Super Admin":currentUser?.role}</p></div>
           </div>
           <button onClick={handleLogout} className="text-slate-500 hover:text-rose-400 transition-colors ml-1"><LogOut className="h-4 w-4"/></button>
         </div>
@@ -3839,7 +3865,7 @@ export default function App() {
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Primary Phone</p>{isLeadEditMode?<input type="tel" value={leadEditDraft.phone||""} onChange={e=>setLeadEditDraft({...leadEditDraft,phone:stripPhone(e.target.value)})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 font-mono focus:outline-none focus:border-orange-500"/>:<p className="font-bold text-slate-200 font-mono truncate mt-1">{selectedLead.phone||"Not set"}</p>}</div>
                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl"><p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Alt Phone</p>{isLeadEditMode?<input type="tel" value={leadEditDraft.altPhone||""} onChange={e=>setLeadEditDraft({...leadEditDraft,altPhone:stripPhone(e.target.value)})} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-200 font-mono focus:outline-none focus:border-orange-500"/>:<p className="font-bold text-slate-300 font-mono truncate mt-1">{selectedLead.altPhone||"Not set"}</p>}</div>
                {isLeadEditMode&&leadEditDraft.statusEventDate&&<div className="col-span-2 bg-orange-950/20 border border-orange-500/20 p-3 rounded-xl"><p className="text-[9px] font-bold text-orange-300 uppercase tracking-wider">Event Details</p><p className="text-[10px] text-slate-300 mt-1"><span className="font-mono text-orange-200">{leadEditDraft.statusEventDate}</span>{leadEditDraft.statusEventRemark?` - ${leadEditDraft.statusEventRemark}`:""}</p></div>}
-               <div className="col-span-2 flex justify-end gap-2">{isLeadEditMode?<><button type="button" disabled={isLeadUpdateSaving} onClick={cancelLeadDrawerEdit} className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-900 border border-slate-700 text-slate-300 hover:text-white disabled:opacity-50">Cancel</button><button type="button" disabled={isLeadUpdateSaving} onClick={commitLeadDrawerUpdate} className="px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-orange-600 hover:bg-orange-700 disabled:bg-slate-700 text-white flex items-center gap-1.5"><Check className="h-3 w-3"/> {isLeadUpdateSaving?"Saving...":"OK"}</button></>:<button type="button" onClick={startLeadDrawerEdit} className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1.5"><Edit2 className="h-3 w-3"/> Edit Lead</button>}</div>
+               <div className="col-span-2 flex justify-end gap-2">{isLeadEditMode?<><button type="button" disabled={isLeadUpdateSaving} onClick={cancelLeadDrawerEdit} className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-900 border border-slate-700 text-slate-300 hover:text-white disabled:opacity-50">Cancel</button><button type="button" disabled={isLeadUpdateSaving} onClick={commitLeadDrawerUpdate} className="px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-orange-600 hover:bg-orange-700 disabled:bg-slate-700 text-white flex items-center gap-1.5"><Check className="h-3 w-3"/> {isLeadUpdateSaving?"Saving...":"OK"}</button></>:<>{isCurrentUserSuperAdmin&&<button type="button" onClick={()=>handleDeleteLead(selectedLead)} className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/30 text-rose-400 flex items-center gap-1.5"><Trash2 className="h-3 w-3"/> Delete Lead</button>}<button type="button" onClick={startLeadDrawerEdit} className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1.5"><Edit2 className="h-3 w-3"/> Edit Lead</button></>}</div>
              </div>
              <div className="space-y-4">
                 <div className="flex items-center gap-2 border-b border-slate-800 pb-2"><Activity className="h-4 w-4 text-blue-400"/><h3 className="text-xs font-black uppercase tracking-wider text-slate-300">Action Center</h3></div>

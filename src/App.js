@@ -35,7 +35,7 @@ const maskEmail = (email) => {
 // ─── STATIC CONSTANTS ─────────────────────────────────────────────────────
 const ROLES = ["Admin", "Manager", "Executive", "Telecaller"];
 const SOURCES = [
-  "Website","Meta Ads","Google Ads","Direct Enquiry","Walk-In",
+  "Website","Meta Ads","Facebook","Instagram","Google Ads","Direct Enquiry","Walk-In",
   "Reference","Expo / Event","Own Leads","WhatsApp Campaign","Property Portals",
   "99acres","Just Dial","Olx","Office Leads","924000"
 ];
@@ -199,7 +199,9 @@ function parseExcelDate(raw, defaultYear = "2026") {
 function normaliseSource(raw) {
   if (!raw) return "Own Leads"; const s=String(raw).trim(); const lower=s.toLowerCase();
   if(lower.includes("walk"))return "Walk-In"; if(lower.includes("99"))return "99acres"; if(lower.includes("just"))return "Just Dial";
-  if(lower.includes("meta")||lower.includes("fb")||lower.includes("facebook"))return "Meta Ads"; if(lower.includes("google"))return "Google Ads";
+  if(lower.includes("instagram")||lower==="insta"||lower==="ig")return "Instagram";
+  if(lower.includes("facebook")||lower==="fb"||lower.startsWith("fb "))return "Facebook";
+  if(lower.includes("meta"))return "Meta Ads"; if(lower.includes("google"))return "Google Ads";
   if(lower.includes("website"))return "Website"; if(lower.includes("olx"))return "Olx"; if(lower.includes("office"))return "Office Leads";
   if(lower.includes("whatsapp"))return "WhatsApp Campaign"; if(lower.includes("portal"))return "Property Portals";
   if(lower.includes("expo")||lower.includes("event"))return "Expo / Event"; if(lower.includes("direct")||lower.includes("enquiry"))return "Direct Enquiry";
@@ -2748,7 +2750,7 @@ export default function App() {
           project:projectName,
           location:valueFor(row,"Location",4)||"Inbound",
           budget:parseFloat(valueFor(row,"Budget",5))||25,
-          source:valueFor(row,"Source",6)||"Website",
+          source:normaliseSource(valueFor(row,"Source",6)||"Website"),
           assignedTo,
           assignedToId:assignedUser?.id||null,
           assignedAt:assignedUser?now.getTime():null,
@@ -2946,7 +2948,7 @@ export default function App() {
       ...leadsInRange.map(l=>normalizeReportPersonName(l.assignedTo)).filter(Boolean),
       ...logsInRange.map(l=>normalizeReportPersonName(l.executive)).filter(Boolean),
     ])].filter(Boolean).sort((a,b)=>a.localeCompare(b));
-    const sourceOrder = ["Walk-In","Own Leads","99acres","Olx","Office Leads","Meta Ads","Just Dial","Reference","924000"];
+    const sourceOrder = ["Walk-In","Own Leads","99acres","Olx","Office Leads","Meta Ads","Facebook","Instagram","Just Dial","Reference","924000"];
     const sourceNames = [...new Set([...sourceOrder, ...leadsInRange.map(l=>l.source).filter(Boolean), ...logsInRange.map(l=>l.source).filter(Boolean)])].filter(source=>leadsInRange.some(lead=>(lead.source || "Unknown")===source)).sort((a,b)=>{
       const ai=sourceOrder.indexOf(a), bi=sourceOrder.indexOf(b);
       if(ai>=0 && bi>=0)return ai-bi;
